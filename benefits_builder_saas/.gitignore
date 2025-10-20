@@ -1,0 +1,8 @@
+﻿node_modules
+.next
+.env*
+supabase/.temp
+supabase/.branches
+*.log
+.DS_Store
+.vscode

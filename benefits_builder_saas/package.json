@@ -1,0 +1,13 @@
+{
+    "private":  true,
+    "workspaces":  [
+                       "apps/*"
+                   ],
+    "name":  "benefits-builder-saas",
+    "version":  "0.1.0",
+    "scripts":  {
+                    "build":  "pnpm -C apps/web build",
+                    "dev":  "pnpm -C apps/web dev",
+                    "start":  "pnpm -C apps/web start"
+                }
+}
