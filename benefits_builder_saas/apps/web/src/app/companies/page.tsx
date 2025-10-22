@@ -21,7 +21,15 @@ export default async function CompaniesPage() {
 
   return (
     <main className="max-w-6xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Companies</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Companies</h1>
+        <Link
+          href="/companies/bulk-upload"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+        >
+          + Bulk Upload
+        </Link>
+      </div>
       <div className="grid gap-2">
         {(data ?? []).map((c) => (
           <Link

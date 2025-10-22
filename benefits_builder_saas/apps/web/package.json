@@ -15,10 +15,12 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "@supabase/supabase-js": "2.45.4",
+    "@google/generative-ai": "0.21.0",
     "zod": "3.23.8",
     "date-fns": "4.1.0",
     "clsx": "2.1.1",
-    "pdf-lib": "1.17.1"
+    "pdf-lib": "1.17.1",
+    "xlsx": "0.18.5"
   },
   "devDependencies": {
     "typescript": "5.6.3",

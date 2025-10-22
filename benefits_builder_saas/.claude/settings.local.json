@@ -1,8 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add .claude/settings.local.json)",
-      "Bash(git commit -m \"Update Claude settings\")"
+      "Bash(pnpm add xlsx papaparse)",
+      "Bash(npm install xlsx @anthropic-ai/sdk)",
+      "Bash(npm install xlsx @google/generative-ai)",
+      "Bash(pnpm add xlsx @google/generative-ai)",
+      "Bash(npm install)",
+      "Bash(npm cache clean --force)",
+      "Bash(pnpm install)",
+      "Bash(pnpm add xlsx @google/generative-ai --filter=@bb/web)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3002)",
+      "Bash(findstr LISTENING)",
+      "Bash(taskkill /PID 58072 /F)",
+      "Bash(taskkill //PID 58072 //F)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(git add -A)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd AI-powered bulk upload feature for company census imports\n\n## New Feature: Bulk Upload\n- Upload Excel/CSV files with company and employee census data\n- Google Gemini AI automatically parses and structures the data\n- Creates company, employees, and benefit elections in one operation\n- Flexible format handling - works with various column names and structures\n\n## Files Added\n- apps/web/src/app/api/bulk-upload/route.ts - API endpoint with AI parsing\n- apps/web/src/app/companies/bulk-upload/page.tsx - Upload UI component\n- apps/web/.env.example - Environment template with Gemini API key\n- BULK_UPLOAD_GUIDE.md - Complete documentation and usage guide\n\n## Files Modified\n- apps/web/package.json - Added xlsx@0.18.5 and @google/generative-ai@0.21.0\n- apps/web/src/app/companies/page.tsx - Added \"Bulk Upload\" button\n- apps/web/.env.local - Added GEMINI_API_KEY\n\n## Features\n✅ AI-powered intelligent parsing with fallback to manual parsing\n✅ Handles flexible column naming conventions\n✅ Creates complete records (company + employees + benefits)\n✅ Detailed success/failure reporting\n✅ User-friendly upload interface\n✅ Comprehensive error handling\n\n## Usage\n1. Navigate to /companies\n2. Click \"+ Bulk Upload\"\n3. Select Excel or CSV file\n4. AI processes and imports all data\n5. Review detailed results\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
