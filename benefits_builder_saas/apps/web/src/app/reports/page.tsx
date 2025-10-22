@@ -79,6 +79,20 @@ export default async function ReportsPage() {
           >
             JSON (Employees)
           </a>
+          <a
+  className="px-4 py-2 rounded-xl border"
+  href={`/api/reports/summary.csv?period=${period}`}
+  target="_blank"
+>
+  CSV (Companies)
+</a>
+<a
+  className="px-4 py-2 rounded-xl border"
+  href={`/api/reports/employees.csv?period=${period}`}
+  target="_blank"
+>
+  CSV (Employees)
+</a>
         </div>
       </div>
 

@@ -4,7 +4,7 @@ import { getModelRates } from "./models";
 
 /**
  * Computes monthly fees from the total monthly pre-tax amount.
- * Returns: employeeFeeMonthly, employerFeeMonthly, employeeRate, employerRate
+ * Returns: employeeFeeMonthly, employerFeeMonthly, employeeRate, employerRate, feesLabel
  */
 export function computeFeesForPretaxMonthly(
   pretaxMonthly: number,
@@ -14,11 +14,13 @@ export function computeFeesForPretaxMonthly(
   employerFeeMonthly: number;
   employeeRate: number;
   employerRate: number;
+  feesLabel: string;
 } {
   const [employeeRate, employerRate] = getModelRates(model);
   const employeeFeeMonthly = +(pretaxMonthly * employeeRate).toFixed(2);
   const employerFeeMonthly = +(pretaxMonthly * employerRate).toFixed(2);
-  return { employeeFeeMonthly, employerFeeMonthly, employeeRate, employerRate };
+  const feesLabel = `${(employeeRate * 100).toFixed(1)}% / ${(employerRate * 100).toFixed(1)}%`;
+  return { employeeFeeMonthly, employerFeeMonthly, employeeRate, employerRate, feesLabel };
 }
 
 /**

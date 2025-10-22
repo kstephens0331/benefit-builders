@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat \"c:\\Users\\usmc3\\OneDrive\\Documents\\StephensCode Customer Websites\\benefits_builders_program\\benefits_builder_saas\\apps\\web\\src\\lib\\models.ts\")",
+      "Bash(npm run build)",
+      "Bash(mv postcss.config.js postcss.config.cjs)",
+      "Bash(npm run seed)",
+      "Bash(npm run dev)",
+      "Bash(curl http://localhost:3002/api/health)",
+      "Bash(curl http://localhost:3002/api/analytics/summary)",
+      "Bash(curl -s http://localhost:3002/)",
+      "Bash(vercel --version)",
+      "Bash(supabase --version)",
+      "Bash(vercel whoami)",
+      "Bash(vercel inspect)",
+      "Bash(supabase projects list)",
+      "Bash(supabase link --project-ref stuaxikfuxzlbzneekua)",
+      "Bash(cat supabase/config.toml)",
+      "Bash(cat supabase/.temp/project-ref)",
+      "Bash(supabase db remote list)",
+      "Bash(supabase db pull --schema public)",
+      "Bash(vercel whoami --token iJBBWcJHvQHiy4WiP3TEtfOb)",
+      "Bash(vercel --token iJBBWcJHvQHiy4WiP3TEtfOb --yes)",
+      "Bash(vercel env ls --token iJBBWcJHvQHiy4WiP3TEtfOb)",
+      "Bash(vercel env add NEXT_PUBLIC_SUPABASE_URL production --token iJBBWcJHvQHiy4WiP3TEtfOb)",
+      "Bash(vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production --token iJBBWcJHvQHiy4WiP3TEtfOb)",
+      "Bash(vercel env add SUPABASE_SERVICE_ROLE_KEY production --token iJBBWcJHvQHiy4WiP3TEtfOb)",
+      "Bash(vercel env add NEXT_PUBLIC_SITE_URL production --token iJBBWcJHvQHiy4WiP3TEtfOb)",
+      "Bash(vercel --prod --token iJBBWcJHvQHiy4WiP3TEtfOb --yes)",
+      "Bash(curl -s https://web-mticcmuvj-kstephens0331s-projects.vercel.app/api/health)",
+      "Bash(vercel logs web-mticcmuvj-kstephens0331s-projects.vercel.app --token iJBBWcJHvQHiy4WiP3TEtfOb)",
+      "Bash(vercel inspect web-mticcmuvj-kstephens0331s-projects.vercel.app --token iJBBWcJHvQHiy4WiP3TEtfOb)",
+      "Bash(vercel env rm NEXT_PUBLIC_SITE_URL production --token iJBBWcJHvQHiy4WiP3TEtfOb --yes)",
+      "Bash(git add -A)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

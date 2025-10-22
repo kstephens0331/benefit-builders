@@ -170,7 +170,7 @@ export async function POST(req: Request) {
       periods_per_year: periodsPerYear,
       filing,
       state: stAbbr,
-      company_model: modelParsed.code,
+      company_model: modelParsed,
       fees_model: feesLabel,
     },
     inputs: {

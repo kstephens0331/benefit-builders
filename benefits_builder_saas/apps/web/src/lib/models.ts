@@ -27,3 +27,15 @@ export function formatRates(model: string | null | undefined): string {
   const [ee, er] = getModelRates(model);
   return `${(ee * 100).toFixed(1)}% / ${(er * 100).toFixed(1)}%`;
 }
+
+/**
+ * Parses a billing model string to BillingModel type.
+ * Returns the model if valid, otherwise defaults to "5/3"
+ */
+export function parseModel(model: string | null | undefined): BillingModel {
+  const m = (model ?? "").trim() as BillingModel;
+  if (m === "5/3" || m === "4/3" || m === "5/1" || m === "4/4") {
+    return m;
+  }
+  return "5/3"; // default
+}
