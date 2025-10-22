@@ -1,6 +1,6 @@
 // apps/web/src/app/api/bulk-upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createServiceClient } from '@/lib/supabase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as XLSX from 'xlsx';
 
@@ -248,7 +248,7 @@ function parseBenefits(row: any): any[] {
 }
 
 async function processStructuredData(data: any) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   // Create company
   const { data: company, error: companyError } = await supabase
