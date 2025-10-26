@@ -8,10 +8,11 @@ ADD COLUMN IF NOT EXISTS employer_rate numeric(5,2) DEFAULT 0.00 CHECK (employer
 
 -- Update existing rows by parsing the model field
 -- Model format is "employee/employer" (e.g., "5/3" means 5% employee, 3% employer)
+-- Cast model to text first since it may be a custom type
 UPDATE companies
 SET
-  employee_rate = CAST(SPLIT_PART(model, '/', 1) AS numeric(5,2)),
-  employer_rate = CAST(SPLIT_PART(model, '/', 2) AS numeric(5,2))
+  employee_rate = CAST(SPLIT_PART(model::text, '/', 1) AS numeric(5,2)),
+  employer_rate = CAST(SPLIT_PART(model::text, '/', 2) AS numeric(5,2))
 WHERE employee_rate = 0 AND employer_rate = 0;
 
 -- Add comment for documentation
