@@ -31,7 +31,27 @@ export async function POST(request: NextRequest) {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const rawData = XLSX.utils.sheet_to_json(worksheet);
+
+    // Try to find the header row by looking for common employee data column names
+    // Convert sheet to array of arrays first
+    const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+    // Find the header row (look for rows with "Last Name" or "First Name")
+    let headerRowIndex = -1;
+    for (let i = 0; i < Math.min(10, sheetData.length); i++) {
+      const row = sheetData[i];
+      const rowStr = row.join('|').toLowerCase();
+      if (rowStr.includes('last name') || rowStr.includes('first name') ||
+          rowStr.includes('employee') || rowStr.includes('dob')) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+
+    // If we found a header row, parse from that row
+    const rawData = headerRowIndex >= 0
+      ? XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex })
+      : XLSX.utils.sheet_to_json(worksheet);
 
     if (!rawData || rawData.length === 0) {
       return NextResponse.json(
@@ -83,7 +103,8 @@ async function parseWithGemini(rawData: any[]): Promise<any> {
 
   try {
     const genAI = new GoogleGenerativeAI(geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Use gemini-pro which is available in v1beta API version
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
     const prompt = `
 You are a data extraction specialist for a benefits administration system.

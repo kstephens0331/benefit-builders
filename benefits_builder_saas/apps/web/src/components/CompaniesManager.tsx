@@ -33,13 +33,23 @@ export default function CompaniesManager({ initialCompanies }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper function to parse model into rates
+  // Model format: "employee/employer" (e.g., "5/3" = 5% employee, 3% employer)
+  const parseModelRates = (model: string): { employee_rate: number; employer_rate: number } => {
+    const parts = model.split('/');
+    return {
+      employee_rate: parseFloat(parts[0]),
+      employer_rate: parseFloat(parts[1]),
+    };
+  };
+
   const [formData, setFormData] = useState({
     name: "",
     state: "",
     pay_frequency: "biweekly",
     model: "5/3",
-    employer_rate: 5.0,
-    employee_rate: 3.0,
+    employer_rate: 3.0,
+    employee_rate: 5.0,
     contact_email: "",
     contact_phone: "",
     address: "",
@@ -54,8 +64,8 @@ export default function CompaniesManager({ initialCompanies }: Props) {
       state: "",
       pay_frequency: "biweekly",
       model: "5/3",
-      employer_rate: 5.0,
-      employee_rate: 3.0,
+      employer_rate: 3.0,
+      employee_rate: 5.0,
       contact_email: "",
       contact_phone: "",
       address: "",
@@ -364,38 +374,25 @@ export default function CompaniesManager({ initialCompanies }: Props) {
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Model
+                      Model (Employee % / Employer %)
                     </label>
                     <select
                       value={formData.model}
-                      onChange={(e) =>
-                        setFormData({ ...formData, model: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    >
-                      <option value="5/3">5/3</option>
-                      <option value="4/3">4/3</option>
-                      <option value="5/1">5/1</option>
-                      <option value="4/4">4/4</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Employer Rate (%)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.employer_rate}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const rates = parseModelRates(e.target.value);
                         setFormData({
                           ...formData,
-                          employer_rate: parseFloat(e.target.value),
-                        })
-                      }
+                          model: e.target.value,
+                          ...rates,
+                        });
+                      }}
                       className="w-full px-3 py-2 border rounded-lg"
-                    />
+                    >
+                      <option value="5/3">5/3 (5% Employee / 3% Employer)</option>
+                      <option value="4/3">4/3 (4% Employee / 3% Employer)</option>
+                      <option value="5/1">5/1 (5% Employee / 1% Employer)</option>
+                      <option value="4/4">4/4 (4% Employee / 4% Employer)</option>
+                    </select>
                   </div>
 
                   <div>
@@ -406,13 +403,23 @@ export default function CompaniesManager({ initialCompanies }: Props) {
                       type="number"
                       step="0.1"
                       value={formData.employee_rate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          employee_rate: parseFloat(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
+                      disabled
+                      className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                      title="Automatically set by model selection"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Employer Rate (%)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.employer_rate}
+                      disabled
+                      className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                      title="Automatically set by model selection"
                     />
                   </div>
 
@@ -577,19 +584,24 @@ export default function CompaniesManager({ initialCompanies }: Props) {
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Model
+                      Model (Employee % / Employer %)
                     </label>
                     <select
                       value={formData.model}
-                      onChange={(e) =>
-                        setFormData({ ...formData, model: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const rates = parseModelRates(e.target.value);
+                        setFormData({
+                          ...formData,
+                          model: e.target.value,
+                          ...rates,
+                        });
+                      }}
                       className="w-full px-3 py-2 border rounded-lg"
                     >
-                      <option value="5/3">5/3</option>
-                      <option value="4/3">4/3</option>
-                      <option value="5/1">5/1</option>
-                      <option value="4/4">4/4</option>
+                      <option value="5/3">5/3 (5% Employee / 3% Employer)</option>
+                      <option value="4/3">4/3 (4% Employee / 3% Employer)</option>
+                      <option value="5/1">5/1 (5% Employee / 1% Employer)</option>
+                      <option value="4/4">4/4 (4% Employee / 4% Employer)</option>
                     </select>
                   </div>
 
@@ -612,37 +624,29 @@ export default function CompaniesManager({ initialCompanies }: Props) {
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Employer Rate (%)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.employer_rate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          employer_rate: parseFloat(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
                       Employee Rate (%)
                     </label>
                     <input
                       type="number"
                       step="0.1"
                       value={formData.employee_rate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          employee_rate: parseFloat(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
+                      disabled
+                      className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                      title="Automatically set by model selection"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Employer Rate (%)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.employer_rate}
+                      disabled
+                      className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                      title="Automatically set by model selection"
                     />
                   </div>
 
