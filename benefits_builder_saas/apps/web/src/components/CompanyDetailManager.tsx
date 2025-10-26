@@ -44,6 +44,7 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
     dependents: 0,
     gross_pay: 0,
     active: true,
+    consent_status: "pending" as "elect" | "dont" | "pending",
   });
 
   const now = new Date();
@@ -85,6 +86,7 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
       dependents: emp.dependents,
       gross_pay: emp.gross_pay,
       active: emp.active,
+      consent_status: emp.consent_status as "elect" | "dont" | "pending",
     });
     setShowEditModal(true);
   };
@@ -374,6 +376,26 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                       className="w-full px-3 py-2 border rounded-lg"
                       required
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Consent Status
+                    </label>
+                    <select
+                      value={formData.consent_status}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          consent_status: e.target.value as "elect" | "dont" | "pending",
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="elect">Elect (Enrolled)</option>
+                      <option value="dont">Don't Want Benefits</option>
+                    </select>
                   </div>
 
                   <div>
