@@ -60,6 +60,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       message: 'File processed successfully',
+      debug_info: {
+        columns_found: Object.keys(rawData[0] || {}),
+        employees_parsed: structuredData.employees?.length || 0,
+      },
       ...result,
     });
   } catch (error: any) {
@@ -174,15 +178,25 @@ function manualParse(rawData: any[]): any {
   const state = rawData[0]?.['State'] || rawData[0]?.state || 'TX';
 
   const employees = rawData.map((row: any) => {
+    // Try to find first name from various possible column names
+    const first_name = row['First Name'] || row['first_name'] || row['firstName'] ||
+                       row['First'] || row['first'] || row['FIRST NAME'] ||
+                       row['Employee First Name'] || row['EE First Name'] || '';
+
+    // Try to find last name from various possible column names
+    const last_name = row['Last Name'] || row['last_name'] || row['lastName'] ||
+                      row['Last'] || row['last'] || row['LAST NAME'] ||
+                      row['Employee Last Name'] || row['EE Last Name'] || '';
+
     const emp = {
-      first_name: row['First Name'] || row.first_name || row.firstName || '',
-      last_name: row['Last Name'] || row.last_name || row.lastName || '',
-      dob: parseDateOfBirth(row['DOB'] || row.dob || row['Date of Birth']),
-      filing_status: parseFilingStatus(row['Filing Status'] || row.filing || row.status),
-      dependents: parseInt(row['Dependents'] || row.dependents || '0', 10),
-      gross_pay: parseFloat(row['Gross Pay'] || row.gross || row.salary || '0'),
-      tobacco_use: parseTobacco(row['Tobacco'] || row.tobacco || row.smoker),
-      state: row['State'] || row.state || state,
+      first_name,
+      last_name,
+      dob: parseDateOfBirth(row['DOB'] || row['dob'] || row['Date of Birth'] || row['Birth Date'] || row['Birthdate']),
+      filing_status: parseFilingStatus(row['Filing Status'] || row['filing'] || row['status'] || row['Filing'] || row['Tax Filing Status']),
+      dependents: parseInt(row['Dependents'] || row['dependents'] || row['Deps'] || row['# Dependents'] || row['Number of Dependents'] || '0', 10),
+      gross_pay: parseFloat(row['Gross Pay'] || row['gross'] || row['salary'] || row['Gross'] || row['Pay'] || row['Gross Salary'] || row['Annual Salary'] || '0'),
+      tobacco_use: parseTobacco(row['Tobacco'] || row['tobacco'] || row['smoker'] || row['Tobacco Use'] || row['Smoker']),
+      state: row['State'] || row['state'] || row['ST'] || row['st'] || state,
       benefits: parseBenefits(row),
     };
     console.log('Parsed employee:', emp.first_name, emp.last_name);
