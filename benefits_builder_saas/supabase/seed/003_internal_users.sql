@@ -14,37 +14,43 @@ VALUES (
   true
 ) ON CONFLICT (username) DO NOTHING;
 
--- User 2: Placeholder (awaiting credentials from Bill)
+-- User 2: bill
+-- Password: Password123!
+-- Hash: SHA-256 of "Password123!"
 INSERT INTO internal_users (username, password_hash, full_name, email, role, active)
 VALUES (
-  'user2@benefitsbuilder.com',
-  'placeholder_hash_2',
-  'User 2 - Awaiting Setup',
-  'user2@benefitsbuilder.com',
+  'bill',
+  'a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea',  -- SHA-256 hash of "Password123!"
+  'Bill',
+  'bill@benefitsbuilder.com',
   'user',
-  false  -- Disabled until credentials provided
+  true
 ) ON CONFLICT (username) DO NOTHING;
 
--- User 3: Placeholder (awaiting credentials from Bill)
+-- User 3: test
+-- Password: test123!
+-- Hash: SHA-256 of "test123!"
 INSERT INTO internal_users (username, password_hash, full_name, email, role, active)
 VALUES (
-  'user3@benefitsbuilder.com',
-  'placeholder_hash_3',
-  'User 3 - Awaiting Setup',
-  'user3@benefitsbuilder.com',
+  'test',
+  'e1dddc844ca8ad19718295dbf2f0ed6746b459c2e3582ef8bf909812a24d9fe7',  -- SHA-256 hash of "test123!"
+  'Test User',
+  'test@benefitsbuilder.com',
   'user',
-  false  -- Disabled until credentials provided
+  true
 ) ON CONFLICT (username) DO NOTHING;
 
--- User 4: Placeholder (awaiting credentials from Bill)
+-- User 4: test2
+-- Password: test123!
+-- Hash: SHA-256 of "test123!"
 INSERT INTO internal_users (username, password_hash, full_name, email, role, active)
 VALUES (
-  'user4@benefitsbuilder.com',
-  'placeholder_hash_4',
-  'User 4 - Awaiting Setup',
-  'user4@benefitsbuilder.com',
+  'test2',
+  'e1dddc844ca8ad19718295dbf2f0ed6746b459c2e3582ef8bf909812a24d9fe7',  -- SHA-256 hash of "test123!"
+  'Test User 2',
+  'test2@benefitsbuilder.com',
   'viewer',
-  false  -- Disabled until credentials provided
+  true
 ) ON CONFLICT (username) DO NOTHING;
 
 -- Clean up any expired sessions on startup
