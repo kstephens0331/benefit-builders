@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Parsed raw data - row count:', rawData.length);
     if (rawData.length > 0) {
-      console.log('First row columns:', Object.keys(rawData[0]));
+      console.log('First row columns:', Object.keys(rawData[0] as object));
       console.log('First row sample:', JSON.stringify(rawData[0], null, 2));
     }
 
