@@ -204,7 +204,7 @@ export default async function EmployeePage({
           fedWithholding
             ? fedWithholding.map((r) => ({
                 over: Number(r.over),
-                base_tax: Number(r.base_tax),
+                baseTax: Number(r.base_tax),
                 pct: Number(r.pct),
               }))
             : []
