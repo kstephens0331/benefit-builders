@@ -78,9 +78,9 @@ create table if not exists company_billing_settings (
   per_employee_active_cents int not null default 0,
   per_report_cents int not null default 0,
   profit_share_mode text not null default 'none' check (profit_share_mode in ('none','percent_er_savings','percent_bb_profit')),
-  profit_share_percent numeric(5,2) not null default 0.00,
+  profit_share_percent numeric(5,2) not null default 0.00 check (profit_share_percent >= 0 and profit_share_percent <= 50),  -- Cap at 50% to prevent negative invoices
   maintenance_cents int not null default 0,
-  tax_rate_percent numeric(5,2) not null default 0.00,
+  tax_rate_percent numeric(5,2) not null default 0.00 check (tax_rate_percent >= 0 and tax_rate_percent <= 100),
   effective_from date not null default current_date
 );
 
@@ -106,7 +106,8 @@ create table if not exists invoices (
   subtotal_cents bigint not null default 0,
   tax_cents bigint not null default 0,
   total_cents bigint not null default 0,
-  issued_at timestamptz not null default now()
+  issued_at timestamptz not null default now(),
+  unique (company_id, period)  -- Prevent duplicate invoices for same company/period
 );
 
 create table if not exists invoice_lines (

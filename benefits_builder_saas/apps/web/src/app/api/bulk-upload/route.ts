@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as XLSX from 'xlsx';
+import { sendWelcomeEmail } from '@/lib/email';
 
 const geminiApiKey = process.env.GEMINI_API_KEY!;
 
@@ -258,6 +259,7 @@ async function processStructuredData(data: any) {
       state: data.company.state,
       pay_frequency: data.company.pay_frequency,
       model: data.company.model,
+      contact_email: data.company.contact_email || null,
       status: 'active',
     })
     .select()
@@ -265,6 +267,14 @@ async function processStructuredData(data: any) {
 
   if (companyError || !company) {
     throw new Error(`Failed to create company: ${companyError?.message}`);
+  }
+
+  // Send welcome email to new company
+  if (company.contact_email) {
+    await sendWelcomeEmail(company.name, company.contact_email).catch((err) => {
+      console.error(`Failed to send welcome email to ${company.contact_email}:`, err);
+      // Don't fail the upload process if email fails
+    });
   }
 
   const employeesCreated = [];

@@ -6,6 +6,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { computeFeesForPretaxMonthly } from "@/lib/fees";
 import { calcFICA, calcFITFromTable, calcSITFlat } from "@/lib/tax";
 import { parseModel } from "@/lib/models";
+import { OptimizerPreviewSchema, validateRequestBody } from "@/lib/validation";
 
 /**
  * POST /api/optimizer/preview
@@ -17,11 +18,17 @@ import { parseModel } from "@/lib/models";
  */
 export async function POST(req: Request) {
   const db = createServiceClient();
-  const { employeeId, taxYear = 2025 } = await req.json().catch(() => ({} as any));
 
-  if (!employeeId) {
-    return NextResponse.json({ ok: false, error: "employeeId required" }, { status: 400 });
+  // Validate request body
+  const validation = await validateRequestBody(req, OptimizerPreviewSchema);
+  if (!validation.valid) {
+    return NextResponse.json(
+      { ok: false, error: validation.error, issues: validation.issues },
+      { status: 400 }
+    );
   }
+
+  const { employeeId, taxYear } = validation.data;
 
   // Load employee and company (to get model)
   const { data: emp, error: eErr } = await db
@@ -51,18 +58,17 @@ export async function POST(req: Request) {
     );
   }
 
-  // Pull active pre-tax benefits for employee (sum per-pay)
+  // Pull pre-tax benefits for employee (sum per-pay)
+  // Note: employee_benefits table has no active column - all benefits for active employees are included
   type EmpBen = {
     per_pay_amount: number | null;
     reduces_fit: boolean | null;
     reduces_fica: boolean | null;
-    active: boolean | null;
   };
   const { data: bens, error: bErr } = await db
     .from("employee_benefits")
-    .select("per_pay_amount, reduces_fit, reduces_fica, active")
-    .eq("employee_id", employeeId)
-    .eq("active", true);
+    .select("per_pay_amount, reduces_fit, reduces_fica")
+    .eq("employee_id", employeeId);
   if (bErr) {
     return NextResponse.json({ ok: false, error: bErr.message }, { status: 500 });
   }

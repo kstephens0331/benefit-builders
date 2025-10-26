@@ -19,13 +19,13 @@ export async function GET(req: Request) {
     .from("employees")
     .select(
       "id,company_id,first_name,last_name,active,pay_period,paycheck_gross"
-    );
+    )
+    .eq("active", true); // Only include active employees
   if (eErr) return NextResponse.json({ ok: false, error: eErr.message }, { status: 500 });
 
   const { data: bens, error: bErr } = await db
     .from("employee_benefits")
-    .select("employee_id, per_pay_amount, active")
-    .eq("active", true);
+    .select("employee_id, per_pay_amount");
   if (bErr) return NextResponse.json({ ok: false, error: bErr.message }, { status: 500 });
 
   const payMap: Record<string, number> = { w: 52, b: 26, s: 24, m: 12 };
