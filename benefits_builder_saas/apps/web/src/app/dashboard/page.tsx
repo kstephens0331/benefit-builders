@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Nav from "@/components/Nav";
 
 interface DashboardData {
   summary: {
@@ -106,7 +105,6 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Nav />
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center">Loading dashboard...</div>
         </div>
@@ -117,7 +115,6 @@ export default function DashboardPage() {
   if (!data) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Nav />
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center text-red-600">Failed to load dashboard data</div>
         </div>
@@ -129,7 +126,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Nav />
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}

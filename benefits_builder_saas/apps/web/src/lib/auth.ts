@@ -111,12 +111,14 @@ export async function authenticateUser(
   }
 
   // Update last login
-  await db.rpc("update_user_last_login", { user_uuid: user.id }).catch(() => {
+  try {
+    await db.rpc("update_user_last_login", { user_uuid: user.id });
+  } catch {
     // Fallback if RPC not available
-    db.from("internal_users")
+    await db.from("internal_users")
       .update({ last_login_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", user.id);
-  });
+  }
 
   // Log successful login
   await db.from("audit_log").insert({

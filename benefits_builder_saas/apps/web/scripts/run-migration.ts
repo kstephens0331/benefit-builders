@@ -36,13 +36,16 @@ async function runMigration() {
     if (statement.includes("DO $$") || statement.includes("CREATE INDEX") || statement.includes("COMMENT ON")) {
       console.log(`Executing: ${statement.substring(0, 60)}...`);
 
-      const { error } = await db.rpc("exec_sql", { query: statement }).catch((e) => ({ error: e }));
-
-      if (error) {
-        // Try direct query if RPC isn't available
-        console.log("   Note: This constraint may already exist or require manual application via Supabase Dashboard");
-      } else {
-        console.log("   ✅ Success");
+      try {
+        const { error } = await db.rpc("exec_sql", { query: statement });
+        if (error) {
+          // Try direct query if RPC isn't available
+          console.log("   Note: This constraint may already exist or require manual application via Supabase Dashboard");
+        } else {
+          console.log("   ✅ Success");
+        }
+      } catch (e) {
+        console.log("   ⚠️ Error executing statement (may need manual application)");
       }
     }
   }

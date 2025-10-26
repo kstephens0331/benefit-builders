@@ -33,13 +33,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const { goal_type, target_value, target_date, description } = validation.data;
+  const { goal_type, target_amount, target_date, description } = validation.data;
 
   const { data: goal, error } = await db
     .from("business_goals")
     .insert({
       goal_type,
-      target_value,
+      target_value: target_amount,
       target_date,
       description,
       current_value: 0,

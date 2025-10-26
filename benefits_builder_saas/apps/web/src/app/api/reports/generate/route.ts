@@ -196,7 +196,7 @@ async function generateEmployeeEnrollment(db: any, filters: any) {
 
     const benefitCount = (benefits || []).length;
     const totalPretax = (benefits || []).reduce(
-      (sum, b) => sum + Number(b.per_pay_amount || 0),
+      (sum: number, b: any) => sum + Number(b.per_pay_amount || 0),
       0
     );
 
@@ -233,7 +233,7 @@ async function generateCompanyPerformance(db: any, filters: any) {
 
     const totalEmployees = (employees || []).length;
 
-    const employeeIds = (employees || []).map((e) => e.id);
+    const employeeIds = (employees || []).map((e: any) => e.id);
     const { data: benefits } =
       employeeIds.length > 0
         ? await db
@@ -242,11 +242,11 @@ async function generateCompanyPerformance(db: any, filters: any) {
             .in("employee_id", employeeIds)
         : { data: [] };
 
-    const enrolledEmployees = new Set((benefits || []).map((b) => b.employee_id)).size;
+    const enrolledEmployees = new Set((benefits || []).map((b: any) => b.employee_id)).size;
     const enrollmentRate = totalEmployees > 0 ? (enrolledEmployees / totalEmployees) * 100 : 0;
 
     const totalPretaxPerPay = (benefits || []).reduce(
-      (sum, b) => sum + Number(b.per_pay_amount || 0),
+      (sum: number, b: any) => sum + Number(b.per_pay_amount || 0),
       0
     );
     const avgPretaxPerEmployee = enrolledEmployees > 0 ? totalPretaxPerPay / enrolledEmployees : 0;

@@ -222,9 +222,9 @@ export async function GET(req: Request) {
     // KEY METRICS SUMMARY
     // ========================================================================
 
-    const avgEmployeesPerCompany = activeCompanies ? (totalEmployees / activeCompanies).toFixed(1) : "0.0";
-    const avgRevenuePerCompany = activeCompanies ? (totalMonthlyRevenue / activeCompanies).toFixed(2) : "0.00";
-    const avgRevenuePerEmployee = totalEmployees ? (totalMonthlyRevenue / totalEmployees).toFixed(2) : "0.00";
+    const avgEmployeesPerCompany = activeCompanies && totalEmployees ? (totalEmployees / activeCompanies).toFixed(1) : "0.0";
+    const avgRevenuePerCompany = activeCompanies && totalMonthlyRevenue ? (totalMonthlyRevenue / activeCompanies).toFixed(2) : "0.00";
+    const avgRevenuePerEmployee = totalEmployees && totalMonthlyRevenue ? (totalMonthlyRevenue / totalEmployees).toFixed(2) : "0.00";
 
     // ========================================================================
     // RESPONSE
