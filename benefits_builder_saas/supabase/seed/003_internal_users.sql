@@ -7,7 +7,7 @@
 INSERT INTO internal_users (username, password_hash, full_name, email, role, active)
 VALUES (
   'info@stephenscode.dev',
-  'e5a5e7c8e8f9f6a7c8e8f9f6a7c8e8f9f6a7c8e8f9f6a7c8e8f9f6a7c8e8f9f6',  -- Will be calculated properly
+  'b9577976c7d8a6fb69809892aa8efbda4e6eb60882ad99640580ad7960d752e3',  -- SHA-256 hash of "78410889Ks!"
   'System Administrator',
   'info@stephenscode.dev',
   'admin',
