@@ -1,7 +1,7 @@
 {
-  "buildCommand": "cd apps/web && npm install && npm run build",
-  "devCommand": "cd apps/web && npm run dev",
-  "installCommand": "npm install --prefix apps/web",
+  "buildCommand": "cd apps/web && pnpm install && pnpm run build",
+  "devCommand": "cd apps/web && pnpm run dev",
+  "installCommand": "pnpm install --filter=@bb/web",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs"
 }
