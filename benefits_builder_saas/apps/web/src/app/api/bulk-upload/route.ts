@@ -34,24 +34,47 @@ export async function POST(request: NextRequest) {
 
     // Try to find the header row by looking for common employee data column names
     // Convert sheet to array of arrays first
-    const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+    const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+
+    console.log('Excel parsing - total rows:', sheetData.length);
+    console.log('First 5 rows sample:');
+    sheetData.slice(0, 5).forEach((row, idx) => {
+      console.log(`Row ${idx}:`, row);
+    });
 
     // Find the header row (look for rows with "Last Name" or "First Name")
     let headerRowIndex = -1;
-    for (let i = 0; i < Math.min(10, sheetData.length); i++) {
+    for (let i = 0; i < Math.min(15, sheetData.length); i++) {
       const row = sheetData[i];
-      const rowStr = row.join('|').toLowerCase();
+      if (!row || row.length === 0) continue;
+
+      // Filter out empty cells and join
+      const rowStr = row.filter((cell: any) => cell !== null && cell !== undefined && cell !== '').join('|').toLowerCase();
+
+      console.log(`Checking row ${i} for headers: "${rowStr.substring(0, 100)}"`);
+
       if (rowStr.includes('last name') || rowStr.includes('first name') ||
-          rowStr.includes('employee') || rowStr.includes('dob')) {
+          rowStr.includes('paycheck gross') || rowStr.includes('gross pay')) {
         headerRowIndex = i;
+        console.log(`✓ Found header row at index ${i}`);
         break;
       }
     }
 
+    if (headerRowIndex === -1) {
+      console.log('⚠ No header row found - using first row as headers');
+    }
+
     // If we found a header row, parse from that row
     const rawData = headerRowIndex >= 0
-      ? XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex })
-      : XLSX.utils.sheet_to_json(worksheet);
+      ? XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex, defval: '' })
+      : XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+    console.log('Parsed raw data - row count:', rawData.length);
+    if (rawData.length > 0) {
+      console.log('First row columns:', Object.keys(rawData[0]));
+      console.log('First row sample:', JSON.stringify(rawData[0], null, 2));
+    }
 
     if (!rawData || rawData.length === 0) {
       return NextResponse.json(
