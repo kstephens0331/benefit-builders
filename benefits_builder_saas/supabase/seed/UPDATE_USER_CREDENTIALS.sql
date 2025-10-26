@@ -8,7 +8,7 @@ SET
   username = 'bill',
   password_hash = 'a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea',
   full_name = 'Bill',
-  email = 'bill@benefitsbuilder.com',
+  email = 'Billdawson.bb@gmail.com',
   role = 'user',
   active = true
 WHERE username = 'user2@benefitsbuilder.com' OR email = 'user2@benefitsbuilder.com';

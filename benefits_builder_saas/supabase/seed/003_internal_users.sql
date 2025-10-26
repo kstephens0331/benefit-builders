@@ -22,7 +22,7 @@ VALUES (
   'bill',
   'a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea',  -- SHA-256 hash of "Password123!"
   'Bill',
-  'bill@benefitsbuilder.com',
+  'Billdawson.bb@gmail.com',
   'user',
   true
 ) ON CONFLICT (username) DO NOTHING;
