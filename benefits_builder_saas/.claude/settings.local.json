@@ -45,7 +45,8 @@
       "Bash(npm search:*)",
       "Bash(vercel --version:*)",
       "Bash(vercel ls:*)",
-      "Bash(vercel project rm:*)"
+      "Bash(vercel project rm:*)",
+      "Bash(vercel inspect:*)"
     ],
     "deny": [],
     "ask": []
