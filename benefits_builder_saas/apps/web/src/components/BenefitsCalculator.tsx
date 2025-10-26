@@ -21,7 +21,7 @@ type Props = {
   };
   fedWithholding: Array<{
     over: number;
-    base_tax: number;
+    baseTax: number;
     pct: number;
   }>;
   enrolledBenefits: number; // Current enrolled amount
