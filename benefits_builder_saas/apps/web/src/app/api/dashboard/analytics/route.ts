@@ -28,8 +28,13 @@ export async function GET(req: Request) {
       .select("*", { count: "exact", head: true })
       .eq("status", "active");
 
-    // Total Employees
+    // Total Employees (all)
     const { count: totalEmployees } = await db
+      .from("employees")
+      .select("*", { count: "exact", head: true });
+
+    // Active Employees only
+    const { count: activeEmployees } = await db
       .from("employees")
       .select("*", { count: "exact", head: true })
       .eq("active", true);
@@ -239,6 +244,7 @@ export async function GET(req: Request) {
         total_companies: totalCompanies || 0,
         active_companies: activeCompanies || 0,
         total_employees: totalEmployees || 0,
+        active_employees: activeEmployees || 0,
         enrolled_employees: enrolledCount,
         enrollment_rate: parseFloat(enrollmentRate),
 

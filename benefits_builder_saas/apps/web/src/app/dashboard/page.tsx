@@ -7,6 +7,7 @@ interface DashboardData {
     total_companies: number;
     active_companies: number;
     total_employees: number;
+    active_employees: number;
     enrolled_employees: number;
     enrollment_rate: number;
     monthly_revenue: number;
@@ -136,49 +137,61 @@ export default function DashboardPage() {
 
         {/* Key Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Monthly Revenue */}
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-            <div className="text-sm font-medium text-gray-600">Monthly Revenue</div>
-            <div className="text-3xl font-bold text-gray-900 mt-2">
-              ${summary.monthly_revenue.toLocaleString()}
-            </div>
-            <div className="text-sm text-gray-500 mt-1">
-              ${summary.annual_revenue_projected.toLocaleString()} annual
-            </div>
-          </div>
-
           {/* Total Companies */}
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-            <div className="text-sm font-medium text-gray-600">Active Companies</div>
+          <a
+            href="/companies"
+            className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500 hover:shadow-lg transition cursor-pointer"
+          >
+            <div className="text-sm font-medium text-gray-600">Companies</div>
+            <div className="text-3xl font-bold text-gray-900 mt-2">
+              {summary.total_companies}
+            </div>
+            <div className="text-sm text-blue-600 mt-1 font-medium">
+              View all companies →
+            </div>
+          </a>
+
+          {/* Active Companies */}
+          <a
+            href="/companies?status=active"
+            className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500 hover:shadow-lg transition cursor-pointer"
+          >
+            <div className="text-sm font-medium text-gray-600">Companies (active)</div>
             <div className="text-3xl font-bold text-gray-900 mt-2">
               {summary.active_companies}
             </div>
-            <div className="text-sm text-gray-500 mt-1">
-              {summary.total_companies} total
+            <div className="text-sm text-green-600 mt-1 font-medium">
+              View active companies →
             </div>
-          </div>
+          </a>
 
           {/* Total Employees */}
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
-            <div className="text-sm font-medium text-gray-600">Total Employees</div>
+          <a
+            href="/admin/employees"
+            className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500 hover:shadow-lg transition cursor-pointer"
+          >
+            <div className="text-sm font-medium text-gray-600">Employees</div>
             <div className="text-3xl font-bold text-gray-900 mt-2">
               {summary.total_employees}
             </div>
-            <div className="text-sm text-gray-500 mt-1">
-              {summary.enrollment_rate}% enrolled
+            <div className="text-sm text-purple-600 mt-1 font-medium">
+              View all employees →
             </div>
-          </div>
+          </a>
 
-          {/* Profit Margin */}
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-orange-500">
-            <div className="text-sm font-medium text-gray-600">Profit Margin</div>
+          {/* Active Employees */}
+          <a
+            href="/admin/employees?active=true"
+            className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500 hover:shadow-lg transition cursor-pointer"
+          >
+            <div className="text-sm font-medium text-gray-600">Employees (active)</div>
             <div className="text-3xl font-bold text-gray-900 mt-2">
-              {summary.profit_margin_percent}%
+              {summary.active_employees}
             </div>
-            <div className="text-sm text-gray-500 mt-1">
-              vs employer savings
+            <div className="text-sm text-indigo-600 mt-1 font-medium">
+              View active employees →
             </div>
-          </div>
+          </a>
         </div>
 
         {/* Secondary Metrics */}
