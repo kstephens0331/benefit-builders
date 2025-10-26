@@ -225,6 +225,12 @@ export default function CompaniesManager({ initialCompanies }: Props) {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Companies</h1>
         <div className="flex gap-2">
+          <Link
+            href="/companies/archived"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium"
+          >
+            📁 View Archived
+          </Link>
           <button
             onClick={() => setShowAddModal(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"

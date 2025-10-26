@@ -64,10 +64,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data, error } = await db
       .from("companies")
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq("id", id)
       .select()
       .single();
