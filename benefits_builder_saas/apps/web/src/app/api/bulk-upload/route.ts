@@ -50,6 +50,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Log structured data for debugging
+    console.log('Structured data:', JSON.stringify(structuredData, null, 2));
+    console.log('Employees count:', structuredData.employees?.length || 0);
+
     // Process the structured data
     const result = await processStructuredData(structuredData);
 
@@ -163,11 +167,14 @@ function manualParse(rawData: any[]): any {
   // Basic manual parsing logic
   // This is a fallback when AI is not available
 
+  console.log('Manual parse - raw data sample:', JSON.stringify(rawData[0], null, 2));
+  console.log('Manual parse - available columns:', Object.keys(rawData[0] || {}));
+
   const companyName = rawData[0]?.['Company Name'] || rawData[0]?.company || 'Imported Company';
   const state = rawData[0]?.['State'] || rawData[0]?.state || 'TX';
 
   const employees = rawData.map((row: any) => {
-    return {
+    const emp = {
       first_name: row['First Name'] || row.first_name || row.firstName || '',
       last_name: row['Last Name'] || row.last_name || row.lastName || '',
       dob: parseDateOfBirth(row['DOB'] || row.dob || row['Date of Birth']),
@@ -178,7 +185,12 @@ function manualParse(rawData: any[]): any {
       state: row['State'] || row.state || state,
       benefits: parseBenefits(row),
     };
+    console.log('Parsed employee:', emp.first_name, emp.last_name);
+    return emp;
   });
+
+  const filteredEmployees = employees.filter((e: any) => e.first_name && e.last_name);
+  console.log(`Manual parse - filtered ${filteredEmployees.length} of ${employees.length} employees`);
 
   return {
     company: {
@@ -187,7 +199,7 @@ function manualParse(rawData: any[]): any {
       pay_frequency: 'biweekly', // default
       model: '5/3', // default
     },
-    employees: employees.filter((e: any) => e.first_name && e.last_name),
+    employees: filteredEmployees,
   };
 }
 
