@@ -2,7 +2,11 @@
 import { createServiceClient } from "@/lib/supabase";
 
 async function getPreview(empId: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/optimizer/preview`, {
+  // Use proper URL for server-side fetch
+  const BASE = process.env.NEXT_PUBLIC_BASE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3002");
+
+  const res = await fetch(`${BASE}/api/optimizer/preview`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ employeeId: empId }),
