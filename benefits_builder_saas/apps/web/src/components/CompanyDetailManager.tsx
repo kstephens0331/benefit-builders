@@ -158,31 +158,37 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
             {company.state} · Model {company.model} · {company.status}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Link
+            href={`/companies/${company.id}/deductions`}
+            className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-semibold"
+          >
+            View Deductions
+          </Link>
           <Link
             href={`/companies/${company.id}/add-employee`}
-            className="px-4 py-2 rounded-xl bg-slate-900 text-white"
+            className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800"
           >
             Add Employee
           </Link>
           <a
             href={`/companies/${company.id}/billing/pdf?period=${period}`}
             target="_blank"
-            className="px-4 py-2 rounded-xl bg-indigo-600 text-white"
+            className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700"
           >
             Download Invoice PDF
           </a>
           <a
             href={`/companies/${company.id}/roster/pdf`}
             target="_blank"
-            className="px-4 py-2 rounded-xl border border-slate-300"
+            className="px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-50"
           >
             Download Roster PDF
           </a>
           <a
             href={`/companies/${company.id}/proposal/pdf?period=${period}`}
             target="_blank"
-            className="px-4 py-2 rounded-xl bg-emerald-600 text-white"
+            className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
           >
             Download Proposal PDF
           </a>
