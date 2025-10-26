@@ -80,7 +80,7 @@ export default async function AdminPage() {
         {adminCards.map((card) => (
           <Link
             key={card.title}
-            href={card.href}
+            href={card.href as any}
             className="block p-6 bg-white rounded-xl shadow-md hover:shadow-lg transition group"
           >
             <div className="flex items-start justify-between mb-4">
