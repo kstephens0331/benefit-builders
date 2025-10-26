@@ -42,7 +42,10 @@
       "Bash(npm run test:alpha:*)",
       "Bash(node scripts/verify-supabase-complete.mjs:*)",
       "Bash(npm run build:*)",
-      "Bash(npm search:*)"
+      "Bash(npm search:*)",
+      "Bash(vercel --version:*)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel project rm:*)"
     ],
     "deny": [],
     "ask": []
