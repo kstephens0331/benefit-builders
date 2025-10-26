@@ -11,7 +11,7 @@ export default async function EmployeePage({
   const { data: emp, error } = await db
     .from("employees")
     .select(
-      "id, first_name, last_name, state, pay_period, paycheck_gross, filing_status, dependents, active, hire_date, dob, inactive_date"
+      "id, first_name, last_name, state, pay_period, gross_pay, filing_status, dependents, active, hire_date, dob, inactive_date"
     )
     .eq("id", empId)
     .single();
@@ -64,7 +64,7 @@ export default async function EmployeePage({
         <div className={row}>
           <div>
             <div className={label}>Gross per pay</div>
-            <div className="font-medium">${Number(emp.paycheck_gross ?? 0).toFixed(2)}</div>
+            <div className="font-medium">${Number(emp.gross_pay ?? 0).toFixed(2)}</div>
           </div>
           <div>
             <div className={label}>Filing status</div>
