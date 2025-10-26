@@ -49,7 +49,9 @@
       "Bash(vercel inspect:*)",
       "Bash(vercel env:*)",
       "Bash(vercel logs:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(node scripts/parse-billing-example.mjs:*)",
+      "Bash(node -p:*)"
     ],
     "deny": [],
     "ask": []
