@@ -192,14 +192,14 @@ function manualParse(rawData: any[]): any {
       first_name,
       last_name,
       dob: parseDateOfBirth(row['DOB'] || row['dob'] || row['Date of Birth'] || row['Birth Date'] || row['Birthdate']),
-      filing_status: parseFilingStatus(row['Filing Status'] || row['filing'] || row['status'] || row['Filing'] || row['Tax Filing Status']),
-      dependents: parseInt(row['Dependents'] || row['dependents'] || row['Deps'] || row['# Dependents'] || row['Number of Dependents'] || '0', 10),
-      gross_pay: parseFloat(row['Gross Pay'] || row['gross'] || row['salary'] || row['Gross'] || row['Pay'] || row['Gross Salary'] || row['Annual Salary'] || '0'),
+      filing_status: parseFilingStatus(row['W-4 Marital Status'] || row['Filing Status'] || row['filing'] || row['status'] || row['Filing'] || row['Tax Filing Status'] || row['Marital Status']),
+      dependents: parseInt(row['W-4 Dependents'] || row['Dependents'] || row['dependents'] || row['Deps'] || row['# Dependents'] || row['Number of Dependents'] || '0', 10),
+      gross_pay: parseFloat(row['Paycheck Gross Pay'] || row['Gross Pay'] || row['gross'] || row['salary'] || row['Gross'] || row['Pay'] || row['Gross Salary'] || row['Annual Salary'] || '0'),
       tobacco_use: parseTobacco(row['Tobacco'] || row['tobacco'] || row['smoker'] || row['Tobacco Use'] || row['Smoker']),
-      state: row['State'] || row['state'] || row['ST'] || row['st'] || state,
+      state: row['ST'] || row['State'] || row['state'] || row['st'] || state,
       benefits: parseBenefits(row),
     };
-    console.log('Parsed employee:', emp.first_name, emp.last_name);
+    console.log('Parsed employee:', emp.first_name, emp.last_name, 'gross:', emp.gross_pay);
     return emp;
   });
 
