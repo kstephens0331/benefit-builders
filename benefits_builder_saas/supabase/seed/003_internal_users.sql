@@ -23,7 +23,7 @@ VALUES (
   'a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea',  -- SHA-256 hash of "Password123!"
   'Bill',
   'Billdawson.bb@gmail.com',
-  'user',
+  'admin',
   true
 ) ON CONFLICT (username) DO NOTHING;
 
@@ -36,7 +36,7 @@ VALUES (
   'e1dddc844ca8ad19718295dbf2f0ed6746b459c2e3582ef8bf909812a24d9fe7',  -- SHA-256 hash of "test123!"
   'Test User',
   'test@benefitsbuilder.com',
-  'user',
+  'admin',
   true
 ) ON CONFLICT (username) DO NOTHING;
 
@@ -49,7 +49,7 @@ VALUES (
   'e1dddc844ca8ad19718295dbf2f0ed6746b459c2e3582ef8bf909812a24d9fe7',  -- SHA-256 hash of "test123!"
   'Test User 2',
   'test2@benefitsbuilder.com',
-  'viewer',
+  'admin',
   true
 ) ON CONFLICT (username) DO NOTHING;
 

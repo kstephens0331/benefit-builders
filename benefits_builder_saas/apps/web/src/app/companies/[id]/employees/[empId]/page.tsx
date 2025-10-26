@@ -26,11 +26,21 @@ export default async function EmployeePage({
   }
 
   // Fetch company data for model rates
-  const { data: company } = await db
+  const { data: company, error: companyError } = await db
     .from("companies")
     .select("id, name, model, employer_rate, employee_rate, pay_frequency")
     .eq("id", companyId)
     .single();
+
+  // Log for debugging
+  if (companyError) {
+    console.error("Error fetching company:", companyError);
+  }
+  if (!company) {
+    console.error("No company found for ID:", companyId);
+  } else {
+    console.log("Company fetched:", { id: company.id, model: company.model, employer_rate: company.employer_rate, employee_rate: company.employee_rate });
+  }
 
   // Fetch employee benefits
   const { data: benefits } = await db
