@@ -78,9 +78,10 @@ export default async function CompanyPage({ params }: Params) {
       ) : (
         <div className="grid gap-2">
           {(employees ?? []).map((emp) => (
-            <div
+            <Link
               key={emp.id}
-              className="p-4 bg-white rounded-xl shadow flex items-center justify-between"
+              href={`/companies/${companyId}/employees/${emp.id}`}
+              className="p-4 bg-white rounded-xl shadow flex items-center justify-between hover:shadow-lg transition cursor-pointer"
             >
               <div>
                 <div className="font-medium">
@@ -102,7 +103,7 @@ export default async function CompanyPage({ params }: Params) {
               >
                 {emp.active ? "active" : "inactive"}
               </span>
-            </div>
+            </Link>
           ))}
           {(!employees || employees.length === 0) && (
             <p className="text-slate-600">No employees yet.</p>

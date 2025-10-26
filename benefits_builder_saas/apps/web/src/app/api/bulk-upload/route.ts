@@ -198,7 +198,7 @@ function manualParse(rawData: any[]): any {
   const companyName = rawData[0]?.['Company Name'] || rawData[0]?.company || 'Imported Company';
   const state = rawData[0]?.['State'] || rawData[0]?.state || 'TX';
 
-  const employees = rawData.map((row: any) => {
+  const employees = rawData.map((row: any, index: number) => {
     // Try to find first name from various possible column names
     const first_name = row['First Name'] || row['first_name'] || row['firstName'] ||
                        row['First'] || row['first'] || row['FIRST NAME'] ||
@@ -209,18 +209,33 @@ function manualParse(rawData: any[]): any {
                       row['Last'] || row['last'] || row['LAST NAME'] ||
                       row['Employee Last Name'] || row['EE Last Name'] || '';
 
+    // Find gross pay value - check all possible column names
+    const grossPayValue = row['Paycheck Gross Pay'] || row['Gross Pay'] || row['gross'] ||
+                          row['salary'] || row['Gross'] || row['Pay'] ||
+                          row['Gross Salary'] || row['Annual Salary'] || row['Wage'] ||
+                          row['wages'] || row['GROSS PAY'] || row['PAYCHECK GROSS PAY'];
+
+    console.log(`Row ${index + 1} (${first_name} ${last_name}):`, {
+      availableColumns: Object.keys(row),
+      grossPayColumn: Object.keys(row).find(k => k.toLowerCase().includes('gross') || k.toLowerCase().includes('pay')),
+      grossPayValue,
+    });
+
     const emp = {
       first_name,
       last_name,
       dob: parseDateOfBirth(row['DOB'] || row['dob'] || row['Date of Birth'] || row['Birth Date'] || row['Birthdate']),
       filing_status: parseFilingStatus(row['W-4 Marital Status'] || row['Filing Status'] || row['filing'] || row['status'] || row['Filing'] || row['Tax Filing Status'] || row['Marital Status']),
       dependents: parseInt(row['W-4 Dependents'] || row['Dependents'] || row['dependents'] || row['Deps'] || row['# Dependents'] || row['Number of Dependents'] || '0', 10),
-      gross_pay: parseFloat(row['Paycheck Gross Pay'] || row['Gross Pay'] || row['gross'] || row['salary'] || row['Gross'] || row['Pay'] || row['Gross Salary'] || row['Annual Salary'] || '0'),
+      gross_pay: parseGrossPay(grossPayValue),
       tobacco_use: parseTobacco(row['Tobacco'] || row['tobacco'] || row['smoker'] || row['Tobacco Use'] || row['Smoker']),
       state: row['ST'] || row['State'] || row['state'] || row['st'] || state,
+      hire_date: parseDateOfBirth(row['Hire Date'] || row['hire_date'] || row['HireDate'] || row['Start Date']),
+      ssn: row['Social Security Number'] || row['SSN'] || row['ssn'] || null,
+      pay_period: row['Pay Period'] || row['pay_period'] || null,
       benefits: parseBenefits(row),
     };
-    console.log('Parsed employee:', emp.first_name, emp.last_name, 'gross:', emp.gross_pay);
+    console.log('Parsed employee:', emp.first_name, emp.last_name, 'gross:', emp.gross_pay, 'ssn:', emp.ssn ? 'present' : 'missing');
     return emp;
   });
 
@@ -260,6 +275,18 @@ function parseTobacco(value: any): boolean {
   if (!value) return false;
   const v = value.toString().toLowerCase();
   return v === 'yes' || v === 'true' || v === '1' || v === 'y';
+}
+
+function parseGrossPay(value: any): number {
+  if (!value) return 0;
+
+  // Handle various formats: "$1,234.56", "1234.56", "1,234", etc.
+  const str = value.toString().replace(/[$,]/g, '').trim();
+  const num = parseFloat(str);
+
+  console.log('Parsing gross pay:', value, '→', str, '→', num);
+
+  return isNaN(num) ? 0 : num;
 }
 
 function parseBenefits(row: any): any[] {
