@@ -1,8 +1,10 @@
 // apps/web/src/app/reports/page.tsx
 import Link from "next/link";
 
+// Use VERCEL_URL in production or localhost in development
 const BASE =
-  (process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3002").replace(/\/$/, "");
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3002");
 
 type CompanyRow = {
   company_id: string;
