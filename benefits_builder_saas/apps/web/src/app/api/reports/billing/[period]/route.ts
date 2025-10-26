@@ -3,16 +3,18 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { createPdfDoc, addPage, drawHeaderFooter, drawTable } from "@/lib/pdf";
 
 type InvoiceRow = {
   company_id: string;
+  company_name: string;
+  model: string | null;
+  rates: string;
+  total_pretax: number;
+  total_employer_fica_saved: number;
+  employer_fee: number;
+  employer_net_savings: number;
+  employee_fee_total: number;
   period: string;
-  status: string;
-  subtotal_cents: number | null;
-  tax_cents: number | null;
-  total_cents: number | null;
-  companies: { name?: string } | null; // <- explicitly a single object or null
 };
 
 export async function GET(
@@ -22,9 +24,22 @@ export async function GET(
   const { period } = await ctx.params;
   const db = createServiceClient();
 
+  // Query to get billing data aggregated by company
   const { data, error } = await db
     .from("invoices")
-    .select("company_id, period, status, subtotal_cents, tax_cents, total_cents, companies(name)")
+    .select(`
+      company_id,
+      period,
+      subtotal_cents,
+      tax_cents,
+      total_cents,
+      companies (
+        name,
+        model,
+        employer_rate,
+        employee_rate
+      )
+    `)
     .eq("period", period)
     .order("company_id");
 
@@ -32,46 +47,30 @@ export async function GET(
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  const rows = (data as InvoiceRow[]) ?? [];
+  // Transform the data into the expected format
+  const invoices: InvoiceRow[] = (data || []).map((row: any) => {
+    const company = row.companies || {};
+    const employerRate = Number(company.employer_rate || 0);
+    const employeeRate = Number(company.employee_rate || 0);
+    const subtotal = Number(row.subtotal_cents || 0) / 100;
 
-  const { doc, font, bold } = await createPdfDoc();
-  let page = addPage(doc);
-  drawHeaderFooter(page, { font, bold }, {
-    titleLeft: `Billing Summary — ${period}`,
-    titleRight: new Date().toLocaleDateString(),
+    return {
+      company_id: row.company_id,
+      company_name: company.name || "Unknown",
+      model: company.model || null,
+      rates: `${employerRate.toFixed(1)}% / ${employeeRate.toFixed(1)}%`,
+      total_pretax: subtotal,
+      total_employer_fica_saved: subtotal * 0.0765, // Approximate FICA savings
+      employer_fee: subtotal * (employerRate / 100),
+      employer_net_savings: (subtotal * 0.0765) - (subtotal * (employerRate / 100)),
+      employee_fee_total: subtotal * (employeeRate / 100),
+      period: row.period
+    };
   });
 
-  const sum = (pick: (r: InvoiceRow) => number) =>
-    rows.reduce((s, r) => s + pick(r), 0);
-
-  const table = {
-    title: "Invoices",
-    columns: [
-      { key: "company", header: "Company", width: 220 },
-      { key: "status", header: "Status", width: 80 },
-      { key: "subtotal", header: "Subtotal", width: 90 },
-      { key: "tax", header: "Tax", width: 70 },
-      { key: "total", header: "Total", width: 90 },
-    ],
-    rows: rows.map((r) => ({
-      company: r.companies?.name ?? r.company_id,
-      status: r.status,
-      subtotal: `$${(Number(r.subtotal_cents || 0) / 100).toFixed(2)}`,
-      tax: `$${(Number(r.tax_cents || 0) / 100).toFixed(2)}`,
-      total: `$${(Number(r.total_cents || 0) / 100).toFixed(2)}`,
-    })),
-    footerNote: `Grand Total: $${(
-      sum((r) => Number(r.total_cents || 0)) / 100
-    ).toFixed(2)} · Open Count: ${rows.filter((d) => d.status === "open").length}`,
-  };
-
-  drawTable({ page, fonts: { font, bold }, table, topY: 720 });
-
-  const bytes = await doc.save();
-  return new NextResponse(Buffer.from(bytes), {
-    headers: {
-      "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="billing_${period}.pdf"`
-    }
+  return NextResponse.json({
+    ok: true,
+    period,
+    invoices
   });
 }
