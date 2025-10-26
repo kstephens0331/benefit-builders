@@ -46,7 +46,7 @@ ON CONFLICT (state, tax_year) DO UPDATE SET flat_rate = EXCLUDED.flat_rate, pers
 -- INDIANA - 3.05% flat + county tax (not included here)
 -- Source: Indiana Department of Revenue
 INSERT INTO tax_state_params (state, tax_year, method, flat_rate, standard_deduction, personal_exemption, dependent_exemption, allowances_method, brackets, credits, locality_mode, effective_from)
-VALUES ('IN', 2025, 'flat', 0.0305, 0, 1000, 1500, 'per_allowance_amount', null, null, 'all', '2025-01-01')
+VALUES ('IN', 2025, 'flat', 0.0305, 0, 1000, 1500, 'per_allowance_amount', null, null, 'county', '2025-01-01')
 ON CONFLICT (state, tax_year) DO UPDATE SET flat_rate = EXCLUDED.flat_rate, personal_exemption = EXCLUDED.personal_exemption, dependent_exemption = EXCLUDED.dependent_exemption;
 
 -- KENTUCKY - 4.0% flat (effective 2024, continuing 2025)
@@ -76,7 +76,7 @@ ON CONFLICT (state, tax_year) DO UPDATE SET flat_rate = EXCLUDED.flat_rate, stan
 -- PENNSYLVANIA - 3.07% flat + local tax (varies by locality)
 -- Source: Pennsylvania Department of Revenue
 INSERT INTO tax_state_params (state, tax_year, method, flat_rate, standard_deduction, personal_exemption, dependent_exemption, allowances_method, brackets, credits, locality_mode, effective_from)
-VALUES ('PA', 2025, 'flat', 0.0307, 0, 0, 0, 'none', null, null, 'all', '2025-01-01')
+VALUES ('PA', 2025, 'flat', 0.0307, 0, 0, 0, 'none', null, null, 'city', '2025-01-01')
 ON CONFLICT (state, tax_year) DO UPDATE SET flat_rate = EXCLUDED.flat_rate;
 
 -- UTAH - 4.65% flat (reduced from 4.85% in 2024)
@@ -148,7 +148,7 @@ VALUES (
     {"max": 25000000, "rate": 0.103, "base": 449393},
     {"max": null, "rate": 0.109, "base": 2509393}
   ]'::jsonb,
-  null, 'some', '2025-01-01'
+  null, 'city', '2025-01-01'
 ) ON CONFLICT (state, tax_year) DO UPDATE SET brackets = EXCLUDED.brackets, standard_deduction = EXCLUDED.standard_deduction;
 
 -- NEW JERSEY - 7 brackets, 1.4%-10.75%
@@ -195,7 +195,7 @@ VALUES (
     {"max": 125000, "rate": 0.0875, "base": 562.88},
     {"max": null, "rate": 0.099, "base": 10672.63}
   ]'::jsonb,
-  null, 'some', '2025-01-01'
+  null, 'city', '2025-01-01'
 ) ON CONFLICT (state, tax_year) DO UPDATE SET brackets = EXCLUDED.brackets, standard_deduction = EXCLUDED.standard_deduction;
 
 -- CONNECTICUT - 7 brackets, 3%-6.99%

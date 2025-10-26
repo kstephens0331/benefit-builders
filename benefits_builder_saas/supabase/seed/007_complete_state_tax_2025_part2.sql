@@ -71,7 +71,7 @@ VALUES (
     {"max": 92150, "rate": 0.03509, "base": 1350.61},
     {"max": null, "rate": 0.0375, "base": 2966.46}
   ]'::jsonb,
-  null, 'some', '2025-01-01'
+  null, 'city', '2025-01-01'
 ) ON CONFLICT (state, tax_year) DO UPDATE SET brackets = EXCLUDED.brackets;
 
 -- NORTH DAKOTA - 5 brackets, 1.1%-2.9%
@@ -137,7 +137,7 @@ VALUES (
     {"max": 9656, "rate": 0.045, "base": 199.16},
     {"max": null, "rate": 0.048, "base": 253.48}
   ]'::jsonb,
-  null, 'some', '2025-01-01'
+  null, 'city', '2025-01-01'
 ) ON CONFLICT (state, tax_year) DO UPDATE SET brackets = EXCLUDED.brackets;
 
 -- MARYLAND - 8 brackets, 2%-5.75% (state) + county tax (0.0225-0.032)
@@ -155,7 +155,7 @@ VALUES (
     {"max": 250000, "rate": 0.055, "base": 7260},
     {"max": null, "rate": 0.0575, "base": 12760}
   ]'::jsonb,
-  null, 'all', '2025-01-01'
+  null, 'county', '2025-01-01'
 ) ON CONFLICT (state, tax_year) DO UPDATE SET brackets = EXCLUDED.brackets;
 
 -- MAINE - 3 brackets, 5.8%-7.15%
@@ -260,7 +260,7 @@ VALUES (
     {"max": 3000, "rate": 0.04, "base": 10},
     {"max": null, "rate": 0.05, "base": 110}
   ]'::jsonb,
-  null, 'some', '2025-01-01'
+  null, 'city', '2025-01-01'
 ) ON CONFLICT (state, tax_year) DO UPDATE SET brackets = EXCLUDED.brackets, standard_deduction = EXCLUDED.standard_deduction;
 
 -- WEST VIRGINIA - 5 brackets, 2.36%-5.12%
