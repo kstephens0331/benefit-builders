@@ -29,8 +29,8 @@ export async function GET() {
     .from("employees").select("id", { count: "exact", head: true }).eq("active", true);
   if (eErr) return NextResponse.json({ ok: false, error: eErr.message }, { status: 500 });
 
-  const { data: enrolledRows, error: enErr } = await db
-    .from("employee_benefits").select("employee_id").eq("active", true);
+  const { data: enrolledRows, error: enErr} = await db
+    .from("employee_benefits").select("employee_id");
   if (enErr) return NextResponse.json({ ok: false, error: enErr.message }, { status: 500 });
   const enrolledCount = new Set((enrolledRows ?? []).map((r: any) => r.employee_id)).size;
   const enrollPct = employeesCount ? +((enrolledCount / (employeesCount || 1)) * 100).toFixed(1) : 0;
