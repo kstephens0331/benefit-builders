@@ -126,8 +126,8 @@ async function parseWithGemini(rawData: any[]): Promise<any> {
 
   try {
     const genAI = new GoogleGenerativeAI(geminiApiKey);
-    // Use gemini-pro which is available in v1beta API version
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    // Use gemini-1.5-flash for faster, cost-effective parsing
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `
 You are a data extraction specialist for a benefits administration system.
