@@ -10,11 +10,10 @@ export default async function Nav() {
 
   return (
     <nav className="flex items-center gap-1">
-      <Link className={link} href={"/" as Route}>Home</Link>
+      <Link className={link} href={"/dashboard" as Route}>Dashboard</Link>
       <Link className={link} href={"/companies" as Route}>Companies</Link>
       <Link className={link} href={"/admin/billing" as Route}>Billing</Link>
       <Link className={link} href={"/reports" as Route}>Reports</Link>
-      <Link className={link} href={"/dashboard" as Route}>Dashboard</Link>
 
       {user && (
         <div className="ml-2 pl-2 border-l border-slate-200">
