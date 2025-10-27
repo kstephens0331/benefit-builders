@@ -38,11 +38,10 @@ export async function GET(req: Request) {
     .eq("active", true);
   if (eErr) return NextResponse.json({ ok: false, error: eErr.message }, { status: 500 });
 
-  // Preload all active pre-tax benefits
+  // Preload all pre-tax benefits
   const { data: bens, error: bErr } = await db
     .from("employee_benefits")
-    .select("employee_id, per_pay_amount, active, reduces_fica")
-    .eq("active", true);
+    .select("employee_id, per_pay_amount, reduces_fica");
   if (bErr) return NextResponse.json({ ok: false, error: bErr.message }, { status: 500 });
 
   const payMap: Record<string, number> = { w: 52, b: 26, s: 24, m: 12 };
