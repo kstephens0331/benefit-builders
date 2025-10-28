@@ -151,43 +151,13 @@ export default async function ReportsPage() {
     <main className="max-w-7xl mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Reports</h1>
-        <div className="flex gap-2">
-          <a
-            className="px-4 py-2 rounded-xl bg-indigo-600 text-white"
-            href={`/api/reports/pdf?period=${period}`}
-            target="_blank"
-          >
-            Download All-Companies PDF
-          </a>
-          <a
-            className="px-4 py-2 rounded-xl border"
-            href={`/api/reports/summary?period=${period}`}
-            target="_blank"
-          >
-            JSON (Companies)
-          </a>
-          <a
-            className="px-4 py-2 rounded-xl border"
-            href={`/api/reports/employees?period=${period}`}
-            target="_blank"
-          >
-            JSON (Employees)
-          </a>
-          <a
-  className="px-4 py-2 rounded-xl border"
-  href={`/api/reports/summary.csv?period=${period}`}
-  target="_blank"
->
-  CSV (Companies)
-</a>
-<a
-  className="px-4 py-2 rounded-xl border"
-  href={`/api/reports/employees.csv?period=${period}`}
-  target="_blank"
->
-  CSV (Employees)
-</a>
-        </div>
+        <a
+          className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition"
+          href={`/api/reports/pdf?period=${period}`}
+          target="_blank"
+        >
+          Download PDF Report
+        </a>
       </div>
 
       {/* Companies summary */}
