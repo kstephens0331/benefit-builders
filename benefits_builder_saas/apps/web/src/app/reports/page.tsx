@@ -1,10 +1,8 @@
 // apps/web/src/app/reports/page.tsx
 import Link from "next/link";
-
-// Use VERCEL_URL in production or localhost in development
-const BASE =
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3002");
+import { createServiceClient } from "@/lib/supabase";
+import { computeFeesForPretaxMonthly } from "@/lib/fees";
+import { calcFICA } from "@/lib/tax";
 
 type CompanyRow = {
   company_id: string;
@@ -38,22 +36,116 @@ function formatMoney(n: number | null | undefined) {
 }
 
 export default async function ReportsPage() {
-  // default period (YYYY-MM)
+  const db = createServiceClient();
   const now = new Date();
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const [yearStr] = period.split("-");
+  const taxYear = Number(yearStr) || now.getFullYear();
 
-  // fetch summary + employees (server-side)
-  const [summaryRes, employeesRes] = await Promise.all([
-    fetch(`${BASE}/api/reports/summary?period=${period}`, { cache: "no-store" }).then((r) =>
-      r.json()
-    ),
-    fetch(`${BASE}/api/reports/employees?period=${period}`, { cache: "no-store" }).then((r) =>
-      r.json()
-    ),
-  ]);
+  // Fetch data directly instead of HTTP calls
+  // Get federal tax rates
+  const { data: fed } = await db
+    .from("tax_federal_params")
+    .select("ss_rate, med_rate")
+    .eq("tax_year", taxYear)
+    .single();
 
-  const companies: CompanyRow[] = summaryRes?.data ?? [];
-  const employees: EmployeeRow[] = employeesRes?.data ?? [];
+  // Get companies
+  const { data: companiesData } = await db
+    .from("companies")
+    .select("id,name,state,model,status")
+    .eq("status", "active");
+
+  // Get employees
+  const { data: emps } = await db
+    .from("employees")
+    .select("id,company_id,active,pay_period,paycheck_gross,first_name,last_name")
+    .eq("active", true);
+
+  // Get benefits
+  const { data: bens } = await db
+    .from("employee_benefits")
+    .select("employee_id, per_pay_amount, reduces_fica");
+
+  const payMap: Record<string, number> = { w: 52, b: 26, s: 24, m: 12 };
+  const ppm = (pp: string | null | undefined) => (payMap[pp ?? "b"] ?? 26) / 12;
+
+  // Build company summaries
+  const byCompany: Record<string, any> = {};
+  for (const c of companiesData ?? []) {
+    byCompany[c.id] = {
+      company_id: c.id,
+      company_name: c.name,
+      state: c.state,
+      model: c.model,
+      status: c.status,
+      employees_active: 0,
+      pretax_monthly: 0,
+      employer_fica_saved_monthly: 0,
+    };
+  }
+
+  // Index benefits by employee
+  const benByEmp = new Map<string, { perPay: number; reducesFICA: boolean }>();
+  for (const b of bens ?? []) {
+    const key = String(b.employee_id);
+    const prev = benByEmp.get(key) ?? { perPay: 0, reducesFICA: true };
+    prev.perPay += Number(b.per_pay_amount ?? 0);
+    prev.reducesFICA = prev.reducesFICA && !!b.reduces_fica;
+    benByEmp.set(key, prev);
+  }
+
+  // Calculate for each employee
+  const employeeRows: EmployeeRow[] = [];
+  const nameById = new Map<string, string>();
+  for (const c of companiesData ?? []) nameById.set(c.id, c.name);
+
+  for (const e of emps ?? []) {
+    const bucket = byCompany[e.company_id];
+    if (bucket) bucket.employees_active += 1;
+
+    const perPayPretax = benByEmp.get(e.id)?.perPay ?? 0;
+    const perMonth = ppm(e.pay_period);
+
+    if (bucket) {
+      bucket.pretax_monthly += perPayPretax * perMonth;
+
+      // Calculate employer FICA savings
+      const gross = Number(e.paycheck_gross ?? 0);
+      const before = calcFICA(gross, 0, Number(fed?.ss_rate || 0.062), Number(fed?.med_rate || 0.0145));
+      const after = calcFICA(gross, perPayPretax, Number(fed?.ss_rate || 0.062), Number(fed?.med_rate || 0.0145));
+      const savedPerPay = +(before.fica - after.fica).toFixed(2);
+      bucket.employer_fica_saved_monthly += savedPerPay * perMonth;
+    }
+
+    employeeRows.push({
+      company_id: e.company_id,
+      company_name: nameById.get(e.company_id) ?? "",
+      first_name: e.first_name,
+      last_name: e.last_name,
+      active: !!e.active,
+      pay_period: e.pay_period,
+      paycheck_gross: e.paycheck_gross ? Number(e.paycheck_gross) : 0,
+      pretax_per_pay: +perPayPretax.toFixed(2),
+      pretax_monthly: +(perPayPretax * perMonth).toFixed(2),
+    });
+  }
+
+  // Finalize company rows with fees
+  const companies: CompanyRow[] = Object.values(byCompany).map((r: any) => {
+    const fees = computeFeesForPretaxMonthly(+r.pretax_monthly.toFixed(2), r.model);
+    const employer_net = +(+r.employer_fica_saved_monthly.toFixed(2) - fees.employerFeeMonthly).toFixed(2);
+    return {
+      ...r,
+      pretax_monthly: +r.pretax_monthly.toFixed(2),
+      employer_fica_saved_monthly: +r.employer_fica_saved_monthly.toFixed(2),
+      employee_fee_monthly: fees.employeeFeeMonthly,
+      employer_fee_monthly: fees.employerFeeMonthly,
+      employer_net_monthly: employer_net,
+    };
+  });
+
+  const employees: EmployeeRow[] = employeeRows;
 
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-8">
