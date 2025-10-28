@@ -26,10 +26,10 @@ export default async function EmployeePage({
     );
   }
 
-  // Fetch company data for model rates
+  // Fetch company data for model rates and tier
   const { data: company, error: companyError } = await db
     .from("companies")
-    .select("id, name, model, employer_rate, employee_rate, pay_frequency")
+    .select("id, name, model, employer_rate, employee_rate, pay_frequency, tier")
     .eq("id", companyId)
     .single();
 
@@ -195,6 +195,7 @@ export default async function EmployeePage({
           model: company?.model || "N/A",
           employer_rate: employerRate,
           employee_rate: employeeRate,
+          tier: (company?.tier as any) || "2025",
         }}
         fedRates={{
           ss_rate: Number(fedRates?.ss_rate) || 0.062,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { calcFICA, calcFITFromTable } from "@/lib/tax";
+import { calculateSection125Amount, monthlyToPerPay, type CompanyTier, type FilingStatus } from "@/lib/section125";
 
 type Props = {
   employee: {
@@ -14,6 +15,7 @@ type Props = {
     model: string;
     employer_rate: number;
     employee_rate: number;
+    tier: CompanyTier;
   };
   fedRates: {
     ss_rate: number;
@@ -34,7 +36,15 @@ export default function BenefitsCalculator({
   fedWithholding,
   enrolledBenefits,
 }: Props) {
-  const [hypotheticalAmount, setHypotheticalAmount] = useState<number>(enrolledBenefits || 0);
+  // Automatically calculate the Section 125 amount based on company tier and employee details
+  const monthlySection125Amount = calculateSection125Amount(
+    company.tier,
+    employee.filing_status as FilingStatus,
+    employee.dependents
+  );
+
+  // Convert monthly amount to per-paycheck amount
+  const section125PerPaycheck = monthlyToPerPay(monthlySection125Amount, employee.pay_period);
 
   const grossPay = Number(employee.gross_pay) || 0;
   const employerRate = Number(company.employer_rate) || 0;
@@ -60,8 +70,8 @@ export default function BenefitsCalculator({
   const standardDeductionPerPay = standardDeductionAnnual / payPeriodsPerYear;
   const dependentAllowancePerPay = (employee.dependents || 0) * (2000 / payPeriodsPerYear);
 
-  // Calculate with the hypothetical amount
-  const benefitAmount = hypotheticalAmount;
+  // Use the automatically calculated Section 125 amount
+  const benefitAmount = section125PerPaycheck;
 
   // BEFORE (no benefits)
   const beforeFICA = calcFICA(grossPay, 0, ssRate, medRate);
@@ -102,44 +112,33 @@ export default function BenefitsCalculator({
 
   return (
     <div className="space-y-6">
-      {/* Calculator Input */}
+      {/* Auto-Calculated Section 125 Amount Display */}
       <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl shadow-lg border-2 border-blue-200">
         <h3 className="text-lg font-bold text-blue-900 mb-4">
-          💰 Benefits Calculator
+          💰 Section 125 Calculation
         </h3>
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Enter Pre-Tax Benefit Amount (per paycheck):
-            </label>
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-semibold">
-                  $
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={hypotheticalAmount}
-                  onChange={(e) => setHypotheticalAmount(parseFloat(e.target.value) || 0)}
-                  className="w-full pl-8 pr-4 py-3 text-lg font-semibold border-2 border-blue-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                  placeholder="0.00"
-                />
-              </div>
-              <button
-                onClick={() => setHypotheticalAmount(0)}
-                className="px-4 py-3 bg-slate-200 hover:bg-slate-300 rounded-lg text-sm font-medium"
-              >
-                Reset
-              </button>
+            <div className="text-sm text-slate-600">Company Tier</div>
+            <div className="text-lg font-bold text-blue-900">
+              {company.tier.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </div>
           </div>
-          {hypotheticalAmount > 0 && (
-            <div className="text-sm text-blue-800 bg-blue-100 p-3 rounded-lg">
-              <strong>Tip:</strong> Try different amounts to see how tax savings change!
+          <div>
+            <div className="text-sm text-slate-600">Monthly Amount</div>
+            <div className="text-lg font-bold text-blue-900">
+              ${monthlySection125Amount.toFixed(2)}
             </div>
-          )}
+          </div>
+          <div>
+            <div className="text-sm text-slate-600">Per Paycheck Amount</div>
+            <div className="text-2xl font-bold text-blue-900">
+              ${section125PerPaycheck.toFixed(2)}
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 text-sm text-blue-800 bg-blue-100 p-3 rounded-lg">
+          <strong>Auto-calculated</strong> based on filing status ({employee.filing_status}) and dependents ({employee.dependents})
         </div>
       </div>
 
