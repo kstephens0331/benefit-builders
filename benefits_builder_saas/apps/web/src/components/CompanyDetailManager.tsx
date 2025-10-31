@@ -22,6 +22,10 @@ type Company = {
   state: string;
   model: string;
   status: string;
+  tier?: string;
+  employer_rate?: number;
+  employee_rate?: number;
+  pay_frequency?: string;
 };
 
 type Props = {
@@ -45,6 +49,16 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
     gross_pay: 0,
     active: true,
     consent_status: "pending" as "elect" | "dont" | "pending",
+  });
+
+  // Company edit state
+  const [showCompanyEditModal, setShowCompanyEditModal] = useState(false);
+  const [companyFormData, setCompanyFormData] = useState({
+    name: company.name,
+    state: company.state,
+    model: company.model,
+    tier: company.tier || "2025",
+    status: company.status,
   });
 
   const now = new Date();
@@ -151,13 +165,51 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
     }
   };
 
+  const handleCompanyEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/companies", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: company.id,
+          ...companyFormData,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to update company");
+      }
+
+      setShowCompanyEditModal(false);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{company.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">{company.name}</h1>
+            <button
+              onClick={() => setShowCompanyEditModal(true)}
+              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium"
+            >
+              Edit Company
+            </button>
+          </div>
           <p className="text-slate-600 text-sm">
-            {company.state} · Model {company.model} · {company.status}
+            {company.state} · Model {company.model} · {company.status} · Tier: {company.tier || "2025"}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -268,6 +320,122 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
           <p className="text-slate-600 text-center py-8">No employees yet.</p>
         )}
       </div>
+
+      {/* Company Edit Modal */}
+      {showCompanyEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4">Edit Company Settings</h2>
+              <form onSubmit={handleCompanyEdit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Company Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={companyFormData.name}
+                      onChange={(e) =>
+                        setCompanyFormData({ ...companyFormData, name: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      State *
+                    </label>
+                    <input
+                      type="text"
+                      value={companyFormData.state}
+                      onChange={(e) =>
+                        setCompanyFormData({ ...companyFormData, state: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                      maxLength={2}
+                      placeholder="CA"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Model (Fee %) *
+                    </label>
+                    <select
+                      value={companyFormData.model}
+                      onChange={(e) =>
+                        setCompanyFormData({ ...companyFormData, model: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="8">8%</option>
+                      <option value="7">7%</option>
+                      <option value="6">6%</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Pricing Tier *
+                    </label>
+                    <select
+                      value={companyFormData.tier}
+                      onChange={(e) =>
+                        setCompanyFormData({ ...companyFormData, tier: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="state_school">State School (All $1,300/mo, 6% EE / 0% ER)</option>
+                      <option value="2025">2025 Standard (S/0=$1,300, others=$1,700)</option>
+                      <option value="pre_2025">Pre-2025 Legacy (S/0=$800, S/1+=$1,200, M/0=$1,200, M/1+=$1,600)</option>
+                      <option value="original_6pct">Original 6% (S/0=$700, S/1+=$1,100, M/0+=$1,500, 1% EE / 5% ER)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Status *
+                    </label>
+                    <select
+                      value={companyFormData.status}
+                      onChange={(e) =>
+                        setCompanyFormData({ ...companyFormData, status: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="pending">Pending</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 justify-end pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowCompanyEditModal(false)}
+                    className="px-4 py-2 border rounded-lg hover:bg-slate-50"
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Employee Modal */}
       {showEditModal && selectedEmployee && (

@@ -10,7 +10,7 @@ export default async function CompanyPage({ params }: Params) {
 
   const { data: company, error: cErr } = await db
     .from("companies")
-    .select("id,name,state,model,status")
+    .select("id,name,state,model,status,tier,employer_rate,employee_rate,pay_frequency")
     .eq("id", companyId)
     .single();
 
