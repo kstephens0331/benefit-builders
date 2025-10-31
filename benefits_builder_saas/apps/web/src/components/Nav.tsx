@@ -13,6 +13,7 @@ export default async function Nav() {
       <Link className={link} href={"/dashboard" as Route}>Dashboard</Link>
       <Link className={link} href={"/companies" as Route}>Companies</Link>
       <Link className={link} href={"/admin/billing" as Route}>Billing</Link>
+      <Link className={link} href={"/accounting" as Route}>Accounting</Link>
       <Link className={link} href={"/reports" as Route}>Reports</Link>
 
       {user && (
