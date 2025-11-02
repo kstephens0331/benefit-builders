@@ -131,13 +131,17 @@ Actual Deduction: $784.62 (FULL TARGET AMOUNT)
 
 **Result:** No warning, full benefit applied, normal blue display
 
-## Why 30% Cap?
+## Why 50% Cap?
 
-The 30% cap is based on:
-1. **Legal considerations**: Most states limit wage deductions
-2. **Practical limits**: Employee needs take-home pay for living expenses
-3. **Industry standard**: Most benefit deductions don't exceed 30% of gross
-4. **Flexibility**: Can be adjusted if needed (parameter in function)
+The 50% cap is based on:
+1. **Current Benefits Booster model**: Proven successful in production with real clients
+2. **Money comes back**: Employees receive 97-99% back as "Plan Distribution" after tax calculations
+3. **Net impact is small**: Employee only "loses" 1-3% while gaining significant tax savings
+4. **Legal compliance**: 50% is within acceptable wage deduction limits
+5. **Maximizes coverage**: Allows more employees to receive full tier benefits
+6. **Flexibility**: Can be adjusted if needed (parameter in function)
+
+**Real-world validation**: Janet Layton (BA Promotions) has $507.69 deduction from $972 gross (52.2%), receives $502.62 back, gains $48.76 net benefit. System works successfully!
 
 ## What Happens When There's a Shortfall?
 
@@ -173,7 +177,7 @@ Employee's gross pay is below minimum threshold (extremely rare)
 
 ## How to Adjust the Cap
 
-If you need to change the 30% cap:
+If you need to change the 50% cap:
 
 1. **In Code** ([section125.ts:189](apps/web/src/lib/section125.ts#L189)):
 ```typescript
@@ -183,15 +187,16 @@ calculateSafeSection125Deduction(
   dependents,
   grossPay,
   payPeriod,
-  35  // Change from 30 to 35 for 35% cap
+  60  // Change from 50 to 60 for 60% cap
 )
 ```
 
 2. **Common Cap Values**:
-   - 25%: More conservative, smaller deductions
-   - 30%: Current default, balanced
-   - 35%: More aggressive, larger deductions
-   - 40%: Very aggressive, may cause hardship
+   - 30%: More conservative, smaller deductions
+   - 40%: Moderate, balanced approach
+   - 50%: Current default, matches Benefits Booster model
+   - 60%: More aggressive, maximum coverage
+   - 75%: Very aggressive, may cause issues
 
 ## Reporting & Monitoring
 
