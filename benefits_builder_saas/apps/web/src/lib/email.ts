@@ -413,4 +413,197 @@ export async function sendTestEmail(to: string) {
   return sendEmail(to, subject, html);
 }
 
+/**
+ * Send month-end closing report with attachment
+ */
+export async function sendMonthEndReport(
+  companyName: string,
+  contactEmail: string,
+  period: string,
+  reportData: {
+    employeeCount: number;
+    enrolledCount: number;
+    enrollmentRate: number;
+    pretaxDeductions: number;
+    bbFees: number;
+    employerSavings: number;
+    employeeSavings: number;
+    netSavings: number;
+    arOpen: number;
+    arOverdue: number;
+  },
+  pdfAttachment?: Buffer
+) {
+  const subject = `Month-End Report - ${period}`;
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 700px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; }
+        .footer { background: #f5f5f5; padding: 20px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 8px 8px; }
+        .section { margin: 30px 0; }
+        .section-title { font-size: 18px; font-weight: bold; color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
+        .metric-card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }
+        .metric-card .value { font-size: 24px; font-weight: bold; color: #667eea; margin: 5px 0; }
+        .metric-card .label { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+        .savings-box { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); color: #155724; padding: 25px; border-radius: 8px; text-align: center; margin: 20px 0; }
+        .savings-box .big-number { font-size: 36px; font-weight: bold; margin: 10px 0; }
+        .savings-box .subtitle { font-size: 14px; margin-top: 10px; }
+        .ar-summary { background: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 20px 0; }
+        .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0; }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-row .label { font-weight: 600; }
+        .summary-row .value { color: #667eea; font-weight: bold; }
+        .attachment-note { background: #e7f3ff; border: 1px solid #b3d9ff; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        .attachment-note .icon { font-size: 24px; margin-right: 10px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>📊 Month-End Closing Report</h1>
+          <p style="font-size: 20px; margin: 10px 0 0 0;">${period}</p>
+        </div>
+        <div class="content">
+          <p>Dear ${companyName},</p>
+
+          <p>Your month-end report for <strong>${period}</strong> is complete. Below is a comprehensive summary of your Section 125 Cafeteria Plan activity.</p>
+
+          ${pdfAttachment ? `
+          <div class="attachment-note">
+            <span class="icon">📎</span>
+            <strong>PDF Report Attached:</strong> A detailed PDF report is attached to this email for your records.
+          </div>
+          ` : ''}
+
+          <div class="section">
+            <div class="section-title">Enrollment Summary</div>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="label">Total Employees</div>
+                <div class="value">${reportData.employeeCount}</div>
+              </div>
+              <div class="metric-card">
+                <div class="label">Enrolled in Benefits</div>
+                <div class="value">${reportData.enrolledCount}</div>
+              </div>
+              <div class="metric-card">
+                <div class="label">Enrollment Rate</div>
+                <div class="value">${reportData.enrollmentRate.toFixed(1)}%</div>
+              </div>
+              <div class="metric-card">
+                <div class="label">Pre-Tax Deductions</div>
+                <div class="value">${formatCurrency(reportData.pretaxDeductions)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Financial Summary</div>
+            <div class="savings-box">
+              <p style="margin: 0; font-size: 16px;">Your Net Employer Savings</p>
+              <div class="big-number">${formatCurrency(reportData.netSavings)}</div>
+              <div class="subtitle">
+                FICA Savings: ${formatCurrency(reportData.employerSavings)} - BB Fees: ${formatCurrency(reportData.bbFees)}
+              </div>
+            </div>
+
+            <div class="summary-row">
+              <span class="label">Employer FICA Savings</span>
+              <span class="value">${formatCurrency(reportData.employerSavings)}</span>
+            </div>
+            <div class="summary-row">
+              <span class="label">Employee Tax Savings</span>
+              <span class="value">${formatCurrency(reportData.employeeSavings)}</span>
+            </div>
+            <div class="summary-row">
+              <span class="label">Benefits Builder Fees</span>
+              <span class="value">${formatCurrency(reportData.bbFees)}</span>
+            </div>
+          </div>
+
+          ${reportData.arOpen > 0 || reportData.arOverdue > 0 ? `
+          <div class="section">
+            <div class="section-title">Accounts Receivable</div>
+            <div class="ar-summary">
+              <div class="summary-row">
+                <span class="label">Open Balance</span>
+                <span class="value">${formatCurrency(reportData.arOpen)}</span>
+              </div>
+              ${reportData.arOverdue > 0 ? `
+              <div class="summary-row">
+                <span class="label">⚠️ Overdue Balance</span>
+                <span class="value" style="color: #dc3545;">${formatCurrency(reportData.arOverdue)}</span>
+              </div>
+              ` : ''}
+            </div>
+          </div>
+          ` : ''}
+
+          <div class="section">
+            <p><strong>Key Highlights:</strong></p>
+            <ul>
+              <li>${reportData.enrollmentRate.toFixed(1)}% of your employees are enrolled in pre-tax benefits</li>
+              <li>Total pre-tax benefits processed: <strong>${formatCurrency(reportData.pretaxDeductions)}</strong></li>
+              <li>Your net savings after fees: <strong>${formatCurrency(reportData.netSavings)}</strong></li>
+              <li>Your employees saved approximately <strong>${formatCurrency(reportData.employeeSavings)}</strong> in taxes</li>
+            </ul>
+          </div>
+
+          <p>Thank you for partnering with Benefits Builder. If you have any questions about this report, please don't hesitate to reach out.</p>
+
+          <p>Best regards,<br>
+          <strong>Benefits Builder Team</strong></p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} Benefits Builder. All rights reserved.</p>
+          <p>Questions? Contact us at info@benefitsbuilder.com</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const transport = getTransporter();
+
+    const mailOptions: any = {
+      from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
+      to: contactEmail,
+      subject,
+      html,
+      text: stripHtml(html)
+    };
+
+    // Attach PDF if provided
+    if (pdfAttachment) {
+      mailOptions.attachments = [{
+        filename: `Month-End-Report-${period.replace(/\s+/g, '-')}.pdf`,
+        content: pdfAttachment,
+        contentType: 'application/pdf'
+      }];
+    }
+
+    const info = await transport.sendMail(mailOptions);
+
+    console.log("✅ Month-end report email sent:", info.messageId);
+
+    return {
+      success: true,
+      messageId: info.messageId
+    };
+  } catch (error: any) {
+    console.error("❌ Month-end email send error:", error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 export { sendEmail };
