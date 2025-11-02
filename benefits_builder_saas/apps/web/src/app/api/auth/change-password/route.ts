@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { verifyPassword, hashPassword } from "@/lib/auth";
+import { hashPassword } from "@/lib/auth";
 
 // POST - Change user password
 export async function POST(request: NextRequest) {
@@ -25,36 +25,52 @@ export async function POST(request: NextRequest) {
 
     const db = createServiceClient();
 
-    // Get user
-    const { data: user, error: userError } = await db
+    // Hash the current password to compare
+    const currentPasswordHash = hashPassword(currentPassword);
+
+    // Get user - try both auth_users and internal_users tables
+    let user = null;
+    let tableName = "";
+
+    // Try auth_users first
+    const { data: authUser } = await db
       .from("auth_users")
       .select("*")
       .eq("email", email)
+      .eq("password_hash", currentPasswordHash)
       .single();
 
-    if (userError || !user) {
-      return NextResponse.json(
-        { ok: false, error: "User not found" },
-        { status: 404 }
-      );
+    if (authUser) {
+      user = authUser;
+      tableName = "auth_users";
+    } else {
+      // Try internal_users
+      const { data: internalUser } = await db
+        .from("internal_users")
+        .select("*")
+        .eq("email", email)
+        .eq("password_hash", currentPasswordHash)
+        .single();
+
+      if (internalUser) {
+        user = internalUser;
+        tableName = "internal_users";
+      }
     }
 
-    // Verify current password
-    const isValid = await verifyPassword(currentPassword, user.password_hash);
-
-    if (!isValid) {
+    if (!user) {
       return NextResponse.json(
-        { ok: false, error: "Current password is incorrect" },
+        { ok: false, error: "Invalid email or current password" },
         { status: 401 }
       );
     }
 
     // Hash new password
-    const newPasswordHash = await hashPassword(newPassword);
+    const newPasswordHash = hashPassword(newPassword);
 
-    // Update password
+    // Update password in the correct table
     const { error: updateError } = await db
-      .from("auth_users")
+      .from(tableName)
       .update({
         password_hash: newPasswordHash,
         updated_at: new Date().toISOString(),
@@ -69,13 +85,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Log audit event
-    await db.from("auth_audit_log").insert({
+    await db.from("audit_log").insert({
       user_id: user.id,
+      username: user.username || email,
       action: "password_changed",
+      resource_type: "auth",
       ip_address: request.headers.get("x-forwarded-for") || "unknown",
       user_agent: request.headers.get("user-agent") || "unknown",
-      success: true,
-      metadata: { email },
     });
 
     return NextResponse.json({
