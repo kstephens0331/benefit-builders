@@ -11,6 +11,15 @@ export default function SettingsPage() {
   const [qbAuthUrl, setQbAuthUrl] = useState("");
   const [testEmail, setTestEmail] = useState("");
 
+  // Password change state
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    email: "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
   useEffect(() => {
     // Check QuickBooks connection status
     // TODO: Create endpoint to check QB status
@@ -62,6 +71,56 @@ export default function SettingsPage() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!passwordData.email) {
+      error("Please enter your email address");
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      error("New passwords do not match");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      error("New password must be at least 8 characters long");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: passwordData.email,
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        success("Password changed successfully");
+        setPasswordData({
+          email: "",
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+      } else {
+        error(data.error || "Failed to change password");
+      }
+    } catch (err) {
+      error("Failed to change password");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -74,6 +133,74 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Settings</h1>
+      </div>
+
+      {/* Change Password */}
+      <div className="bg-white rounded-lg shadow p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Change Password</h2>
+          <p className="text-sm text-slate-500">Update your account password</p>
+        </div>
+
+        <form onSubmit={handleChangePassword} className="border-t pt-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Email Address *</label>
+            <input
+              type="email"
+              value={passwordData.email}
+              onChange={(e) => setPasswordData({ ...passwordData, email: e.target.value })}
+              placeholder="your.email@example.com"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Current Password *</label>
+            <input
+              type="password"
+              value={passwordData.currentPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+              placeholder="Enter current password"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">New Password *</label>
+            <input
+              type="password"
+              value={passwordData.newPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+              placeholder="Enter new password (min 8 characters)"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              required
+              minLength={8}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Confirm New Password *</label>
+            <input
+              type="password"
+              value={passwordData.confirmPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+              placeholder="Confirm new password"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              required
+              minLength={8}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isChangingPassword}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isChangingPassword ? "Changing Password..." : "Change Password"}
+          </button>
+        </form>
       </div>
 
       {/* Email Configuration */}
