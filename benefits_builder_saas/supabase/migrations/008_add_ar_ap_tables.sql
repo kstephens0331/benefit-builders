@@ -125,45 +125,83 @@ CREATE TRIGGER ap_updated_at_trigger
 -- Add trigger to auto-update status based on payments
 CREATE OR REPLACE FUNCTION update_ar_status()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_ar_id uuid;
+  v_transaction_type text;
 BEGIN
-  UPDATE accounts_receivable
-  SET status = CASE
-    WHEN amount_paid >= amount THEN 'paid'
-    WHEN amount_paid > 0 THEN 'partial'
-    WHEN due_date < CURRENT_DATE AND amount_paid < amount THEN 'overdue'
-    ELSE 'open'
-  END
-  WHERE id = COALESCE(NEW.ar_id, OLD.ar_id);
-  RETURN NEW;
+  -- Get the AR ID and transaction type based on operation
+  IF TG_OP = 'DELETE' THEN
+    v_ar_id := OLD.ar_id;
+    v_transaction_type := OLD.transaction_type;
+  ELSE
+    v_ar_id := NEW.ar_id;
+    v_transaction_type := NEW.transaction_type;
+  END IF;
+
+  -- Only process AR payments
+  IF v_transaction_type = 'ar_payment' AND v_ar_id IS NOT NULL THEN
+    UPDATE accounts_receivable
+    SET status = CASE
+      WHEN amount_paid >= amount THEN 'paid'
+      WHEN amount_paid > 0 THEN 'partial'
+      WHEN due_date < CURRENT_DATE AND amount_paid < amount THEN 'overdue'
+      ELSE 'open'
+    END
+    WHERE id = v_ar_id;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  ELSE
+    RETURN NEW;
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER ar_payment_status_trigger
   AFTER INSERT OR UPDATE OR DELETE ON payment_transactions
   FOR EACH ROW
-  WHEN (NEW.transaction_type = 'ar_payment' OR OLD.transaction_type = 'ar_payment')
   EXECUTE FUNCTION update_ar_status();
 
 -- Add trigger to auto-update status based on payments for AP
 CREATE OR REPLACE FUNCTION update_ap_status()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_ap_id uuid;
+  v_transaction_type text;
 BEGIN
-  UPDATE accounts_payable
-  SET status = CASE
-    WHEN amount_paid >= amount THEN 'paid'
-    WHEN amount_paid > 0 THEN 'partial'
-    WHEN due_date < CURRENT_DATE AND amount_paid < amount THEN 'overdue'
-    ELSE 'open'
-  END
-  WHERE id = COALESCE(NEW.ap_id, OLD.ap_id);
-  RETURN NEW;
+  -- Get the AP ID and transaction type based on operation
+  IF TG_OP = 'DELETE' THEN
+    v_ap_id := OLD.ap_id;
+    v_transaction_type := OLD.transaction_type;
+  ELSE
+    v_ap_id := NEW.ap_id;
+    v_transaction_type := NEW.transaction_type;
+  END IF;
+
+  -- Only process AP payments
+  IF v_transaction_type = 'ap_payment' AND v_ap_id IS NOT NULL THEN
+    UPDATE accounts_payable
+    SET status = CASE
+      WHEN amount_paid >= amount THEN 'paid'
+      WHEN amount_paid > 0 THEN 'partial'
+      WHEN due_date < CURRENT_DATE AND amount_paid < amount THEN 'overdue'
+      ELSE 'open'
+    END
+    WHERE id = v_ap_id;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  ELSE
+    RETURN NEW;
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER ap_payment_status_trigger
   AFTER INSERT OR UPDATE OR DELETE ON payment_transactions
   FOR EACH ROW
-  WHEN (NEW.transaction_type = 'ap_payment' OR OLD.transaction_type = 'ap_payment')
   EXECUTE FUNCTION update_ap_status();
 
 -- Comments

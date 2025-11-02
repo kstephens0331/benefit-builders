@@ -356,11 +356,11 @@ export default function BenefitsCalculator({
           <div className="text-sm opacity-90">per paycheck</div>
           <div className="mt-4 pt-4 border-t border-purple-400 text-sm">
             <div className="flex justify-between">
-              <span>BB Fee ({employerRate}%):</span>
-              <span className="font-semibold">-${employerFee.toFixed(2)}</span>
+              <span>Before BB:</span>
+              <span className="font-semibold">${employerFICASavings.toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold mt-2">
-              <span>Net Savings:</span>
+              <span>After BB:</span>
               <span>${employerNetSavings.toFixed(2)}</span>
             </div>
           </div>
