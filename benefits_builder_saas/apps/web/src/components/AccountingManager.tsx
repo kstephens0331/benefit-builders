@@ -77,6 +77,7 @@ export default function AccountingManager({
 
   // AR Modal State
   const [showARModal, setShowARModal] = useState(false);
+  const [editingAR, setEditingAR] = useState<string | null>(null);
   const [arFormData, setArFormData] = useState({
     company_id: "",
     invoice_number: "",
@@ -89,6 +90,7 @@ export default function AccountingManager({
 
   // AP Modal State
   const [showAPModal, setShowAPModal] = useState(false);
+  const [editingAP, setEditingAP] = useState<string | null>(null);
   const [apFormData, setApFormData] = useState({
     vendor_name: "",
     bill_number: "",
@@ -101,6 +103,7 @@ export default function AccountingManager({
 
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<string | null>(null);
   const [paymentFormData, setPaymentFormData] = useState({
     transaction_type: "ar_payment" as "ar_payment" | "ap_payment",
     ar_id: "",
@@ -113,14 +116,20 @@ export default function AccountingManager({
     notes: "",
   });
 
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'ar' | 'ap' | 'payment', id: string } | null>(null);
+
   const handleCreateAR = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      const res = await fetch("/api/accounting/ar", {
-        method: "POST",
+      const url = editingAR ? `/api/accounting/ar/${editingAR}` : "/api/accounting/ar";
+      const method = editingAR ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...arFormData,
@@ -131,10 +140,20 @@ export default function AccountingManager({
       const data = await res.json();
 
       if (!data.ok) {
-        throw new Error(data.error || "Failed to create A/R");
+        throw new Error(data.error || `Failed to ${editingAR ? 'update' : 'create'} A/R`);
       }
 
       setShowARModal(false);
+      setEditingAR(null);
+      setArFormData({
+        company_id: "",
+        invoice_number: "",
+        invoice_date: new Date().toISOString().split("T")[0],
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        amount: "",
+        description: "",
+        notes: "",
+      });
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -149,8 +168,11 @@ export default function AccountingManager({
     setError(null);
 
     try {
-      const res = await fetch("/api/accounting/ap", {
-        method: "POST",
+      const url = editingAP ? `/api/accounting/ap/${editingAP}` : "/api/accounting/ap";
+      const method = editingAP ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...apFormData,
@@ -161,10 +183,20 @@ export default function AccountingManager({
       const data = await res.json();
 
       if (!data.ok) {
-        throw new Error(data.error || "Failed to create A/P");
+        throw new Error(data.error || `Failed to ${editingAP ? 'update' : 'create'} A/P`);
       }
 
       setShowAPModal(false);
+      setEditingAP(null);
+      setApFormData({
+        vendor_name: "",
+        bill_number: "",
+        bill_date: new Date().toISOString().split("T")[0],
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        amount: "",
+        description: "",
+        notes: "",
+      });
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -179,8 +211,11 @@ export default function AccountingManager({
     setError(null);
 
     try {
-      const res = await fetch("/api/accounting/payments", {
-        method: "POST",
+      const url = editingPayment ? `/api/accounting/payments/${editingPayment}` : "/api/accounting/payments";
+      const method = editingPayment ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...paymentFormData,
@@ -193,10 +228,22 @@ export default function AccountingManager({
       const data = await res.json();
 
       if (!data.ok) {
-        throw new Error(data.error || "Failed to record payment");
+        throw new Error(data.error || `Failed to ${editingPayment ? 'update' : 'record'} payment`);
       }
 
       setShowPaymentModal(false);
+      setEditingPayment(null);
+      setPaymentFormData({
+        transaction_type: "ar_payment",
+        ar_id: "",
+        ap_id: "",
+        payment_date: new Date().toISOString().split("T")[0],
+        amount: "",
+        payment_method: "check",
+        check_number: "",
+        reference_number: "",
+        notes: "",
+      });
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -222,6 +269,82 @@ export default function AccountingManager({
         throw new Error(data.error || "Failed to sync to QuickBooks");
       }
 
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditAR = (ar: AR) => {
+    setEditingAR(ar.id);
+    setArFormData({
+      company_id: ar.company_id,
+      invoice_number: ar.invoice_number,
+      invoice_date: ar.invoice_date,
+      due_date: ar.due_date,
+      amount: ar.amount.toString(),
+      description: ar.description || "",
+      notes: ar.notes || "",
+    });
+    setShowARModal(true);
+  };
+
+  const handleEditAP = (ap: AP) => {
+    setEditingAP(ap.id);
+    setApFormData({
+      vendor_name: ap.vendor_name,
+      bill_number: ap.bill_number,
+      bill_date: ap.bill_date,
+      due_date: ap.due_date,
+      amount: ap.amount.toString(),
+      description: ap.description || "",
+      notes: ap.notes || "",
+    });
+    setShowAPModal(true);
+  };
+
+  const handleEditPayment = (payment: Payment) => {
+    setEditingPayment(payment.id);
+    setPaymentFormData({
+      transaction_type: payment.transaction_type as "ar_payment" | "ap_payment",
+      ar_id: payment.ar_id || "",
+      ap_id: payment.ap_id || "",
+      payment_date: payment.payment_date,
+      amount: payment.amount.toString(),
+      payment_method: payment.payment_method as any,
+      check_number: payment.check_number || "",
+      reference_number: payment.reference_number || "",
+      notes: payment.notes || "",
+    });
+    setShowPaymentModal(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      let url = "";
+      if (deleteConfirm.type === "ar") {
+        url = `/api/accounting/ar/${deleteConfirm.id}`;
+      } else if (deleteConfirm.type === "ap") {
+        url = `/api/accounting/ap/${deleteConfirm.id}`;
+      } else if (deleteConfirm.type === "payment") {
+        url = `/api/accounting/payments/${deleteConfirm.id}`;
+      }
+
+      const res = await fetch(url, { method: "DELETE" });
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to delete");
+      }
+
+      setDeleteConfirm(null);
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -425,7 +548,19 @@ export default function AccountingManager({
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <div className="flex gap-2 justify-center">
+                          <div className="flex gap-2 justify-center flex-wrap">
+                            <button
+                              onClick={() => handleEditAR(ar)}
+                              className="px-3 py-1 bg-slate-600 text-white rounded hover:bg-slate-700 text-sm"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm({ type: 'ar', id: ar.id })}
+                              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                            >
+                              Delete
+                            </button>
                             <button
                               onClick={() => {
                                 setPaymentFormData({
@@ -512,20 +647,34 @@ export default function AccountingManager({
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <button
-                            onClick={() => {
-                              setPaymentFormData({
-                                ...paymentFormData,
-                                transaction_type: "ap_payment",
-                                ap_id: ap.id,
-                                amount: ap.amount_due.toString(),
-                              });
-                              setShowPaymentModal(true);
-                            }}
-                            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-                          >
-                            Pay Bill
-                          </button>
+                          <div className="flex gap-2 justify-center flex-wrap">
+                            <button
+                              onClick={() => handleEditAP(ap)}
+                              className="px-3 py-1 bg-slate-600 text-white rounded hover:bg-slate-700 text-sm"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm({ type: 'ap', id: ap.id })}
+                              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                            >
+                              Delete
+                            </button>
+                            <button
+                              onClick={() => {
+                                setPaymentFormData({
+                                  ...paymentFormData,
+                                  transaction_type: "ap_payment",
+                                  ap_id: ap.id,
+                                  amount: ap.amount_due.toString(),
+                                });
+                                setShowPaymentModal(true);
+                              }}
+                              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                            >
+                              Pay Bill
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -562,6 +711,7 @@ export default function AccountingManager({
                       <th className="text-left py-3 px-4">Check/Ref #</th>
                       <th className="text-right py-3 px-4">Amount</th>
                       <th className="text-left py-3 px-4">Notes</th>
+                      <th className="text-center py-3 px-4">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -581,6 +731,22 @@ export default function AccountingManager({
                         <td className="py-3 px-4">{payment.check_number || payment.reference_number || "-"}</td>
                         <td className="py-3 px-4 text-right font-bold">{formatCurrency(payment.amount)}</td>
                         <td className="py-3 px-4">{payment.notes || "-"}</td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={() => handleEditPayment(payment)}
+                              className="px-3 py-1 bg-slate-600 text-white rounded hover:bg-slate-700 text-sm"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm({ type: 'payment', id: payment.id })}
+                              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -600,7 +766,7 @@ export default function AccountingManager({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
             <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">Create New Invoice</h2>
+              <h2 className="text-xl font-bold mb-4">{editingAR ? 'Edit Invoice' : 'Create New Invoice'}</h2>
               <form onSubmit={handleCreateAR} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -700,7 +866,7 @@ export default function AccountingManager({
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Creating..." : "Create Invoice"}
+                    {isLoading ? (editingAR ? "Updating..." : "Creating...") : (editingAR ? "Update Invoice" : "Create Invoice")}
                   </button>
                 </div>
               </form>
@@ -714,7 +880,7 @@ export default function AccountingManager({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
             <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">Create New Bill</h2>
+              <h2 className="text-xl font-bold mb-4">{editingAP ? 'Edit Bill' : 'Create New Bill'}</h2>
               <form onSubmit={handleCreateAP} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -808,7 +974,7 @@ export default function AccountingManager({
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Creating..." : "Create Bill"}
+                    {isLoading ? (editingAP ? "Updating..." : "Creating...") : (editingAP ? "Update Bill" : "Create Bill")}
                   </button>
                 </div>
               </form>
@@ -822,7 +988,7 @@ export default function AccountingManager({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
             <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">Record Payment</h2>
+              <h2 className="text-xl font-bold mb-4">{editingPayment ? 'Edit Payment' : 'Record Payment'}</h2>
               <form onSubmit={handleRecordPayment} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -955,10 +1121,43 @@ export default function AccountingManager({
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Recording..." : "Record Payment"}
+                    {isLoading ? (editingPayment ? "Updating..." : "Recording...") : (editingPayment ? "Update Payment" : "Record Payment")}
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4 text-red-600">Confirm Delete</h2>
+              <p className="text-slate-700 mb-6">
+                Are you sure you want to delete this {deleteConfirm.type === 'ar' ? 'invoice' : deleteConfirm.type === 'ap' ? 'bill' : 'payment'}?
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(null)}
+                  className="px-4 py-2 border rounded-lg hover:bg-slate-50"
+                  disabled={isLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Deleting..." : "Delete"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
