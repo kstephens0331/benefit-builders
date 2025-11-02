@@ -108,7 +108,17 @@ export default function BenefitsCalculator({
   const employeeFee = benefitAmount * (employeeRate / 100);
   const employerFee = benefitAmount * (employerRate / 100);
 
-  const afterNetPay = grossPay - benefitAmount - afterTotalTax - employeeFee;
+  // Calculate the plan distribution (benefit amount returned to employee after EE fee deducted)
+  // Formula: Plan Distribution % = (100 - Employee Rate)%
+  // Examples: 5/1 model → 95% back, 4/3 model → 96% back, 3/4 model → 97% back, 5/3 model → 95% back
+  const planDistributionPercent = (100 - employeeRate) / 100;
+  const planDistribution = benefitAmount * planDistributionPercent;
+
+  // Net pay BEFORE adding back plan distribution
+  const afterNetPayBeforeDistribution = grossPay - benefitAmount - afterTotalTax - employeeFee;
+
+  // Final net pay AFTER adding back plan distribution
+  const afterNetPay = afterNetPayBeforeDistribution + planDistribution;
 
   // Savings
   const employeeTaxSavings = beforeTotalTax - afterTotalTax;
@@ -294,13 +304,21 @@ export default function BenefitsCalculator({
             </div>
             <div className="border-t border-green-300 my-2"></div>
             <div className="flex justify-between font-bold text-base">
-              <span className="text-slate-900">Total Deductions:</span>
+              <span className="text-slate-900">Pay (Net of Taxes):</span>
               <span className="text-green-700">
-                -${(benefitAmount + afterTotalTax + employeeFee).toFixed(2)}
+                ${afterNetPayBeforeDistribution.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-700">
+                Plan Distribution ({(planDistributionPercent * 100).toFixed(0)}%):
+              </span>
+              <span className="font-medium text-green-700">
+                +${planDistribution.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between font-bold text-lg bg-green-200 -mx-6 px-6 py-3 mt-3">
-              <span className="text-slate-900">NET PAY:</span>
+              <span className="text-slate-900">FINAL NET PAY:</span>
               <span className="text-green-900">${afterNetPay.toFixed(2)}</span>
             </div>
           </div>
