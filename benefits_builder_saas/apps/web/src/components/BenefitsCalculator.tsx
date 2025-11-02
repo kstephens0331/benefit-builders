@@ -45,7 +45,7 @@ export default function BenefitsCalculator({
     employee.dependents,
     grossPay,
     employee.pay_period,
-    30 // Max 30% of gross pay
+    50 // Max 50% of gross pay (matches current Benefits Booster model)
   );
 
   // Use SAFE deduction amount that won't exceed gross pay
@@ -134,11 +134,11 @@ export default function BenefitsCalculator({
             <div className="font-bold text-red-900 mb-2">⚠️ INSUFFICIENT GROSS PAY</div>
             <div className="text-sm text-red-800 space-y-1">
               <div>Target Monthly: <strong>${affordability.targetMonthly.toFixed(2)}</strong></div>
-              <div>Safe Monthly (capped at 30% of gross): <strong>${affordability.safeMonthly.toFixed(2)}</strong></div>
+              <div>Safe Monthly (capped at 50% of gross): <strong>${affordability.safeMonthly.toFixed(2)}</strong></div>
               <div className="text-red-900 font-bold">Shortfall: ${affordability.shortfallMonthly.toFixed(2)}/month</div>
               <div className="mt-2 text-xs">
                 Employee's gross pay is too low for the full Section 125 benefit based on their tier.
-                Deduction capped at {affordability.percentOfGross.toFixed(1)}% of gross pay.
+                Deduction capped at {affordability.percentOfGross.toFixed(1)}% of gross pay (maximum 50%).
               </div>
             </div>
           </div>
@@ -188,7 +188,7 @@ export default function BenefitsCalculator({
           <strong>Auto-calculated</strong> based on filing status ({employee.filing_status}) and dependents ({employee.dependents})
           {hasShortfall && (
             <div className="mt-2 font-bold text-red-700">
-              Note: Deduction reduced to prevent exceeding 30% of gross pay
+              Note: Deduction reduced to prevent exceeding 50% of gross pay
             </div>
           )}
         </div>

@@ -177,7 +177,7 @@ export function monthlyToPerPay(monthlyAmount: number, payPeriod: string): numbe
  * @param dependents - Number of dependents
  * @param grossPayPerPaycheck - Employee's gross pay per paycheck
  * @param payPeriod - Pay period code (w, b, s, m)
- * @param maxPercentOfGross - Maximum % of gross pay that can be deducted (default 30%)
+ * @param maxPercentOfGross - Maximum % of gross pay that can be deducted (default 50%)
  * @returns Safe per-paycheck deduction amount that won't exceed gross pay
  */
 export function calculateSafeSection125Deduction(
@@ -186,7 +186,7 @@ export function calculateSafeSection125Deduction(
   dependents: number,
   grossPayPerPaycheck: number,
   payPeriod: string,
-  maxPercentOfGross: number = 30
+  maxPercentOfGross: number = 50
 ): number {
   // Get the target monthly amount based on tier rules
   const targetMonthlyAmount = calculateSection125Amount(tier, filingStatus, dependents);
@@ -194,7 +194,7 @@ export function calculateSafeSection125Deduction(
   // Convert to per-paycheck amount
   const targetPerPaycheck = monthlyToPerPay(targetMonthlyAmount, payPeriod);
 
-  // Calculate maximum allowed deduction (default 30% of gross)
+  // Calculate maximum allowed deduction (default 50% of gross - matches current Benefits Booster model)
   const maxAllowedDeduction = grossPayPerPaycheck * (maxPercentOfGross / 100);
 
   // Return the LESSER of target or max allowed
@@ -214,7 +214,7 @@ export function calculateSafeSection125Deduction(
  * @param dependents - Number of dependents
  * @param grossPayPerPaycheck - Employee's gross pay per paycheck
  * @param payPeriod - Pay period code
- * @param maxPercentOfGross - Maximum % of gross pay that can be deducted (default 30%)
+ * @param maxPercentOfGross - Maximum % of gross pay that can be deducted (default 50%)
  * @returns { isSufficient, targetAmount, safeAmount, shortfall } - Details about coverage
  */
 export function checkSection125Affordability(
@@ -223,7 +223,7 @@ export function checkSection125Affordability(
   dependents: number,
   grossPayPerPaycheck: number,
   payPeriod: string,
-  maxPercentOfGross: number = 30
+  maxPercentOfGross: number = 50
 ): {
   isSufficient: boolean;
   targetPerPaycheck: number;
