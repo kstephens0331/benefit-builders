@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { calcFICA, calcFITFromTable } from "@/lib/tax";
-import { calculateSection125Amount, monthlyToPerPay, type CompanyTier, type FilingStatus } from "@/lib/section125";
+import { calculateSection125Amount, calculateSafeSection125Deduction, checkSection125Affordability, monthlyToPerPay, type CompanyTier, type FilingStatus } from "@/lib/section125";
 
 type Props = {
   employee: {
@@ -36,17 +36,24 @@ export default function BenefitsCalculator({
   fedWithholding,
   enrolledBenefits,
 }: Props) {
-  // Automatically calculate the Section 125 amount based on company tier and employee details
-  const monthlySection125Amount = calculateSection125Amount(
+  const grossPay = Number(employee.gross_pay) || 0;
+
+  // Check affordability and get safe deduction amount
+  const affordability = checkSection125Affordability(
     company.tier,
     employee.filing_status as FilingStatus,
-    employee.dependents
+    employee.dependents,
+    grossPay,
+    employee.pay_period,
+    30 // Max 30% of gross pay
   );
 
-  // Convert monthly amount to per-paycheck amount
-  const section125PerPaycheck = monthlyToPerPay(monthlySection125Amount, employee.pay_period);
+  // Use SAFE deduction amount that won't exceed gross pay
+  const section125PerPaycheck = affordability.safePerPaycheck;
+  const monthlySection125Amount = affordability.safeMonthly;
 
-  const grossPay = Number(employee.gross_pay) || 0;
+  // Track if employee has insufficient pay for full benefit
+  const hasShortfall = !affordability.isSufficient;
   const employerRate = Number(company.employer_rate) || 0;
   const employeeRate = Number(company.employee_rate) || 0;
   const ssRate = Number(fedRates.ss_rate) || 0.062;
@@ -113,32 +120,77 @@ export default function BenefitsCalculator({
   return (
     <div className="space-y-6">
       {/* Auto-Calculated Section 125 Amount Display */}
-      <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl shadow-lg border-2 border-blue-200">
-        <h3 className="text-lg font-bold text-blue-900 mb-4">
+      <div className={`p-6 rounded-2xl shadow-lg border-2 ${
+        hasShortfall
+          ? 'bg-gradient-to-br from-yellow-50 to-orange-100 border-yellow-400'
+          : 'bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-200'
+      }`}>
+        <h3 className={`text-lg font-bold mb-4 ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
           💰 Section 125 Calculation
         </h3>
+
+        {hasShortfall && (
+          <div className="mb-4 p-4 bg-red-100 border-2 border-red-400 rounded-lg">
+            <div className="font-bold text-red-900 mb-2">⚠️ INSUFFICIENT GROSS PAY</div>
+            <div className="text-sm text-red-800 space-y-1">
+              <div>Target Monthly: <strong>${affordability.targetMonthly.toFixed(2)}</strong></div>
+              <div>Safe Monthly (capped at 30% of gross): <strong>${affordability.safeMonthly.toFixed(2)}</strong></div>
+              <div className="text-red-900 font-bold">Shortfall: ${affordability.shortfallMonthly.toFixed(2)}/month</div>
+              <div className="mt-2 text-xs">
+                Employee's gross pay is too low for the full Section 125 benefit based on their tier.
+                Deduction capped at {affordability.percentOfGross.toFixed(1)}% of gross pay.
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <div className="text-sm text-slate-600">Company Tier</div>
-            <div className="text-lg font-bold text-blue-900">
+            <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
               {company.tier.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </div>
           </div>
           <div>
-            <div className="text-sm text-slate-600">Monthly Amount</div>
-            <div className="text-lg font-bold text-blue-900">
+            <div className="text-sm text-slate-600">
+              {hasShortfall ? 'Safe Monthly Amount' : 'Monthly Amount'}
+              {hasShortfall && <span className="text-red-600 ml-1">*CAPPED*</span>}
+            </div>
+            <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
               ${monthlySection125Amount.toFixed(2)}
+              {hasShortfall && (
+                <div className="text-xs text-red-600 font-normal mt-1">
+                  Target: ${affordability.targetMonthly.toFixed(2)}
+                </div>
+              )}
             </div>
           </div>
           <div>
-            <div className="text-sm text-slate-600">Per Paycheck Amount</div>
-            <div className="text-2xl font-bold text-blue-900">
+            <div className="text-sm text-slate-600">
+              {hasShortfall ? 'Safe Per Paycheck' : 'Per Paycheck Amount'}
+              {hasShortfall && <span className="text-red-600 ml-1">*CAPPED*</span>}
+            </div>
+            <div className={`text-2xl font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
               ${section125PerPaycheck.toFixed(2)}
+              {hasShortfall && (
+                <div className="text-xs text-red-600 font-normal mt-1">
+                  Target: ${affordability.targetPerPaycheck.toFixed(2)}
+                </div>
+              )}
             </div>
           </div>
         </div>
-        <div className="mt-4 text-sm text-blue-800 bg-blue-100 p-3 rounded-lg">
+        <div className={`mt-4 text-sm p-3 rounded-lg ${
+          hasShortfall
+            ? 'text-orange-800 bg-orange-100'
+            : 'text-blue-800 bg-blue-100'
+        }`}>
           <strong>Auto-calculated</strong> based on filing status ({employee.filing_status}) and dependents ({employee.dependents})
+          {hasShortfall && (
+            <div className="mt-2 font-bold text-red-700">
+              Note: Deduction reduced to prevent exceeding 30% of gross pay
+            </div>
+          )}
         </div>
       </div>
 
