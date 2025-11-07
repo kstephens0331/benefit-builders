@@ -67,11 +67,21 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Sanitize date fields - convert empty strings to null
+    const sanitizedUpdates = { ...updates };
+    const dateFields = ['dob', 'hire_date', 'inactive_date'];
+
+    for (const field of dateFields) {
+      if (field in sanitizedUpdates && sanitizedUpdates[field] === "") {
+        sanitizedUpdates[field] = null;
+      }
+    }
+
     const db = createServiceClient();
 
     const { data, error } = await db
       .from("employees")
-      .update(updates)
+      .update(sanitizedUpdates)
       .eq("id", id)
       .select()
       .single();
