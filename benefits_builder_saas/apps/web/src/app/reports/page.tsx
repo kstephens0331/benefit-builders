@@ -19,6 +19,7 @@ type CompanyRow = {
 };
 
 type EmployeeRow = {
+  employee_id: string;
   company_id: string;
   company_name: string;
   first_name: string;
@@ -119,6 +120,7 @@ export default async function ReportsPage() {
     }
 
     employeeRows.push({
+      employee_id: e.id,
       company_id: e.company_id,
       company_name: nameById.get(e.company_id) ?? "",
       first_name: e.first_name,
@@ -255,7 +257,12 @@ export default async function ReportsPage() {
                 <tr key={`${e.company_id}-${idx}`} className="border-t">
                   <td className="p-3">{e.company_name}</td>
                   <td className="p-3">
-                    {e.last_name}, {e.first_name}
+                    <Link
+                      className="underline underline-offset-2 hover:text-blue-600"
+                      href={`/companies/${e.company_id}/employees/${e.employee_id}`}
+                    >
+                      {e.last_name}, {e.first_name}
+                    </Link>
                   </td>
                   <td className="p-3">{e.active ? "Yes" : "No"}</td>
                   <td className="p-3">{e.pay_period ?? "-"}</td>
