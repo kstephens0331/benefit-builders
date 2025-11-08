@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase";
 import BenefitsCalculator from "@/components/BenefitsCalculator";
 import SafetyCapEditor from "@/components/SafetyCapEditor";
+import EmployeeFieldEditor from "@/components/EmployeeFieldEditor";
 
 export default async function EmployeePage({
   params,
@@ -124,27 +125,65 @@ export default async function EmployeePage({
         <div className={row}>
           <div>
             <div className={label}>Gross per pay</div>
-            <div className="font-medium">${grossPay.toFixed(2)}</div>
+            <EmployeeFieldEditor
+              employeeId={empId}
+              fieldName="gross_pay"
+              fieldLabel="Gross per pay"
+              initialValue={grossPay}
+              fieldType="number"
+              min={0}
+            />
           </div>
           <div>
             <div className={label}>Filing status</div>
-            <div className="font-medium">{emp.filing_status}</div>
+            <EmployeeFieldEditor
+              employeeId={empId}
+              fieldName="filing_status"
+              fieldLabel="Filing status"
+              initialValue={emp.filing_status}
+              fieldType="select"
+              options={[
+                { value: "single", label: "Single" },
+                { value: "married", label: "Married" },
+                { value: "head", label: "Head of Household" },
+              ]}
+            />
           </div>
         </div>
         <div className={row}>
           <div>
             <div className={label}>Dependents</div>
-            <div className="font-medium">{emp.dependents ?? 0}</div>
+            <EmployeeFieldEditor
+              employeeId={empId}
+              fieldName="dependents"
+              fieldLabel="Dependents"
+              initialValue={emp.dependents ?? 0}
+              fieldType="number"
+              min={0}
+              max={20}
+            />
           </div>
           <div>
             <div className={label}>Hire date</div>
-            <div className="font-medium">{emp.hire_date ?? "—"}</div>
+            <EmployeeFieldEditor
+              employeeId={empId}
+              fieldName="hire_date"
+              fieldLabel="Hire date"
+              initialValue={emp.hire_date}
+              fieldType="date"
+            />
           </div>
         </div>
         <div className={row}>
           <div>
             <div className={label}>DOB</div>
-            <div className="font-medium">{emp.dob ?? "—"}</div>
+            <EmployeeFieldEditor
+              employeeId={empId}
+              fieldName="dob"
+              fieldLabel="DOB"
+              initialValue={emp.dob}
+              fieldType="date"
+            />
           </div>
           <div>
             <div className={label}>Model</div>
