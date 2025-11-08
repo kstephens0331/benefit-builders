@@ -336,16 +336,16 @@ export default function BenefitsCalculator({
 
       {/* Savings Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Employee Savings */}
+        {/* Employee Allowable Benefit Amount */}
         <div className="p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg">
-          <h3 className="text-sm font-medium opacity-90 mb-2">Employee Tax Savings</h3>
-          <div className="text-4xl font-bold mb-2">${employeeTaxSavings.toFixed(2)}</div>
+          <h3 className="text-sm font-medium opacity-90 mb-2">Allowable Benefit Amount</h3>
+          <div className="text-4xl font-bold mb-2">${employeeNetIncrease.toFixed(2)}</div>
           <div className="text-sm opacity-90">per paycheck</div>
           <div className="mt-4 pt-4 border-t border-blue-400 text-sm">
             <div className="flex justify-between">
-              <span>Net Pay Increase:</span>
+              <span>Tax Savings:</span>
               <span className="font-semibold">
-                ${employeeNetIncrease.toFixed(2)}
+                ${employeeTaxSavings.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between text-xs opacity-75 mt-1">

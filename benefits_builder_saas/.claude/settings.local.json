@@ -52,7 +52,8 @@
       "Bash(tee:*)",
       "Bash(node scripts/parse-billing-example.mjs:*)",
       "Bash(node -p:*)",
-      "Bash(vercel:*)"
+      "Bash(vercel:*)",
+      "Bash(Savings\" to \"Allowable Benefit Amount\" based on user feedback.\n\nThe calculation now prominently displays the net pay increase (Final Net Pay \nwith Section 125 minus Net Pay without Section 125) as the main metric, with \ntax savings shown as a secondary detail.\n\nFormula:\n- Main Display: Net Pay Increase = afterNetPay - beforeNetPay\n- Secondary Detail: Tax Savings = beforeTotalTax - afterTotalTax\n\nThis better represents the actual benefit amount the employee receives.\n\nFiles Modified:\n- apps/web/src/components/BenefitsCalculator.tsx\n  - Changed heading from \"Employee Tax Savings\" to \"Allowable Benefit Amount\"\n  - Swapped employeeTaxSavings and employeeNetIncrease display positions\n  - Main: employeeNetIncrease (net pay difference)\n  - Detail: employeeTaxSavings (tax difference)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
