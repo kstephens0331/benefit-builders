@@ -16,6 +16,7 @@ type Props = {
     employer_rate: number;
     employee_rate: number;
     tier: CompanyTier;
+    safety_cap_percent: number;
   };
   fedRates: {
     ss_rate: number;
@@ -37,6 +38,7 @@ export default function BenefitsCalculator({
   enrolledBenefits,
 }: Props) {
   const grossPay = Number(employee.gross_pay) || 0;
+  const safetyCapPercent = Number(company.safety_cap_percent) || 50;
 
   // Check affordability and get safe deduction amount
   const affordability = checkSection125Affordability(
@@ -45,7 +47,7 @@ export default function BenefitsCalculator({
     employee.dependents,
     grossPay,
     employee.pay_period,
-    50 // Max 50% of gross pay (matches current Benefits Booster model)
+    safetyCapPercent // Max % of gross pay (configurable per company)
   );
 
   // Use SAFE deduction amount that won't exceed gross pay
@@ -144,22 +146,29 @@ export default function BenefitsCalculator({
             <div className="font-bold text-red-900 mb-2">⚠️ INSUFFICIENT GROSS PAY</div>
             <div className="text-sm text-red-800 space-y-1">
               <div>Target Monthly: <strong>${affordability.targetMonthly.toFixed(2)}</strong></div>
-              <div>Safe Monthly (capped at 50% of gross): <strong>${affordability.safeMonthly.toFixed(2)}</strong></div>
+              <div>Safe Monthly (capped at {safetyCapPercent}% of gross): <strong>${affordability.safeMonthly.toFixed(2)}</strong></div>
               <div className="text-red-900 font-bold">Shortfall: ${affordability.shortfallMonthly.toFixed(2)}/month</div>
               <div className="mt-2 text-xs">
                 Employee's gross pay is too low for the full Section 125 benefit based on their tier.
-                Deduction capped at {affordability.percentOfGross.toFixed(1)}% of gross pay (maximum 50%).
+                Deduction capped at {affordability.percentOfGross.toFixed(1)}% of gross pay (maximum {safetyCapPercent}%).
               </div>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <div className="text-sm text-slate-600">Company Tier</div>
             <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
               {company.tier.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </div>
+          </div>
+          <div>
+            <div className="text-sm text-slate-600">Safety Cap %</div>
+            <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
+              {safetyCapPercent.toFixed(1)}%
+            </div>
+            <div className="text-xs text-slate-500 mt-1">Max of gross pay</div>
           </div>
           <div>
             <div className="text-sm text-slate-600">
@@ -198,7 +207,7 @@ export default function BenefitsCalculator({
           <strong>Auto-calculated</strong> based on filing status ({employee.filing_status}) and dependents ({employee.dependents})
           {hasShortfall && (
             <div className="mt-2 font-bold text-red-700">
-              Note: Deduction reduced to prevent exceeding 50% of gross pay
+              Note: Deduction reduced to prevent exceeding {safetyCapPercent}% of gross pay
             </div>
           )}
         </div>

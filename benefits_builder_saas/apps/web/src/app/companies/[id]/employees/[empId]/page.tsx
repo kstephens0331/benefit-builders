@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase";
 import BenefitsCalculator from "@/components/BenefitsCalculator";
+import SafetyCapEditor from "@/components/SafetyCapEditor";
 
 export default async function EmployeePage({
   params,
@@ -13,7 +14,7 @@ export default async function EmployeePage({
   const { data: emp, error: empError } = await db
     .from("employees")
     .select(
-      "id, first_name, last_name, state, pay_period, gross_pay, filing_status, dependents, active, hire_date, dob, inactive_date, company_id"
+      "id, first_name, last_name, state, pay_period, gross_pay, filing_status, dependents, active, hire_date, dob, inactive_date, company_id, safety_cap_percent"
     )
     .eq("id", empId)
     .single();
@@ -29,7 +30,7 @@ export default async function EmployeePage({
   // Fetch company data for model rates and tier
   const { data: company, error: companyError } = await db
     .from("companies")
-    .select("id, name, model, employer_rate, employee_rate, pay_frequency, tier")
+    .select("id, name, model, employer_rate, employee_rate, pay_frequency, tier, safety_cap_percent")
     .eq("id", companyId)
     .single();
 
@@ -150,6 +151,16 @@ export default async function EmployeePage({
             <div className="font-medium">{company?.model || "N/A"} ({employeeRate}% Emp / {employerRate}% Empr)</div>
           </div>
         </div>
+        <div className={row}>
+          <div>
+            <div className={label}>Safety Cap % (Max Deduction)</div>
+            <SafetyCapEditor
+              employeeId={empId}
+              initialValue={emp.safety_cap_percent ? Number(emp.safety_cap_percent) : null}
+              companyDefault={Number(company?.safety_cap_percent) || 50}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Benefits List */}
@@ -196,6 +207,7 @@ export default async function EmployeePage({
           employer_rate: employerRate,
           employee_rate: employeeRate,
           tier: (company?.tier as any) || "2025",
+          safety_cap_percent: Number(emp?.safety_cap_percent ?? company?.safety_cap_percent) || 50,
         }}
         fedRates={{
           ss_rate: Number(fedRates?.ss_rate) || 0.062,
