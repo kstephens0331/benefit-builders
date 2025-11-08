@@ -4,26 +4,26 @@ export type BillingModel = "5/3" | "4/3" | "5/1" | "5/0" | "4/4";
 /**
  * Returns [employeeRate, employerRate] as decimals.
  *
- * IMPORTANT: Model format conventions:
- * - "5/3", "4/3", "4/4" = EMPLOYER/EMPLOYEE (legacy format)
- * - "5/1", "5/0" = EMPLOYEE/EMPLOYER (new format for businesses and schools)
+ * IMPORTANT: Model format convention - EMPLOYEE/EMPLOYER
+ * The first number is always the EMPLOYEE rate (higher)
+ * The second number is always the EMPLOYER rate (lower)
  *
  * Returns: [employeeRate, employerRate]
- * - "5/3" => [0.03, 0.05] (Employee 3%, Employer 5%)
+ * - "5/3" => [0.05, 0.03] (Employee 5%, Employer 3%)
  * - "5/1" => [0.05, 0.01] (Employee 5%, Employer 1%)
  * - "5/0" => [0.05, 0.00] (Employee 5%, Employer 0%) - Schools
- * - "4/3" => [0.03, 0.04] (Employee 3%, Employer 4%)
+ * - "4/3" => [0.04, 0.03] (Employee 4%, Employer 3%)
  * - "4/4" => [0.04, 0.04] (Employee 4%, Employer 4%)
  */
 export function getModelRates(model: string | null | undefined): [number, number] {
   const m = (model ?? "").trim();
   switch (m) {
     case "5/3":
-      // Employer 5%, Employee 3%
-      return [0.03, 0.05];
+      // Employee 5%, Employer 3%
+      return [0.05, 0.03];
     case "4/3":
-      // Employer 4%, Employee 3%
-      return [0.03, 0.04];
+      // Employee 4%, Employer 3%
+      return [0.04, 0.03];
     case "5/1":
       // Employee 5%, Employer 1%
       return [0.05, 0.01];
@@ -31,22 +31,22 @@ export function getModelRates(model: string | null | undefined): [number, number
       // Employee 5%, Employer 0% (Schools)
       return [0.05, 0.00];
     case "4/4":
-      // Employer 4%, Employee 4%
+      // Employee 4%, Employer 4%
       return [0.04, 0.04];
     default:
-      // Default to 5/3 (Employee 3%, Employer 5%)
-      return [0.03, 0.05];
+      // Default to 5/3 (Employee 5%, Employer 3%)
+      return [0.05, 0.03];
   }
 }
 
 /**
- * Human-friendly label in EMPLOYER/EMPLOYEE format
- * Example: "5/3" => "5.0% / 3.0%" (Employer 5% / Employee 3%)
+ * Human-friendly label in EMPLOYEE/EMPLOYER format
+ * Example: "5/3" => "5.0% / 3.0%" (Employee 5% / Employer 3%)
  */
 export function formatRates(model: string | null | undefined): string {
   const [ee, er] = getModelRates(model);
-  // Display as Employer / Employee to match model notation
-  return `${(er * 100).toFixed(1)}% / ${(ee * 100).toFixed(1)}%`;
+  // Display as Employee / Employer to match model notation
+  return `${(ee * 100).toFixed(1)}% / ${(er * 100).toFixed(1)}%`;
 }
 
 /**
