@@ -72,10 +72,23 @@ export async function PATCH(request: NextRequest) {
     const dateFields = ['dob', 'hire_date', 'inactive_date'];
 
     for (const field of dateFields) {
-      if (field in sanitizedUpdates && sanitizedUpdates[field] === "") {
-        sanitizedUpdates[field] = null;
+      if (field in sanitizedUpdates) {
+        // Convert empty strings, undefined, or "undefined" strings to null
+        if (sanitizedUpdates[field] === "" ||
+            sanitizedUpdates[field] === undefined ||
+            sanitizedUpdates[field] === "undefined" ||
+            sanitizedUpdates[field] === null) {
+          sanitizedUpdates[field] = null;
+        }
       }
     }
+
+    // Remove undefined values from the update object
+    Object.keys(sanitizedUpdates).forEach(key => {
+      if (sanitizedUpdates[key] === undefined || sanitizedUpdates[key] === "undefined") {
+        delete sanitizedUpdates[key];
+      }
+    });
 
     const db = createServiceClient();
 
@@ -87,11 +100,13 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
+      console.error("Employee update error:", error);
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true, data });
   } catch (error: any) {
+    console.error("Employee PATCH error:", error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 }
