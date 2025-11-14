@@ -202,32 +202,17 @@ export default async function EmployeePage({
         </div>
       </div>
 
-      {/* Benefits List */}
-      {benefits && benefits.length > 0 && (
-        <div className="p-4 bg-white rounded-2xl shadow space-y-3">
-          <h2 className="font-semibold text-lg">Enrolled Benefits</h2>
-          <div className="space-y-2">
-            {benefits.map((benefit) => (
-              <div key={benefit.id} className="flex justify-between items-center py-2 border-b">
-                <div>
-                  <div className="font-medium">{benefit.plan_code}</div>
-                  <div className="text-xs text-slate-500">
-                    {benefit.reduces_fit && "Reduces FIT"}
-                    {benefit.reduces_fit && benefit.reduces_fica && " · "}
-                    {benefit.reduces_fica && "Reduces FICA"}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">${Number(benefit.per_pay_amount || 0).toFixed(2)}</div>
-                  <div className="text-xs text-slate-500">per pay</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="border-t pt-3">
-            <div className="flex justify-between font-semibold">
-              <span>Total Pre-Tax Deductions:</span>
-              <span>${totalBenefitDeductions.toFixed(2)}</span>
+      {/* Total Enrolled Benefits */}
+      {totalBenefitDeductions > 0 && (
+        <div className="p-4 bg-white rounded-2xl shadow">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="font-semibold text-lg">Total Enrolled Benefits</h2>
+              <div className="text-xs text-slate-500 mt-1">Total pre-tax deductions per paycheck</div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-blue-600">${totalBenefitDeductions.toFixed(2)}</div>
+              <div className="text-xs text-slate-500">per pay</div>
             </div>
           </div>
         </div>
