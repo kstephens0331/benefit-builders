@@ -19,7 +19,7 @@ export const payFrequencyValidator = z.enum(["weekly", "biweekly", "semimonthly"
 
 export const filingStatusValidator = z.enum(["single", "married", "head"]);
 
-export const billingModelValidator = z.enum(["5/3", "4/3", "5/1", "4/4"]);
+export const billingModelValidator = z.enum(["5/3", "4/3", "5/1", "5/0", "4/4"]);
 
 export const profitShareModeValidator = z.enum(["none", "percent_er_savings", "percent_bb_profit"]);
 
