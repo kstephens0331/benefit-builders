@@ -61,6 +61,9 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
     status: company.status,
   });
 
+  // Generate proposal state
+  const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
+
   const now = new Date();
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -195,15 +198,51 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
     }
   };
 
+  const handleGenerateProposal = async () => {
+    if (!confirm(`Generate proposal for ${company.name} from current employees?`)) {
+      return;
+    }
+
+    setIsGeneratingProposal(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/proposals/from-employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_id: company.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to generate proposal");
+      }
+
+      // Redirect to the proposal PDF
+      if (data.proposalId) {
+        window.open(`/api/proposals/${data.proposalId}/pdf`, "_blank");
+      }
+
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsGeneratingProposal(false);
+    }
+  };
+
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{company.name}</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold">{company.name}</h1>
             <button
               onClick={() => setShowCompanyEditModal(true)}
-              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium"
+              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium text-center whitespace-nowrap self-start"
             >
               Edit Company
             </button>
@@ -212,40 +251,40 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
             {company.state} · Model {company.model} · {company.status} · Tier: {company.tier || "2025"}
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Link
             href={`/companies/${company.id}/deductions`}
-            className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-semibold"
+            className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-semibold text-center whitespace-nowrap"
           >
             View Deductions
           </Link>
           <Link
             href={`/companies/${company.id}/add-employee`}
-            className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800"
+            className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-center whitespace-nowrap"
           >
             Add Employee
           </Link>
           <a
             href={`/companies/${company.id}/billing/pdf?period=${period}`}
             target="_blank"
-            className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700"
+            className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 text-center whitespace-nowrap"
           >
             Download Invoice PDF
           </a>
           <a
             href={`/companies/${company.id}/roster/pdf`}
             target="_blank"
-            className="px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-50"
+            className="px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-center whitespace-nowrap"
           >
             Download Roster PDF
           </a>
-          <a
-            href={`/companies/${company.id}/proposal/pdf?period=${period}`}
-            target="_blank"
-            className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+          <button
+            onClick={handleGenerateProposal}
+            disabled={isGeneratingProposal || employees.length === 0}
+            className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-center whitespace-nowrap"
           >
-            Download Proposal PDF
-          </a>
+            {isGeneratingProposal ? "Generating..." : "Generate Proposal"}
+          </button>
         </div>
       </div>
 
@@ -281,12 +320,12 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                 </div>
               </Link>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <button
                   onClick={() => handleToggleActive(emp.id, emp.active)}
                   disabled={isLoading}
                   className={
-                    "px-3 py-1 rounded-full text-sm font-medium " +
+                    "px-3 py-1 rounded-full text-sm font-medium text-center whitespace-nowrap " +
                     (emp.active
                       ? "bg-green-100 text-green-700 hover:bg-green-200"
                       : "bg-slate-200 text-slate-700 hover:bg-slate-300")
@@ -298,7 +337,7 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                 <button
                   onClick={() => openEditModal(emp)}
                   disabled={isLoading}
-                  className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg text-sm font-medium"
+                  className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg text-sm font-medium text-center whitespace-nowrap"
                 >
                   Edit
                 </button>
@@ -308,7 +347,7 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                     handleDelete(emp.id, `${emp.first_name} ${emp.last_name}`)
                   }
                   disabled={isLoading}
-                  className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg text-sm font-medium"
+                  className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg text-sm font-medium text-center whitespace-nowrap"
                 >
                   Delete
                 </button>
@@ -328,7 +367,7 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
             <div className="p-6">
               <h2 className="text-xl font-bold mb-4">Edit Company Settings</h2>
               <form onSubmit={handleCompanyEdit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Company Name *
@@ -446,7 +485,7 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                 Edit {selectedEmployee.first_name} {selectedEmployee.last_name}
               </h2>
               <form onSubmit={handleEdit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       First Name *

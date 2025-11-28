@@ -1,6 +1,8 @@
 // apps/web/src/app/companies/[id]/roster/pdf/route.ts
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { createServiceClient } from "@/lib/supabase";
+import fs from "fs";
+import path from "path";
 
 export const runtime = "nodejs";
 
@@ -39,20 +41,69 @@ export async function GET(
 
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  // Load Benefits Booster logo if available
+  let logoImage = null;
+  const logoPath = path.join(process.cwd(), "public", "benefits-booster-logo.png");
+  if (fs.existsSync(logoPath)) {
+    try {
+      const logoBytes = fs.readFileSync(logoPath);
+      logoImage = await pdf.embedPng(logoBytes);
+    } catch (e) {
+      console.log("Logo not found, skipping");
+    }
+  }
+
   let page = pdf.addPage([612, 792]);
   const { height, width } = page.getSize();
 
+  // Colors matching Benefits Booster theme
+  const primaryBlue = rgb(0.05, 0.32, 0.62); // #0D5280
+  const accentRed = rgb(0.8, 0.1, 0.1);
+  const textGray = rgb(0.2, 0.2, 0.2);
+
   let y = height - 50;
-  const draw = (t: string, size = 12, x = 50) => {
-    page.drawText(t, { x, y, size, font, color: rgb(0, 0, 0) });
+  const draw = (t: string, size = 12, x = 50, isBold = false, color = textGray) => {
+    page.drawText(t, { x, y, size, font: isBold ? boldFont : font, color });
   };
   const line = (dy = 18) => (y -= dy);
 
-  // Header
-  draw(`Benefits Builder — Employee Roster`, 16);
-  line(24);
-  draw(`${company.name} — ${company.state ?? "-"} — Model ${company.model ?? "-"}`);
-  line();
+  // Header Section with Logo and Branding
+  const drawPageHeader = () => {
+    if (logoImage) {
+      const logoWidth = 80;
+      const logoHeight = 48;
+      page.drawImage(logoImage, {
+        x: 50,
+        y: y - logoHeight,
+        width: logoWidth,
+        height: logoHeight,
+      });
+      // Add tagline below logo in red
+      page.drawText("Making your benefits soar", {
+        x: 50,
+        y: y - logoHeight - 15,
+        size: 9,
+        font: font,
+        color: accentRed,
+      });
+      y -= logoHeight + 25;
+    } else {
+      // Draw text logo if image not available
+      draw("Benefits Booster", 16, 50, true, primaryBlue);
+      line(20);
+      draw("Making your benefits soar", 9, 50, false, accentRed);
+      line(20);
+    }
+
+    draw(`Employee Roster`, 16, 50, true);
+    line(24);
+    draw(`${company.name} — ${company.state ?? "-"} — Model ${company.model ?? "-"}`);
+    line();
+  };
+
+  drawPageHeader();
 
   // Column headers
   const cols = [
@@ -82,10 +133,7 @@ export async function GET(
     if (y < 80) {
       page = pdf.addPage([612, 792]);
       y = height - 50;
-      draw(`Benefits Builder — Employee Roster`, 16);
-      line(24);
-      draw(`${company.name} — ${company.state ?? "-"} — Model ${company.model ?? "-"}`);
-      line();
+      drawPageHeader();
       drawHeader();
     }
 

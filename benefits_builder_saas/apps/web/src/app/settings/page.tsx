@@ -9,6 +9,7 @@ export default function SettingsPage() {
   const [isTesting, setIsTesting] = useState(false);
   const [qbConnected, setQbConnected] = useState(false);
   const [qbAuthUrl, setQbAuthUrl] = useState("");
+  const [qbLastSync, setQbLastSync] = useState<string | null>(null);
   const [testEmail, setTestEmail] = useState("");
 
   // Password change state
@@ -22,9 +23,24 @@ export default function SettingsPage() {
 
   useEffect(() => {
     // Check QuickBooks connection status
-    // TODO: Create endpoint to check QB status
-    setIsLoading(false);
+    fetchQBStatus();
   }, []);
+
+  const fetchQBStatus = async () => {
+    try {
+      const response = await fetch("/api/accounting/quickbooks/status");
+      const data = await response.json();
+
+      if (data.ok) {
+        setQbConnected(data.connected);
+        setQbLastSync(data.lastSync);
+      }
+    } catch (err) {
+      console.error("Failed to fetch QB status:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleTestEmail = async () => {
     if (!testEmail) {
@@ -68,6 +84,29 @@ export default function SettingsPage() {
       }
     } catch (err) {
       error("Failed to connect to QuickBooks");
+    }
+  };
+
+  const handleDisconnectQuickBooks = async () => {
+    if (!confirm("Are you sure you want to disconnect QuickBooks? This will remove all stored credentials.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/accounting/quickbooks/disconnect", {
+        method: "POST",
+      });
+      const data = await response.json();
+
+      if (data.ok) {
+        setQbConnected(false);
+        setQbLastSync(null);
+        success("QuickBooks disconnected successfully");
+      } else {
+        error(data.error || "Failed to disconnect QuickBooks");
+      }
+    } catch (err) {
+      error("Failed to disconnect QuickBooks");
     }
   };
 
@@ -295,14 +334,17 @@ export default function SettingsPage() {
         ) : (
           <div className="border-t pt-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600">Company Name</span>
-              <span className="text-sm font-medium">Your Company LLC</span>
-            </div>
-            <div className="flex items-center justify-between">
               <span className="text-sm text-slate-600">Last Sync</span>
-              <span className="text-sm font-medium">2 hours ago</span>
+              <span className="text-sm font-medium">
+                {qbLastSync
+                  ? new Date(qbLastSync).toLocaleString()
+                  : "Never synced"}
+              </span>
             </div>
-            <button className="text-sm text-red-600 hover:underline">
+            <button
+              onClick={handleDisconnectQuickBooks}
+              className="text-sm text-red-600 hover:underline"
+            >
               Disconnect QuickBooks
             </button>
           </div>

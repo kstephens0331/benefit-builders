@@ -3,6 +3,8 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { createServiceClient } from "@/lib/supabase";
 import { computeFeesForPretaxMonthly } from "@/lib/fees";
 import { calcFICA } from "@/lib/tax";
+import fs from "fs";
+import path from "path";
 
 export const runtime = "nodejs";
 
@@ -119,17 +121,74 @@ export async function GET(
   // Build PDF
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  // Load Benefits Booster logo if available
+  let logoImage = null;
+  const logoPath = path.join(process.cwd(), "public", "benefits-booster-logo.png");
+  if (fs.existsSync(logoPath)) {
+    try {
+      const logoBytes = fs.readFileSync(logoPath);
+      logoImage = await pdf.embedPng(logoBytes);
+    } catch (e) {
+      console.log("Logo not found, skipping");
+    }
+  }
+
   const page = pdf.addPage([612, 792]);
-  const { height } = page.getSize();
+  const { height, width } = page.getSize();
   let y = height - 50;
 
-  const text = (t: string, size = 12) => {
-    page.drawText(t, { x: 50, y, size, font, color: rgb(0, 0, 0) });
+  // Colors matching Benefits Booster theme
+  const primaryBlue = rgb(0.05, 0.32, 0.62); // #0D5280
+  const accentRed = rgb(0.8, 0.1, 0.1);
+  const textGray = rgb(0.2, 0.2, 0.2);
+
+  // Header Section with Logo and Branding
+  if (logoImage) {
+    const logoWidth = 80;
+    const logoHeight = 48;
+    page.drawImage(logoImage, {
+      x: 50,
+      y: y - logoHeight,
+      width: logoWidth,
+      height: logoHeight,
+    });
+    // Add tagline below logo in red
+    page.drawText("Making your benefits soar", {
+      x: 50,
+      y: y - logoHeight - 15,
+      size: 9,
+      font: font,
+      color: accentRed,
+    });
+    y -= logoHeight + 25;
+  } else {
+    // Draw text logo if image not available
+    page.drawText("Benefits Booster", {
+      x: 50,
+      y: y,
+      size: 16,
+      font: boldFont,
+      color: primaryBlue,
+    });
+    page.drawText("Making your benefits soar", {
+      x: 50,
+      y: y - 18,
+      size: 9,
+      font: font,
+      color: accentRed,
+    });
+    y -= 35;
+  }
+
+  const text = (t: string, size = 12, isBold = false) => {
+    page.drawText(t, { x: 50, y, size, font: isBold ? boldFont : font, color: textGray });
     y -= size + 6;
   };
 
-  text(`Benefits Builder — Invoice Summary`, 16);
-  text(`${company.name} (${company.model ?? "-"})`, 13);
+  text(`Invoice Summary`, 16, true);
+  text(`${company.name} (${company.model ?? "-"})`, 13, true);
   text(`Period: ${period}    State: ${company.state ?? "-"}`);
   text(
     `Rates — Employee: ${(employeeRate * 100).toFixed(1)}%  Employer: ${(employerRate * 100).toFixed(1)}%`

@@ -34,9 +34,9 @@ export async function GET(
 
   const rows = (data as InvoiceRow[]) ?? [];
 
-  const { doc, font, bold } = await createPdfDoc();
+  const { doc, font, bold, logoImage } = await createPdfDoc();
   let page = addPage(doc);
-  drawHeaderFooter(page, { font, bold }, {
+  drawHeaderFooter(page, { font, bold, logoImage }, {
     titleLeft: `Billing Summary — ${period}`,
     titleRight: new Date().toLocaleDateString(),
   });

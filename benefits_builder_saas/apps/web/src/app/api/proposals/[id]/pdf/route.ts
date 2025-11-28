@@ -89,6 +89,14 @@ export async function GET(
           width: logoWidth,
           height: logoHeight,
         });
+        // Add tagline below logo in red
+        page.drawText("Making your benefits soar", {
+          x: margin,
+          y: yPosition - logoHeight - 15,
+          size: 10,
+          font: font,
+          color: accentRed,
+        });
       } else {
         // Draw text logo if image not available
         page.drawText("Benefits Booster", {
@@ -156,8 +164,26 @@ export async function GET(
 
       yPosition -= 70;
 
-      // Employee Table
-      drawEmployeeTable(page, pageEmployees, yPosition, margin, contentWidth, font, boldFont, primaryBlue, lightGray, textGray);
+      // Employee Table - pass whether this is last page and proposal data for totals
+      const isLastPage = pageNum === totalPages - 1;
+      drawEmployeeTable(
+        page,
+        pageEmployees,
+        yPosition,
+        margin,
+        contentWidth,
+        font,
+        boldFont,
+        primaryBlue,
+        lightGray,
+        textGray,
+        isLastPage,
+        isLastPage ? {
+          employeeCount: proposal.total_employees,
+          totalMonthly: proposal.total_monthly_savings,
+          totalAnnual: proposal.total_annual_savings,
+        } : null
+      );
 
       // Footer on last page
       if (pageNum === totalPages - 1) {
@@ -169,36 +195,6 @@ export async function GET(
           font: font,
           color: textGray,
         });
-
-        // Total on last page
-        if (pageNum === totalPages - 1 && employees && employees.length > 0) {
-          const totalMonthly = proposal.total_monthly_savings;
-          const totalAnnual = proposal.total_annual_savings;
-
-          page.drawText(`Employee Count: ${proposal.total_employees}`, {
-            x: margin,
-            y: footerY + 30,
-            size: 9,
-            font: boldFont,
-            color: textGray,
-          });
-
-          page.drawText(`$${totalMonthly.toFixed(2)}`, {
-            x: pageWidth - 200,
-            y: footerY + 30,
-            size: 9,
-            font: boldFont,
-            color: textGray,
-          });
-
-          page.drawText(`$${totalAnnual.toFixed(2)}`, {
-            x: pageWidth - 100,
-            y: footerY + 30,
-            size: 9,
-            font: boldFont,
-            color: textGray,
-          });
-        }
       }
     }
 
@@ -238,7 +234,9 @@ function drawEmployeeTable(
   boldFont: any,
   primaryColor: any,
   lightGray: any,
-  textGray: any
+  textGray: any,
+  isLastPage: boolean = false,
+  totals: { employeeCount: number; totalMonthly: number; totalAnnual: number } | null = null
 ) {
   let y = startY;
 
@@ -321,4 +319,53 @@ function drawEmployeeTable(
 
     y -= 12;
   });
+
+  // Add totals row on last page
+  if (isLastPage && totals) {
+    // Add separator line
+    y -= 5;
+    page.drawLine({
+      start: { x: marginX, y: y },
+      end: { x: marginX + width, y: y },
+      thickness: 1,
+      color: textGray,
+    });
+    y -= 15;
+
+    // Background for totals row
+    page.drawRectangle({
+      x: marginX,
+      y: y - 10,
+      width: width,
+      height: 14,
+      color: lightGray,
+    });
+
+    // Employee Count label (left side)
+    page.drawText(`Employee Count: ${totals.employeeCount}`, {
+      x: colX[0] + 2,
+      y,
+      size: 9,
+      font: boldFont,
+      color: textGray,
+    });
+
+    // Total Monthly Savings (aligned with column 7)
+    page.drawText(`$${totals.totalMonthly.toFixed(2)}`, {
+      x: colX[7] + 2,
+      y,
+      size: 9,
+      font: boldFont,
+      color: textGray,
+    });
+
+    // Total Annual Savings (aligned with column 8)
+    page.drawText(`$${totals.totalAnnual.toFixed(2)}`, {
+      x: colX[8] + 2,
+      y,
+      size: 9,
+      font: boldFont,
+      color: textGray,
+    });
+  }
 }

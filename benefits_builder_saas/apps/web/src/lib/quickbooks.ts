@@ -328,6 +328,146 @@ export async function getQBCompanyInfo(
 }
 
 /**
+ * Get all customers from QuickBooks
+ */
+export async function getAllCustomersFromQB(
+  tokens: QBTokens
+): Promise<{ success: boolean; customers?: any[]; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      qbo.findCustomers(
+        { fetchAll: true },
+        (err: any, result: any) => {
+          if (err) {
+            resolve({ success: false, error: err.message });
+            return;
+          }
+
+          resolve({ success: true, customers: result.QueryResponse?.Customer || [] });
+        }
+      );
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get all invoices from QuickBooks
+ */
+export async function getAllInvoicesFromQB(
+  tokens: QBTokens,
+  startDate?: string,
+  endDate?: string
+): Promise<{ success: boolean; invoices?: any[]; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      let query = "SELECT * FROM Invoice";
+
+      if (startDate && endDate) {
+        query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+      }
+
+      query += " MAXRESULTS 1000";
+
+      qbo.reportBalanceSheet(
+        { start_date: startDate, end_date: endDate },
+        (err: any, result: any) => {
+          if (err) {
+            // Fallback to direct query
+            // @ts-ignore
+            qbo.query(query, (queryErr: any, queryResult: any) => {
+              if (queryErr) {
+                resolve({ success: false, error: queryErr.message });
+                return;
+              }
+
+              resolve({ success: true, invoices: queryResult.QueryResponse?.Invoice || [] });
+            });
+            return;
+          }
+
+          resolve({ success: true, invoices: result.QueryResponse?.Invoice || [] });
+        }
+      );
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get all payments from QuickBooks
+ */
+export async function getAllPaymentsFromQB(
+  tokens: QBTokens,
+  startDate?: string,
+  endDate?: string
+): Promise<{ success: boolean; payments?: any[]; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      let query = "SELECT * FROM Payment";
+
+      if (startDate && endDate) {
+        query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+      }
+
+      query += " MAXRESULTS 1000";
+
+      // @ts-ignore
+      qbo.query(query, (err: any, result: any) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+          return;
+        }
+
+        resolve({ success: true, payments: result.QueryResponse?.Payment || [] });
+      });
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Search customers in QuickBooks by name
+ */
+export async function searchCustomersInQB(
+  tokens: QBTokens,
+  searchTerm: string
+): Promise<{ success: boolean; customers?: any[]; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      const query = `SELECT * FROM Customer WHERE DisplayName LIKE '%${searchTerm}%' MAXRESULTS 100`;
+
+      // @ts-ignore
+      qbo.query(query, (err: any, result: any) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+          return;
+        }
+
+        resolve({ success: true, customers: result.QueryResponse?.Customer || [] });
+      });
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Generate OAuth URL for user authorization
  */
 export function getQBAuthUrl(): string {
@@ -369,4 +509,836 @@ export async function getQBTokensFromCode(
       }
     );
   });
+}
+
+// =====================================================
+// VENDOR & BILL MANAGEMENT (A/P Side)
+// =====================================================
+
+/**
+ * Create or update vendor in QuickBooks
+ */
+export async function syncVendorToQB(
+  tokens: QBTokens,
+  vendor: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    qb_vendor_id?: string;
+  }
+): Promise<{ success: boolean; qb_vendor_id?: string; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    if (vendor.qb_vendor_id) {
+      // Update existing vendor
+      return new Promise((resolve) => {
+        qbo.getVendor(vendor.qb_vendor_id, (err: any, existingVendor: any) => {
+          if (err) {
+            resolve({ success: false, error: err.message });
+            return;
+          }
+
+          const updatedVendor = {
+            ...existingVendor,
+            DisplayName: vendor.name,
+            PrimaryEmailAddr: vendor.email ? { Address: vendor.email } : undefined,
+            PrimaryPhone: vendor.phone ? { FreeFormNumber: vendor.phone } : undefined,
+            SyncToken: existingVendor.SyncToken
+          };
+
+          qbo.updateVendor(updatedVendor, (updateErr: any, result: any) => {
+            if (updateErr) {
+              resolve({ success: false, error: updateErr.message });
+              return;
+            }
+
+            resolve({ success: true, qb_vendor_id: result.Id });
+          });
+        });
+      });
+    } else {
+      // Create new vendor
+      return new Promise((resolve) => {
+        const newVendor = {
+          DisplayName: vendor.name,
+          PrimaryEmailAddr: vendor.email ? { Address: vendor.email } : undefined,
+          PrimaryPhone: vendor.phone ? { FreeFormNumber: vendor.phone } : undefined
+        };
+
+        qbo.createVendor(newVendor, (err: any, result: any) => {
+          if (err) {
+            resolve({ success: false, error: err.message });
+            return;
+          }
+
+          resolve({ success: true, qb_vendor_id: result.Id });
+        });
+      });
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get all vendors from QuickBooks
+ */
+export async function getAllVendorsFromQB(
+  tokens: QBTokens
+): Promise<{ success: boolean; vendors?: any[]; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      qbo.findVendors(
+        { fetchAll: true },
+        (err: any, result: any) => {
+          if (err) {
+            resolve({ success: false, error: err.message });
+            return;
+          }
+
+          resolve({ success: true, vendors: result.QueryResponse?.Vendor || [] });
+        }
+      );
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Create bill in QuickBooks
+ */
+export async function createBillInQB(
+  tokens: QBTokens,
+  bill: {
+    vendor_qb_id: string;
+    bill_number?: string;
+    bill_date: string;
+    due_date: string;
+    line_items: Array<{
+      description: string;
+      amount: number;
+      account_ref?: string; // QuickBooks account ID for expense tracking
+    }>;
+    total: number;
+  }
+): Promise<{ success: boolean; qb_bill_id?: string; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      const qbBill = {
+        VendorRef: {
+          value: bill.vendor_qb_id
+        },
+        DocNumber: bill.bill_number,
+        TxnDate: bill.bill_date,
+        DueDate: bill.due_date,
+        Line: bill.line_items.map((item) => ({
+          DetailType: "AccountBasedExpenseLineDetail",
+          Description: item.description,
+          Amount: item.amount / 100, // Convert cents to dollars
+          AccountBasedExpenseLineDetail: {
+            AccountRef: item.account_ref ? { value: item.account_ref } : undefined
+          }
+        }))
+      };
+
+      qbo.createBill(qbBill, (err: any, result: any) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+          return;
+        }
+
+        resolve({ success: true, qb_bill_id: result.Id });
+      });
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get all bills from QuickBooks
+ */
+export async function getAllBillsFromQB(
+  tokens: QBTokens,
+  startDate?: string,
+  endDate?: string
+): Promise<{ success: boolean; bills?: any[]; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      let query = "SELECT * FROM Bill";
+
+      if (startDate && endDate) {
+        query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+      }
+
+      query += " MAXRESULTS 1000";
+
+      // @ts-ignore
+      qbo.query(query, (err: any, result: any) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+          return;
+        }
+
+        resolve({ success: true, bills: result.QueryResponse?.Bill || [] });
+      });
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Pay bill in QuickBooks (BillPayment)
+ */
+export async function payBillInQB(
+  tokens: QBTokens,
+  payment: {
+    vendor_qb_id: string;
+    bill_qb_id: string;
+    amount: number;
+    payment_date: string;
+    payment_account_ref: string; // Bank account paying from
+    payment_method?: string;
+  }
+): Promise<{ success: boolean; qb_payment_id?: string; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      const qbBillPayment = {
+        VendorRef: {
+          value: payment.vendor_qb_id
+        },
+        TotalAmt: payment.amount / 100,
+        TxnDate: payment.payment_date,
+        APAccountRef: {
+          value: payment.payment_account_ref
+        },
+        PayType: payment.payment_method || "Check",
+        Line: [
+          {
+            Amount: payment.amount / 100,
+            LinkedTxn: [
+              {
+                TxnId: payment.bill_qb_id,
+                TxnType: "Bill"
+              }
+            ]
+          }
+        ]
+      };
+
+      qbo.createBillPayment(qbBillPayment, (err: any, result: any) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+          return;
+        }
+
+        resolve({ success: true, qb_payment_id: result.Id });
+      });
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// =====================================================
+// CREDIT MEMOS & REFUNDS
+// =====================================================
+
+/**
+ * Create credit memo in QuickBooks
+ */
+export async function createCreditMemoInQB(
+  tokens: QBTokens,
+  creditMemo: {
+    customer_qb_id: string;
+    credit_memo_date: string;
+    line_items: Array<{
+      description: string;
+      quantity: number;
+      rate: number;
+      amount: number;
+    }>;
+    total: number;
+    reason?: string;
+  }
+): Promise<{ success: boolean; qb_credit_memo_id?: string; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      const qbCreditMemo = {
+        CustomerRef: {
+          value: creditMemo.customer_qb_id
+        },
+        TxnDate: creditMemo.credit_memo_date,
+        PrivateNote: creditMemo.reason,
+        Line: creditMemo.line_items.map((item) => ({
+          DetailType: "SalesItemLineDetail",
+          Description: item.description,
+          Amount: item.amount / 100,
+          SalesItemLineDetail: {
+            Qty: item.quantity,
+            UnitPrice: item.rate / 100
+          }
+        }))
+      };
+
+      qbo.createCreditMemo(qbCreditMemo, (err: any, result: any) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+          return;
+        }
+
+        resolve({ success: true, qb_credit_memo_id: result.Id });
+      });
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Create refund receipt in QuickBooks
+ */
+export async function createRefundReceiptInQB(
+  tokens: QBTokens,
+  refund: {
+    customer_qb_id: string;
+    refund_date: string;
+    payment_method: string;
+    line_items: Array<{
+      description: string;
+      amount: number;
+    }>;
+    total: number;
+  }
+): Promise<{ success: boolean; qb_refund_id?: string; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      const qbRefund = {
+        CustomerRef: {
+          value: refund.customer_qb_id
+        },
+        TxnDate: refund.refund_date,
+        PaymentMethodRef: {
+          value: refund.payment_method
+        },
+        Line: refund.line_items.map((item) => ({
+          DetailType: "SalesItemLineDetail",
+          Description: item.description,
+          Amount: item.amount / 100,
+          SalesItemLineDetail: {
+            Qty: 1,
+            UnitPrice: item.amount / 100
+          }
+        }))
+      };
+
+      qbo.createRefundReceipt(qbRefund, (err: any, result: any) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+          return;
+        }
+
+        resolve({ success: true, qb_refund_id: result.Id });
+      });
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// =====================================================
+// ESTIMATES (QUOTES/PROPOSALS)
+// =====================================================
+
+/**
+ * Create estimate in QuickBooks
+ */
+export async function createEstimateInQB(
+  tokens: QBTokens,
+  estimate: {
+    customer_qb_id: string;
+    estimate_date: string;
+    expiration_date?: string;
+    line_items: Array<{
+      description: string;
+      quantity: number;
+      rate: number;
+      amount: number;
+    }>;
+    total: number;
+    customer_memo?: string;
+  }
+): Promise<{ success: boolean; qb_estimate_id?: string; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      const qbEstimate = {
+        CustomerRef: {
+          value: estimate.customer_qb_id
+        },
+        TxnDate: estimate.estimate_date,
+        ExpirationDate: estimate.expiration_date,
+        CustomerMemo: estimate.customer_memo ? { value: estimate.customer_memo } : undefined,
+        Line: estimate.line_items.map((item) => ({
+          DetailType: "SalesItemLineDetail",
+          Description: item.description,
+          Amount: item.amount / 100,
+          SalesItemLineDetail: {
+            Qty: item.quantity,
+            UnitPrice: item.rate / 100
+          }
+        }))
+      };
+
+      qbo.createEstimate(qbEstimate, (err: any, result: any) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+          return;
+        }
+
+        resolve({ success: true, qb_estimate_id: result.Id });
+      });
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get all estimates from QuickBooks
+ */
+export async function getAllEstimatesFromQB(
+  tokens: QBTokens,
+  startDate?: string,
+  endDate?: string
+): Promise<{ success: boolean; estimates?: any[]; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      let query = "SELECT * FROM Estimate";
+
+      if (startDate && endDate) {
+        query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+      }
+
+      query += " MAXRESULTS 1000";
+
+      // @ts-ignore
+      qbo.query(query, (err: any, result: any) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+          return;
+        }
+
+        resolve({ success: true, estimates: result.QueryResponse?.Estimate || [] });
+      });
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// =====================================================
+// ITEMS/PRODUCTS MANAGEMENT
+// =====================================================
+
+/**
+ * Create service item in QuickBooks
+ */
+export async function createServiceItemInQB(
+  tokens: QBTokens,
+  item: {
+    name: string;
+    description?: string;
+    rate: number;
+    income_account_ref?: string;
+  }
+): Promise<{ success: boolean; qb_item_id?: string; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      const qbItem = {
+        Name: item.name,
+        Type: "Service",
+        Description: item.description,
+        UnitPrice: item.rate / 100,
+        IncomeAccountRef: item.income_account_ref ? { value: item.income_account_ref } : undefined
+      };
+
+      qbo.createItem(qbItem, (err: any, result: any) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+          return;
+        }
+
+        resolve({ success: true, qb_item_id: result.Id });
+      });
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get all items from QuickBooks
+ */
+export async function getAllItemsFromQB(
+  tokens: QBTokens
+): Promise<{ success: boolean; items?: any[]; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      qbo.findItems(
+        { fetchAll: true },
+        (err: any, result: any) => {
+          if (err) {
+            resolve({ success: false, error: err.message });
+            return;
+          }
+
+          resolve({ success: true, items: result.QueryResponse?.Item || [] });
+        }
+      );
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// =====================================================
+// REPORTS
+// =====================================================
+
+/**
+ * Get Profit & Loss report from QuickBooks
+ */
+export async function getProfitAndLossReport(
+  tokens: QBTokens,
+  startDate: string,
+  endDate: string
+): Promise<{ success: boolean; report?: any; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      qbo.reportProfitAndLoss(
+        { start_date: startDate, end_date: endDate },
+        (err: any, result: any) => {
+          if (err) {
+            resolve({ success: false, error: err.message });
+            return;
+          }
+
+          resolve({ success: true, report: result });
+        }
+      );
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get Balance Sheet report from QuickBooks
+ */
+export async function getBalanceSheetReport(
+  tokens: QBTokens,
+  asOfDate: string
+): Promise<{ success: boolean; report?: any; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      qbo.reportBalanceSheet(
+        { date: asOfDate },
+        (err: any, result: any) => {
+          if (err) {
+            resolve({ success: false, error: err.message });
+            return;
+          }
+
+          resolve({ success: true, report: result });
+        }
+      );
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get Cash Flow report from QuickBooks
+ */
+export async function getCashFlowReport(
+  tokens: QBTokens,
+  startDate: string,
+  endDate: string
+): Promise<{ success: boolean; report?: any; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      qbo.reportCashFlow(
+        { start_date: startDate, end_date: endDate },
+        (err: any, result: any) => {
+          if (err) {
+            resolve({ success: false, error: err.message });
+            return;
+          }
+
+          resolve({ success: true, report: result });
+        }
+      );
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get A/R Aging report from QuickBooks
+ */
+export async function getARAgingReport(
+  tokens: QBTokens,
+  asOfDate?: string
+): Promise<{ success: boolean; report?: any; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      const params = asOfDate ? { report_date: asOfDate } : {};
+
+      qbo.reportAgedReceivables(
+        params,
+        (err: any, result: any) => {
+          if (err) {
+            resolve({ success: false, error: err.message });
+            return;
+          }
+
+          resolve({ success: true, report: result });
+        }
+      );
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get A/P Aging report from QuickBooks
+ */
+export async function getAPAgingReport(
+  tokens: QBTokens,
+  asOfDate?: string
+): Promise<{ success: boolean; report?: any; error?: string }> {
+  try {
+    const validTokens = await ensureValidToken(tokens);
+    const qbo = getQBClient(validTokens);
+
+    return new Promise((resolve) => {
+      const params = asOfDate ? { report_date: asOfDate } : {};
+
+      qbo.reportAgedPayables(
+        params,
+        (err: any, result: any) => {
+          if (err) {
+            resolve({ success: false, error: err.message });
+            return;
+          }
+
+          resolve({ success: true, report: result });
+        }
+      );
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// =====================================================
+// BATCH OPERATIONS
+// =====================================================
+
+/**
+ * Batch create/update entities with error handling
+ */
+export async function batchOperation<T>(
+  operations: Array<() => Promise<T>>,
+  options?: {
+    maxConcurrent?: number;
+    retryAttempts?: number;
+    retryDelay?: number;
+  }
+): Promise<{ results: T[]; errors: any[] }> {
+  const maxConcurrent = options?.maxConcurrent || 5;
+  const retryAttempts = options?.retryAttempts || 3;
+  const retryDelay = options?.retryDelay || 1000;
+
+  const results: T[] = [];
+  const errors: any[] = [];
+
+  // Execute operations in batches
+  for (let i = 0; i < operations.length; i += maxConcurrent) {
+    const batch = operations.slice(i, i + maxConcurrent);
+
+    const batchResults = await Promise.allSettled(
+      batch.map(async (operation) => {
+        // Retry logic with exponential backoff
+        for (let attempt = 0; attempt <= retryAttempts; attempt++) {
+          try {
+            return await operation();
+          } catch (error) {
+            if (attempt === retryAttempts) {
+              throw error;
+            }
+            // Exponential backoff: 1s, 2s, 4s, etc.
+            await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
+          }
+        }
+      })
+    );
+
+    batchResults.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        results.push(result.value as T);
+      } else {
+        errors.push(result.reason);
+      }
+    });
+  }
+
+  return { results, errors };
+}
+
+// =====================================================
+// ERROR HANDLING UTILITIES
+// =====================================================
+
+/**
+ * Retry wrapper with exponential backoff
+ */
+export async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  options?: {
+    maxAttempts?: number;
+    initialDelay?: number;
+    maxDelay?: number;
+  }
+): Promise<T> {
+  const maxAttempts = options?.maxAttempts || 3;
+  const initialDelay = options?.initialDelay || 1000;
+  const maxDelay = options?.maxDelay || 10000;
+
+  let lastError: any;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+
+      // Check if error is retryable (e.g., rate limit, network error)
+      if (!isRetryableError(error) || attempt === maxAttempts - 1) {
+        throw error;
+      }
+
+      // Calculate delay with exponential backoff
+      const delay = Math.min(initialDelay * Math.pow(2, attempt), maxDelay);
+
+      console.log(`Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Check if error is retryable
+ */
+function isRetryableError(error: any): boolean {
+  // Rate limit errors
+  if (error.code === 429 || error.message?.includes('rate limit')) {
+    return true;
+  }
+
+  // Network errors
+  if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+    return true;
+  }
+
+  // Temporary QB errors
+  if (error.code >= 500 && error.code < 600) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check for duplicate entities before creating
+ */
+export async function findDuplicateCustomer(
+  tokens: QBTokens,
+  name: string,
+  email?: string
+): Promise<{ exists: boolean; qb_customer_id?: string }> {
+  try {
+    const searchResult = await searchCustomersInQB(tokens, name);
+
+    if (!searchResult.success || !searchResult.customers) {
+      return { exists: false };
+    }
+
+    // Check for exact name match or email match
+    const duplicate = searchResult.customers.find((customer: any) => {
+      const nameMatch = customer.DisplayName === name;
+      const emailMatch = email && customer.PrimaryEmailAddr?.Address === email;
+      return nameMatch || emailMatch;
+    });
+
+    return {
+      exists: !!duplicate,
+      qb_customer_id: duplicate?.Id
+    };
+  } catch (error) {
+    console.error('Error checking for duplicate customer:', error);
+    return { exists: false };
+  }
 }

@@ -1,14 +1,14 @@
 // apps/web/src/app/api/bulk-upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import * as XLSX from 'xlsx';
 import { sendWelcomeEmail } from '@/lib/email';
 
-const geminiApiKey = process.env.GEMINI_API_KEY!;
+const anthropicApiKey = process.env.ANTHROPIC_API_KEY!;
 
-if (!geminiApiKey) {
-  console.warn('GEMINI_API_KEY not set - AI parsing will not work');
+if (!anthropicApiKey) {
+  console.warn('ANTHROPIC_API_KEY not set - AI parsing will not work');
 }
 
 export async function POST(request: NextRequest) {
@@ -83,12 +83,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use Gemini AI to analyze and structure the data
-    const structuredData = await parseWithGemini(rawData);
+    // Use Claude AI to analyze and structure the data
+    const structuredData = await parseWithClaude(rawData);
 
     if (!structuredData) {
       return NextResponse.json(
-        { ok: false, error: 'Failed to parse file with AI' },
+        {
+          ok: false,
+          error: anthropicApiKey
+            ? 'Failed to parse file with AI'
+            : 'ANTHROPIC_API_KEY not configured. AI-powered parsing unavailable. Please configure the API key or use manual data entry.'
+        },
         { status: 500 }
       );
     }
@@ -118,19 +123,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function parseWithGemini(rawData: any[]): Promise<any> {
-  if (!geminiApiKey) {
+async function parseWithClaude(rawData: any[]): Promise<any> {
+  if (!anthropicApiKey) {
     // Fallback to manual parsing if no API key
     return manualParse(rawData);
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(geminiApiKey);
-    // Use gemini-1.5-flash for faster, cost-effective parsing
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const anthropic = new Anthropic({
+      apiKey: anthropicApiKey,
+    });
 
-    const prompt = `
-You are a data extraction specialist for a benefits administration system.
+    const prompt = `You are a data extraction specialist for a benefits administration system.
 Analyze this employee census data and extract the following information in strict JSON format:
 
 COMPANY INFORMATION:
@@ -190,9 +194,25 @@ Return ONLY valid JSON in this exact structure:
   ]
 }`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    // Use Claude Haiku for fast, cost-effective parsing
+    const message = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    });
+
+    // Extract text from Claude's response
+    const textContent = message.content.find((block) => block.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text content in Claude response');
+    }
+
+    const text = textContent.text;
 
     // Extract JSON from response (handle markdown code blocks)
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) ||
@@ -205,7 +225,7 @@ Return ONLY valid JSON in this exact structure:
     const jsonText = jsonMatch[1] || jsonMatch[0];
     return JSON.parse(jsonText);
   } catch (error) {
-    console.error('Gemini parsing error:', error);
+    console.error('Claude parsing error:', error);
     // Fallback to manual parsing
     return manualParse(rawData);
   }

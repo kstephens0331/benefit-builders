@@ -109,9 +109,9 @@ export default function MonthEndManager({ initialClosings }: Props) {
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Month-End Closing</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Month-End Closing</h1>
           <p className="text-slate-600 text-sm">
             Run month-end reports and send automated emails to companies
           </p>
@@ -121,7 +121,7 @@ export default function MonthEndManager({ initialClosings }: Props) {
             setNewClosingDate(getSuggestedClosingDate());
             setShowNewModal(true);
           }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center whitespace-nowrap"
         >
           + New Month-End Close
         </button>
@@ -129,7 +129,7 @@ export default function MonthEndManager({ initialClosings }: Props) {
 
       {/* Summary Cards */}
       {closings.length > 0 && (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl shadow p-6">
             <div className="text-sm text-slate-600 mb-1">Most Recent</div>
             <div className="text-2xl font-bold">{closings[0].month_year}</div>
@@ -196,16 +196,16 @@ export default function MonthEndManager({ initialClosings }: Props) {
                       )}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <div className="flex gap-2 justify-center">
+                      <div className="flex flex-col sm:flex-row gap-2 justify-center">
                         <button
                           onClick={() => router.push(`/month-end/${closing.id}`)}
-                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm text-center whitespace-nowrap"
                         >
                           View Details
                         </button>
                         <button
                           onClick={() => handleDownload(closing.id)}
-                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm text-center whitespace-nowrap"
                         >
                           Download CSV
                         </button>

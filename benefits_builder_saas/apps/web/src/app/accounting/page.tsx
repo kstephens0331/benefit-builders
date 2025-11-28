@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase";
-import AccountingManager from "@/components/AccountingManager";
+import AccountingDashboard from "@/components/AccountingDashboard";
 
 export const metadata = {
-  title: "A/R & A/P - Accounting",
+  title: "Accounting Dashboard",
 };
 
 export default async function AccountingPage() {
@@ -56,6 +56,46 @@ export default async function AccountingPage() {
     .eq("status", "active")
     .single();
 
+  // Fetch recent QuickBooks sync logs
+  const { data: qbSyncLogs } = await db
+    .from("quickbooks_sync_log")
+    .select("*")
+    .order("synced_at", { ascending: false })
+    .limit(5);
+
+  // Get last successful sync
+  const lastSuccessfulSync = qbSyncLogs?.find(log => log.status === 'success');
+
+  // Fetch payment alerts
+  const { data: alerts } = await db
+    .from("payment_alerts")
+    .select(`
+      *,
+      company:companies(id, name),
+      invoice:invoices(id, invoice_number, total_cents)
+    `)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  // Fetch company credits (available)
+  const { data: credits } = await db
+    .from("company_credits")
+    .select("company_id, amount")
+    .eq("status", "available");
+
+  // Get current month info for month-end status
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  const { data: monthEndStatus } = await db
+    .from("month_end_closings")
+    .select("*")
+    .eq("year", currentYear)
+    .eq("month", currentMonth - 1) // Check last month
+    .single();
+
   // Calculate summary stats
   const arSummary = {
     total: arData?.reduce((sum, ar) => sum + parseFloat(ar.amount_due as any), 0) || 0,
@@ -69,15 +109,35 @@ export default async function AccountingPage() {
     count: apData?.filter(ap => ap.status !== 'paid').length || 0,
   };
 
+  // Count alerts by severity
+  const alertsSummary = {
+    critical: alerts?.filter(a => a.severity === 'critical').length || 0,
+    warning: alerts?.filter(a => a.severity === 'warning').length || 0,
+    info: alerts?.filter(a => a.severity === 'info').length || 0,
+    total: alerts?.length || 0,
+  };
+
+  // Calculate total available credits
+  const totalCredits = credits?.reduce((sum, c) => sum + c.amount, 0) || 0;
+
   return (
-    <AccountingManager
+    <AccountingDashboard
       initialAR={arData || []}
       initialAP={apData || []}
       initialPayments={paymentsData || []}
       companies={companies || []}
       qbConnected={!!qbConnection}
+      qbConnection={qbConnection}
+      qbSyncLogs={qbSyncLogs || []}
+      lastSuccessfulSync={lastSuccessfulSync}
       arSummary={arSummary}
       apSummary={apSummary}
+      alerts={alerts || []}
+      alertsSummary={alertsSummary}
+      totalCredits={totalCredits / 100} // Convert to dollars
+      monthEndStatus={monthEndStatus}
+      currentMonth={currentMonth}
+      currentYear={currentYear}
     />
   );
 }
