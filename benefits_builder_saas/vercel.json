@@ -1,6 +1,7 @@
 {
-  "buildCommand": "cd apps/web && pnpm --filter @bb/web build",
+  "buildCommand": "pnpm --filter @bb/web build",
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "outputDirectory": "apps/web/.next",
-  "framework": "nextjs"
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "rootDirectory": "apps/web"
 }
