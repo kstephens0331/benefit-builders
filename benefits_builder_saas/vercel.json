@@ -1,3 +1,5 @@
 {
-  "installCommand": "pnpm install --no-frozen-lockfile"
+  "buildCommand": "cd benefits_builder_saas/apps/web && npx next build",
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "outputDirectory": "benefits_builder_saas/apps/web/.next"
 }
