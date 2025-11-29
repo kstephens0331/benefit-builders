@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm --filter @bb/web build",
+  "buildCommand": "cd apps/web && pnpm exec next build",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "outputDirectory": "apps/web/.next"
 }
