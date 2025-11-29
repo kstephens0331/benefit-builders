@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm exec turbo run build --filter=@bb/web || (cd apps/web && pnpm exec next build)",
+  "buildCommand": "pnpm --filter @bb/web build",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "outputDirectory": "apps/web/.next"
 }
