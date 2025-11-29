@@ -1,7 +1,6 @@
 {
-  "buildCommand": "cd apps/web && pnpm build",
+  "buildCommand": "cd apps/web && npx next build",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "outputDirectory": "apps/web/.next",
-  "framework": "nextjs",
-  "rootDirectory": "apps/web"
+  "framework": null
 }
