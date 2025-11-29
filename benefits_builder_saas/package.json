@@ -6,7 +6,7 @@
     "name": "benefits-builder-saas",
     "version": "0.1.0",
     "scripts": {
-        "build": "cd apps/web && pnpm exec next build",
+        "build": "pnpm -C apps/web run build",
         "dev": "pnpm -C apps/web dev",
         "start": "pnpm -C apps/web start"
     },
