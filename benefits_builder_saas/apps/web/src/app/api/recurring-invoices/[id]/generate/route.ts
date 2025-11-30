@@ -9,8 +9,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const db = createServiceClient();
-  const { id } = params;
 
   try {
     // Get the recurring invoice template
