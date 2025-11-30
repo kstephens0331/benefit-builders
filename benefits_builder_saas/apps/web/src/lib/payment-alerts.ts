@@ -446,6 +446,9 @@ export async function sendPaymentReminder(
     throw new Error("Invoice not found");
   }
 
+  // Supabase returns related objects as arrays, get the first item
+  const company = (invoice.company as any)?.[0] || invoice.company;
+
   const amountDue = (invoice.total_cents - invoice.amount_paid_cents) / 100;
   const daysOverdue = Math.floor(
     (Date.now() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24)
@@ -459,9 +462,9 @@ export async function sendPaymentReminder(
   try {
     emailResult = await sendPaymentReminderEmail(
       reminderType,
-      invoice.company.contact_email,
+      company.contact_email,
       {
-        companyName: invoice.company.name,
+        companyName: company.name,
         invoiceNumber: invoice.invoice_number,
         amountDue,
         dueDate: invoice.due_date,
