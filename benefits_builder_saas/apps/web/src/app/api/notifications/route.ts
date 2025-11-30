@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest, context?: { params: { id: string } }) {
+export async function PATCH(request: NextRequest) {
   try {
     // Mock authentication
     const authHeader = request.headers.get("authorization");
@@ -128,8 +128,8 @@ export async function PATCH(request: NextRequest, context?: { params: { id: stri
       return NextResponse.json({ ok: true, data: result.data });
     }
 
-    // Regular single notification update
-    const id = context?.params?.id;
+    // Regular single notification update - get ID from query params
+    const id = searchParams.get("id");
     if (!id) {
       return NextResponse.json({ ok: false, error: "Notification ID is required" }, { status: 400 });
     }
@@ -161,7 +161,7 @@ export async function PATCH(request: NextRequest, context?: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, context?: { params: { id: string } }) {
+export async function DELETE(request: NextRequest) {
   try {
     // Mock authentication
     const authHeader = request.headers.get("authorization");
@@ -169,6 +169,7 @@ export async function DELETE(request: NextRequest, context?: { params: { id: str
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
     const path = request.url;
 
     // Check if this is a clear-all request
@@ -190,8 +191,8 @@ export async function DELETE(request: NextRequest, context?: { params: { id: str
       return NextResponse.json({ ok: true, data: result.data });
     }
 
-    // Regular single notification delete
-    const id = context?.params?.id;
+    // Regular single notification delete - get ID from query params
+    const id = searchParams.get("id");
     if (!id) {
       return NextResponse.json({ ok: false, error: "Notification ID is required" }, { status: 400 });
     }
