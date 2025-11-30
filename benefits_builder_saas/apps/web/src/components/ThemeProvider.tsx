@@ -22,16 +22,21 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Load theme from localStorage
-    const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored && (stored === "light" || stored === "dark")) {
-      setTheme(stored);
-    }
+    setMounted(true);
+
+    // Force light mode - ignore localStorage completely for now
+    const root = window.document.documentElement;
+    root.classList.remove("dark");
+    root.classList.add("light");
+    localStorage.setItem("theme", "light");
   }, []);
 
   useEffect(() => {
+    if (!mounted) return;
+
     const root = window.document.documentElement;
 
     // Remove existing theme classes
@@ -43,7 +48,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     // Save to localStorage
     localStorage.setItem("theme", theme);
-  }, [theme]);
+  }, [theme, mounted]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
