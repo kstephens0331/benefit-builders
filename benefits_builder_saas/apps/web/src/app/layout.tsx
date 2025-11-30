@@ -19,11 +19,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             __html: `
               (function() {
                 try {
+                  // Force remove dark class and set light mode
+                  document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.add('light');
+
+                  // Clear any dark theme in localStorage
                   var theme = localStorage.getItem('theme');
-                  if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                  } else {
-                    document.documentElement.classList.add('light');
+                  if (!theme || theme === 'dark' || theme === 'system') {
+                    localStorage.setItem('theme', 'light');
                   }
                 } catch (e) {
                   document.documentElement.classList.add('light');
