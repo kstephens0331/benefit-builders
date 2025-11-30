@@ -438,7 +438,7 @@ export async function autoApplyCreditsToInvoice(
 export async function sendPaymentReminder(
   invoiceId: string,
   reminderType: "gentle" | "firm" | "final"
-): Promise<{ sent: boolean; message: string }> {
+): Promise<{ sent: boolean; message: string; emailId?: string }> {
   const db = createServiceClient();
 
   const { data: invoice } = await db
