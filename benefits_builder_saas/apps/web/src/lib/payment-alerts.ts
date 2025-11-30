@@ -303,38 +303,48 @@ export async function applyCreditToInvoice(
   const amountDue = invoice.total_cents - invoice.amount_paid_cents;
   const amountToApply = Math.min(credit.amount, amountDue);
 
-  // Apply credit
-  await db.transaction(async (trx: any) => {
-    // Update credit
-    await trx
-      .from("company_credits")
-      .update({
-        applied_to_invoice_id: invoiceId,
-        status: amountToApply === credit.amount ? "applied" : "available",
-        amount: credit.amount - amountToApply,
-        applied_at: new Date().toISOString()
-      })
-      .eq("id", creditId);
+  // Apply credit (Note: Supabase doesn't support transactions, so we run sequentially)
+  // Update credit
+  const { error: creditError } = await db
+    .from("company_credits")
+    .update({
+      applied_to_invoice_id: invoiceId,
+      status: amountToApply === credit.amount ? "applied" : "available",
+      amount: credit.amount - amountToApply,
+      applied_at: new Date().toISOString()
+    })
+    .eq("id", creditId);
 
-    // Update invoice
-    await trx
-      .from("invoices")
-      .update({
-        amount_paid_cents: invoice.amount_paid_cents + amountToApply
-      })
-      .eq("id", invoiceId);
+  if (creditError) {
+    throw new Error(`Failed to update credit: ${creditError.message}`);
+  }
 
-    // Create payment transaction record
-    await trx.from("payment_transactions").insert({
-      invoice_id: invoiceId,
-      amount: amountToApply,
-      payment_type: "credit",
-      payment_date: new Date().toISOString().split("T")[0],
-      status: "completed",
-      notes: `Applied credit ${creditId}`,
-      metadata: { credit_id: creditId }
-    });
+  // Update invoice
+  const { error: invoiceError } = await db
+    .from("invoices")
+    .update({
+      amount_paid_cents: invoice.amount_paid_cents + amountToApply
+    })
+    .eq("id", invoiceId);
+
+  if (invoiceError) {
+    throw new Error(`Failed to update invoice: ${invoiceError.message}`);
+  }
+
+  // Create payment transaction record
+  const { error: transactionError } = await db.from("payment_transactions").insert({
+    invoice_id: invoiceId,
+    amount: amountToApply,
+    payment_type: "credit",
+    payment_date: new Date().toISOString().split("T")[0],
+    status: "completed",
+    notes: `Applied credit ${creditId}`,
+    metadata: { credit_id: creditId }
   });
+
+  if (transactionError) {
+    throw new Error(`Failed to create payment transaction: ${transactionError.message}`);
+  }
 
   return {
     success: true,
