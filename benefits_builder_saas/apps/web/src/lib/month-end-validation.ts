@@ -507,7 +507,7 @@ async function calculateMonthSummary(
     .lte("invoice_date", endDate.toISOString());
 
   const totalRevenue = invoices?.reduce(
-    (sum, inv) => sum + inv.total_cents / 100,
+    (sum: number, inv: any) => sum + inv.total_cents / 100,
     0
   ) || 0;
 
@@ -519,7 +519,7 @@ async function calculateMonthSummary(
     .lte("bill_date", endDate.toISOString());
 
   const totalExpenses = bills?.reduce(
-    (sum, bill) => sum + bill.total_amount,
+    (sum: number, bill: any) => sum + bill.total_amount,
     0
   ) || 0;
 
