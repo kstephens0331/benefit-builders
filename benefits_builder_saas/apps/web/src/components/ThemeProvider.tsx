@@ -31,7 +31,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = window.document.documentElement;
     root.classList.remove("dark");
     root.classList.add("light");
-    localStorage.setItem("theme", "light");
+
+    // Clear any dark or system theme from localStorage
+    const stored = localStorage.getItem("theme");
+    if (stored === "dark" || stored === "system" || !stored) {
+      localStorage.setItem("theme", "light");
+    }
   }, []);
 
   useEffect(() => {
