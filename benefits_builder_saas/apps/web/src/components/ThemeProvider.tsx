@@ -39,12 +39,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     let resolved: "light" | "dark";
 
+    // Ignore system preference for now - always use explicit theme or default to light
     if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-      resolved = systemTheme;
-      root.classList.add(systemTheme);
+      resolved = "light"; // Force light mode instead of checking system preference
+      root.classList.add("light");
     } else {
       resolved = theme;
       root.classList.add(theme);
