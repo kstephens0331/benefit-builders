@@ -41,10 +41,9 @@ export async function POST(request: Request) {
       summary: {
         canClose: report.canClose,
         criticalIssues: report.criticalIssues.length,
-        warnings: report.importantIssues.length + report.recommendations.length,
+        importantIssues: report.importantIssues.length,
         recommendations: report.recommendations.length,
-        passedChecks: report.checks.filter(c => c.passed).length,
-        totalChecks: report.checks.length
+        totalIssues: report.criticalIssues.length + report.importantIssues.length + report.recommendations.length
       }
     });
   } catch (error) {
