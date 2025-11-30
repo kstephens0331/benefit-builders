@@ -190,7 +190,7 @@ export default function DashboardPage() {
               interactive
               className="group border-l-4 border-primary-500 dark:border-primary-400 animate-slide-in-up"
             >
-              <CardContent padding="lg">
+              <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
@@ -219,7 +219,7 @@ export default function DashboardPage() {
               className="group border-l-4 border-success-500 dark:border-success-400 animate-slide-in-up"
               style={{ animationDelay: "0.1s" }}
             >
-              <CardContent padding="lg">
+              <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
@@ -248,7 +248,7 @@ export default function DashboardPage() {
               className="group border-l-4 border-accent-500 dark:border-accent-400 animate-slide-in-up"
               style={{ animationDelay: "0.2s" }}
             >
-              <CardContent padding="lg">
+              <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
@@ -277,7 +277,7 @@ export default function DashboardPage() {
               className="group border-l-4 border-blue-500 dark:border-blue-400 animate-slide-in-up"
               style={{ animationDelay: "0.3s" }}
             >
-              <CardContent padding="lg">
+              <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
@@ -302,7 +302,7 @@ export default function DashboardPage() {
         {/* Secondary Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card variant="elevated" className="animate-scale-in">
-            <CardContent padding="lg">
+            <CardContent className="p-6">
               <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                 Avg Employees/Company
               </div>
@@ -313,7 +313,7 @@ export default function DashboardPage() {
           </Card>
 
           <Card variant="elevated" className="animate-scale-in" style={{ animationDelay: "0.1s" }}>
-            <CardContent padding="lg">
+            <CardContent className="p-6">
               <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                 Avg Revenue/Company
               </div>
@@ -324,7 +324,7 @@ export default function DashboardPage() {
           </Card>
 
           <Card variant="elevated" className="animate-scale-in" style={{ animationDelay: "0.2s" }}>
-            <CardContent padding="lg">
+            <CardContent className="p-6">
               <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                 Avg Revenue/Employee
               </div>
@@ -455,7 +455,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="space-y-3">
                       <Card>
-                        <CardContent padding="md">
+                        <CardContent className="p-4">
                           <div className="text-sm text-neutral-600 dark:text-neutral-400">Monthly Revenue</div>
                           <div className="text-2xl font-bold text-success-600 dark:text-success-400">
                             ${projection.projections.projected_monthly_revenue.toLocaleString()}
@@ -463,7 +463,7 @@ export default function DashboardPage() {
                         </CardContent>
                       </Card>
                       <Card>
-                        <CardContent padding="md">
+                        <CardContent className="p-4">
                           <div className="text-sm text-neutral-600 dark:text-neutral-400">Annual Revenue</div>
                           <div className="text-2xl font-bold text-success-600 dark:text-success-400">
                             ${projection.projections.projected_annual_revenue.toLocaleString()}
@@ -471,7 +471,7 @@ export default function DashboardPage() {
                         </CardContent>
                       </Card>
                       <Card>
-                        <CardContent padding="md">
+                        <CardContent className="p-4">
                           <div className="text-sm text-neutral-600 dark:text-neutral-400">Companies Needed</div>
                           <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">
                             {projection.gap_analysis.companies_needed}
@@ -568,7 +568,7 @@ export default function DashboardPage() {
 
         {/* Action Items */}
         <Card className="bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800 text-white border-none animate-bounce-in">
-          <CardContent padding="lg">
+          <CardContent className="p-6">
             <h2 className="text-3xl font-bold mb-6">Key Insights & Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all">
