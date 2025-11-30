@@ -365,7 +365,7 @@ export default function PaymentAlertsManager({
                       )}
                       {alert.invoice && (
                         <Link
-                          href={`/invoices/${alert.invoice.id}`}
+                          href={`/invoices/${alert.invoice.id}` as any}
                           className="px-3 py-1 bg-gray-600 text-white rounded text-xs font-medium hover:bg-gray-700 text-center whitespace-nowrap"
                         >
                           View Invoice
