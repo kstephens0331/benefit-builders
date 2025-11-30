@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase";
 import {
   createEstimateInQB,
   getAllEstimatesFromQB,
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("start_date");
     const endDate = searchParams.get("end_date");
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get QB connection
     const { data: integration, error: integrationError } = await supabase
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data: integration, error: integrationError } = await supabase
       .from("company_integrations")

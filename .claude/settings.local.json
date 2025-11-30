@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 180 pnpm test:*)",
+      "Bash(supabase/FULL_MIGRATION.sql)",
+      "Bash(pnpm migrate:*)",
+      "Bash(pnpm list:*)",
+      "Bash(playwright.config.ts)",
+      "Bash(pnpm exec playwright install:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 180 pnpm exec playwright test:*)",
+      "Bash(pnpm test:e2e:ui:*)",
+      "Bash(vercel project:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd comprehensive test suite: 200+ E2E tests covering forms, CRUD, errors, and API integration\n\nThis commit adds a complete testing infrastructure with:\n\nTest Files (4 new spec files):\n- e2e/forms-submissions.spec.ts (40+ tests) - All form validations and submissions\n- e2e/crud-operations.spec.ts (50+ tests) - Full CRUD lifecycles for all entities\n- e2e/error-handling.spec.ts (50+ tests) - API errors, validation, edge cases, boundaries\n- e2e/api-integration.spec.ts (40+ tests) - QuickBooks, Email, PDF, Bulk Upload integration\n\nDocumentation Updates:\n- TEST_INFRASTRUCTURE_SUMMARY.md - Updated to reflect 200+ tests across 10 spec files\n- PROGRESS_UPDATE.md - Updated Phase 7 with complete test coverage\n- TESTING_QUICK_START.md - Reorganized with Core and Advanced test sections\n\nQuickBooks Integration:\n- Added disconnect and status API endpoints\n- Enhanced accounting dashboard with QuickBooks sync status\n\nOther Updates:\n- Settings page improvements\n- Enhanced company detail manager\n- Improved PDF generation for various reports\n- Refined bulk upload functionality\n\nTotal Test Suite: 200+ tests across 10 spec files covering all core features\n\n🤖 Generated with Claude Code\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(vercel --version:*)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel inspect:*)",
+      "Bash(vercel:*)",
+      "Bash(corepack use:*)",
+      "Bash(pnpm install:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(nul)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

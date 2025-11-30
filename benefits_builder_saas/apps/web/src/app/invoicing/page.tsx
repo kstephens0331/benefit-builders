@@ -11,7 +11,7 @@
  */
 
 import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase";
 import { InvoiceManagementClient } from "@/components/invoicing/InvoiceManagementClient";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
 
@@ -21,7 +21,7 @@ export const metadata = {
 };
 
 export default async function InvoicingPage() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Fetch invoices with company data
   const { data: invoices, error } = await supabase
