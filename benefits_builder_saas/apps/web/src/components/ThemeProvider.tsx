@@ -4,12 +4,12 @@
  * Theme Provider
  *
  * Manages dark mode state and provides theme context to the application.
- * Persists theme preference to localStorage and syncs with system preferences.
+ * Persists theme preference to localStorage.
  */
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-type Theme = "light" | "dark" | "system";
+type Theme = "light" | "dark";
 
 interface ThemeContextType {
   theme: Theme;
@@ -26,7 +26,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Load theme from localStorage
     const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored) {
+    if (stored && (stored === "light" || stored === "dark")) {
       setTheme(stored);
     }
   }, []);
@@ -37,39 +37,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Remove existing theme classes
     root.classList.remove("light", "dark");
 
-    let resolved: "light" | "dark";
-
-    // Ignore system preference for now - always use explicit theme or default to light
-    if (theme === "system") {
-      resolved = "light"; // Force light mode instead of checking system preference
-      root.classList.add("light");
-    } else {
-      resolved = theme;
-      root.classList.add(theme);
-    }
-
-    setResolvedTheme(resolved);
+    // Apply the theme class
+    root.classList.add(theme);
+    setResolvedTheme(theme);
 
     // Save to localStorage
     localStorage.setItem("theme", theme);
-  }, [theme]);
-
-  // Listen for system theme changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-    const handleChange = () => {
-      if (theme === "system") {
-        const systemTheme = mediaQuery.matches ? "dark" : "light";
-        setResolvedTheme(systemTheme);
-        const root = window.document.documentElement;
-        root.classList.remove("light", "dark");
-        root.classList.add(systemTheme);
-      }
-    };
-
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
   }, [theme]);
 
   return (
