@@ -214,8 +214,8 @@ export default function MonthEndClosingManager({
                     {validationReport.criticalIssues.length > 0 && (
                       <>{validationReport.criticalIssues.length} critical issue(s) must be resolved</>
                     )}
-                    {validationReport.warnings.length > 0 && (
-                      <>{validationReport.warnings.length} warning(s) should be addressed</>
+                    {validationReport.importantIssues.length > 0 && (
+                      <>{validationReport.importantIssues.length} warning(s) should be addressed</>
                     )}
                     {validationReport.canClose && 'All critical checks passed!'}
                   </p>
@@ -239,14 +239,14 @@ export default function MonthEndClosingManager({
               </div>
             )}
 
-            {/* Warnings */}
-            {validationReport.warnings.length > 0 && (
+            {/* Important Issues */}
+            {validationReport.importantIssues.length > 0 && (
               <div className="mb-6">
                 <h4 className="text-md font-semibold text-yellow-900 mb-3">
-                  ⚠️ Warnings ({validationReport.warnings.length})
+                  ⚠️ Important Issues ({validationReport.importantIssues.length})
                 </h4>
                 <div className="space-y-2">
-                  {validationReport.warnings.map((warning: string, idx: number) => (
+                  {validationReport.importantIssues.map((warning: string, idx: number) => (
                     <div key={idx} className="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
                       {warning}
                     </div>
