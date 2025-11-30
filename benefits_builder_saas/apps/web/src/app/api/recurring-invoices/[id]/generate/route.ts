@@ -7,7 +7,7 @@ import { createServiceClient } from "@/lib/supabase";
  */
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const db = createServiceClient();
   const { id } = params;

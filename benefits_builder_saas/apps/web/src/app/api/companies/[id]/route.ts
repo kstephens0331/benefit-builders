@@ -7,9 +7,10 @@ import { createServiceClient } from "@/lib/supabase";
  */
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const db = createServiceClient();
     const { searchParams } = new URL(request.url);
     const includeEmployees = searchParams.get("include") === "employees";
@@ -25,7 +26,7 @@ export async function GET(
         `);
     }
 
-    const { data, error } = await query.eq("id", params.id).single();
+    const { data, error } = await query.eq("id", id).single();
 
     if (error || !data) {
       return NextResponse.json(
@@ -49,9 +50,10 @@ export async function GET(
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     // Validate billing model if provided
@@ -133,7 +135,7 @@ export async function PATCH(
     const { data, error } = await db
       .from("companies")
       .update(sanitizedBody)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -159,9 +161,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const db = createServiceClient();
     const { searchParams } = new URL(request.url);
     const cascade = searchParams.get("cascade") === "true";
@@ -170,7 +173,7 @@ export async function DELETE(
     const { data: existingCompany } = await db
       .from("companies")
       .select("id")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (!existingCompany) {
@@ -187,7 +190,7 @@ export async function DELETE(
         status: 'deleted',
         deleted_at: new Date().toISOString()
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 

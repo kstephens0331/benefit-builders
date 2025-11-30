@@ -8,9 +8,10 @@ import { createServiceClient } from '@/lib/supabase';
  */
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const db = createServiceClient();
 
     const { data: alert, error } = await db
@@ -28,7 +29,7 @@ export async function GET(
         ),
         payment:payment_transactions(id, amount, payment_date, status)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error || !alert) {
@@ -55,9 +56,10 @@ export async function GET(
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { status, resolutionNotes, userId } = body;
 
@@ -87,7 +89,7 @@ export async function PATCH(
     const { data: alert, error } = await db
       .from('payment_alerts')
       .update(updates)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -116,15 +118,16 @@ export async function PATCH(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const db = createServiceClient();
 
     const { error } = await db
       .from('payment_alerts')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       console.error('Error deleting alert:', error);

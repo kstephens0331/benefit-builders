@@ -6,9 +6,10 @@ import { join } from "path";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const db = createServiceClient();
 
     // Fetch invoice with company and line items
@@ -23,7 +24,7 @@ export async function GET(
           contact_email
         )
       `)
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (invoiceError || !invoice) {
@@ -37,7 +38,7 @@ export async function GET(
     const { data: lines } = await db
       .from("invoice_lines")
       .select("*")
-      .eq("invoice_id", params.id)
+      .eq("invoice_id", id)
       .order("kind");
 
     // Generate PDF

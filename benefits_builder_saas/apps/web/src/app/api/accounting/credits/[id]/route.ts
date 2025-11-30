@@ -8,9 +8,10 @@ import { createServiceClient } from '@/lib/supabase';
  */
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const db = createServiceClient();
 
     const { data: credit, error } = await db
@@ -21,7 +22,7 @@ export async function GET(
         source_invoice:invoices!source_invoice_id(id, invoice_number, total_cents),
         applied_invoice:invoices!applied_to_invoice_id(id, invoice_number, total_cents)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error || !credit) {
@@ -48,9 +49,10 @@ export async function GET(
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { amount, notes, expiresAt } = body;
 
@@ -60,7 +62,7 @@ export async function PATCH(
     const { data: currentCredit } = await db
       .from('company_credits')
       .select('status')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (!currentCredit) {
@@ -100,7 +102,7 @@ export async function PATCH(
     const { data: credit, error } = await db
       .from('company_credits')
       .update(updates)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -129,16 +131,17 @@ export async function PATCH(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const db = createServiceClient();
 
     // Verify credit is not applied
     const { data: credit } = await db
       .from('company_credits')
       .select('status, applied_to_invoice_id')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (!credit) {
@@ -158,7 +161,7 @@ export async function DELETE(
     const { error } = await db
       .from('company_credits')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       console.error('Error deleting credit:', error);

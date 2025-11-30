@@ -4,9 +4,10 @@ import nodemailer from "nodemailer";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const db = createServiceClient();
 
     // Fetch invoice with company details
@@ -20,7 +21,7 @@ export async function POST(
           contact_email
         )
       `)
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (invoiceError || !invoice) {
@@ -43,7 +44,7 @@ export async function POST(
     const { data: lines } = await db
       .from("invoice_lines")
       .select("*")
-      .eq("invoice_id", params.id);
+      .eq("invoice_id", id);
 
     // Create email transporter
     const transporter = nodemailer.createTransport({

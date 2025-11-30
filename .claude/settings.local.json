@@ -23,7 +23,8 @@
       "Bash(pnpm install:*)",
       "Bash(git ls-tree:*)",
       "Bash(pnpm run build:*)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(node fix-params.js:*)"
     ],
     "deny": [],
     "ask": []
