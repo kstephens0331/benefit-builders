@@ -177,14 +177,14 @@ export async function POST(request: NextRequest) {
       disqualification_reason: emp.disqualificationReason || null,
     }));
 
-    const { error: employeesError } = await db
+    const { error: insertError } = await db
       .from("proposal_employees")
       .insert(employeeRecords);
 
-    if (employeesError) {
+    if (insertError) {
       // Rollback: delete the proposal
       await db.from("proposals").delete().eq("id", proposal.id);
-      throw new Error(employeesError.message);
+      throw new Error(insertError.message);
     }
 
     return NextResponse.json({
