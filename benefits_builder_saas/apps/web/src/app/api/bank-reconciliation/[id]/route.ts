@@ -9,8 +9,8 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const db = createServiceClient();
-  const { id } = params;
 
   const { data: reconciliation, error } = await db
     .from("bank_reconciliations")
@@ -33,8 +33,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const db = createServiceClient();
-  const { id } = params;
 
   try {
     const body = await request.json();
@@ -106,8 +106,8 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const db = createServiceClient();
-  const { id } = params;
 
   // Check if reconciliation is marked as reconciled
   const { data: existing } = await db
