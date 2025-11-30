@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
           // Find corresponding A/R record
           const { data: arRecord } = await db
             .from("accounts_receivable")
-            .select("id")
+            .select("id, amount, amount_paid")
             .eq("company_id", ourInvoice.company_id)
             .eq("quickbooks_invoice_id", linkedInvoiceId)
             .single();
@@ -254,17 +254,23 @@ export async function POST(request: NextRequest) {
               qb_payment_id: qbPayment.Id,
             });
 
+            // Calculate new amounts
+            const newAmountPaid = (arRecord.amount_paid || 0) + paymentAmount;
+            const newAmountDue = arRecord.amount - newAmountPaid;
+            let newStatus = arRecord.status;
+            if (newAmountDue <= 0) {
+              newStatus = 'paid';
+            } else if (newAmountPaid > 0) {
+              newStatus = 'partial';
+            }
+
             // Update A/R record
             await db
               .from("accounts_receivable")
               .update({
-                amount_paid: db.raw(
-                  `amount_paid + ${paymentAmount / 100}`
-                ),
-                amount_due: db.raw(`amount - amount_paid`),
-                status: db.raw(
-                  `CASE WHEN amount <= amount_paid THEN 'paid' WHEN amount_paid > 0 THEN 'partial' ELSE status END`
-                ),
+                amount_paid: newAmountPaid,
+                amount_due: newAmountDue,
+                status: newStatus,
               })
               .eq("id", arRecord.id);
 
