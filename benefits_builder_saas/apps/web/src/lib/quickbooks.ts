@@ -10,7 +10,7 @@ const QB_REDIRECT_URI = process.env.QB_REDIRECT_URI || "";
 const QB_ENVIRONMENT = process.env.QB_ENVIRONMENT || "sandbox"; // 'sandbox' or 'production'
 
 // Store QuickBooks tokens in database (fetch these from company_integrations table)
-interface QBTokens {
+export interface QBTokens {
   realmId: string;
   accessToken: string;
   refreshToken: string;
