@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
           // Find corresponding A/R record
           const { data: arRecord } = await db
             .from("accounts_receivable")
-            .select("id, amount, amount_paid")
+            .select("id, amount, amount_paid, status")
             .eq("company_id", ourInvoice.company_id)
             .eq("quickbooks_invoice_id", linkedInvoiceId)
             .single();
