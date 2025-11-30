@@ -90,6 +90,9 @@ async function checkLatePayments(db: any): Promise<PaymentAlert[]> {
     const daysLate = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
     const amountDue = (invoice.total_cents - invoice.amount_paid_cents) / 100;
 
+    // Supabase returns related objects as arrays, get the first item
+    const company = (invoice.company as any)?.[0] || invoice.company;
+
     let severity: "critical" | "warning" | "info" = "warning";
     if (daysLate > 60) severity = "critical";
 
@@ -97,8 +100,8 @@ async function checkLatePayments(db: any): Promise<PaymentAlert[]> {
       id: `late-${invoice.id}`,
       type: "late",
       severity,
-      companyId: invoice.company.id,
-      companyName: invoice.company.name,
+      companyId: company.id,
+      companyName: company.name,
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoice_number,
       amount: amountDue,
@@ -132,12 +135,15 @@ async function checkUnderpayments(db: any): Promise<PaymentAlert[]> {
     const amountDue = (invoice.total_cents - invoice.amount_paid_cents) / 100;
     const paidAmount = invoice.amount_paid_cents / 100;
 
+    // Supabase returns related objects as arrays, get the first item
+    const company = (invoice.company as any)?.[0] || invoice.company;
+
     return {
       id: `underpaid-${invoice.id}`,
       type: "underpaid",
       severity: "warning",
-      companyId: invoice.company.id,
-      companyName: invoice.company.name,
+      companyId: company.id,
+      companyName: company.name,
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoice_number,
       amount: amountDue,
@@ -171,12 +177,15 @@ async function checkOverpayments(db: any): Promise<PaymentAlert[]> {
   return (overpayments || []).map((payment: any) => {
     const overpaidAmount = (payment.amount - payment.invoice.total_cents) / 100;
 
+    // Supabase returns related objects as arrays, get the first item
+    const company = (payment.invoice.company as any)?.[0] || payment.invoice.company;
+
     return {
       id: `overpaid-${payment.id}`,
       type: "overpaid",
       severity: "info",
-      companyId: payment.invoice.company.id,
-      companyName: payment.invoice.company.name,
+      companyId: company.id,
+      companyName: company.name,
       invoiceId: payment.invoice.id,
       invoiceNumber: payment.invoice.invoice_number,
       amount: overpaidAmount,
@@ -211,12 +220,15 @@ async function checkFailedPayments(db: any): Promise<PaymentAlert[]> {
     .order("created_at", { ascending: false });
 
   return (failures || []).map((failure: any) => {
+    // Supabase returns related objects as arrays, get the first item
+    const company = (failure.invoice.company as any)?.[0] || failure.invoice.company;
+
     return {
       id: `failed-${failure.id}`,
       type: "failed",
       severity: "critical",
-      companyId: failure.invoice.company.id,
-      companyName: failure.invoice.company.name,
+      companyId: company.id,
+      companyName: company.name,
       invoiceId: failure.invoice.id,
       invoiceNumber: failure.invoice.invoice_number,
       amount: failure.amount / 100,
@@ -482,13 +494,13 @@ export async function sendPaymentReminder(
     invoice_id: invoiceId,
     reminder_type: reminderType,
     sent_at: new Date().toISOString(),
-    sent_to: invoice.company.contact_email,
+    sent_to: company.contact_email,
     email_id: emailResult.id,
   });
 
   return {
     sent: emailResult.success,
-    message: `${reminderType} reminder sent to ${invoice.company.contact_email}`,
+    message: `${reminderType} reminder sent to ${company.contact_email}`,
     emailId: emailResult.id,
   };
 }
