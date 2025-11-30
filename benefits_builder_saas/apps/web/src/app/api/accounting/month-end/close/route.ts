@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       validation_report: validation,
       can_close: validation.canClose,
       critical_issues_count: validation.criticalIssues.length,
-      warnings_count: validation.warnings.length,
+      warnings_count: validation.importantIssues.length + validation.recommendations.length,
       status: 'closed',
       closed_by: userId,
       closed_at: new Date().toISOString(),
