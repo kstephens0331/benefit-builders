@@ -9,8 +9,8 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const db = createServiceClient();
-  const { id } = params;
 
   const { data: recurring, error } = await db
     .from("recurring_invoices")
@@ -43,8 +43,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const db = createServiceClient();
-  const { id } = params;
 
   try {
     const body = await request.json();
@@ -90,8 +90,8 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const db = createServiceClient();
-  const { id } = params;
   const { searchParams } = new URL(request.url);
   const hardDelete = searchParams.get("hard") === "true";
 
