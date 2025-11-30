@@ -451,7 +451,7 @@ export default function BenefitCatalog({ onSelect, multiSelect = false }: Benefi
 
       {/* Accessibility live region */}
       <div role="status" aria-live="polite" className="sr-only">
-        {isSelected && "Benefit selected"}
+        {selectedBenefits.size > 0 && `${selectedBenefits.size} benefit${selectedBenefits.size > 1 ? 's' : ''} selected`}
       </div>
     </div>
   );
