@@ -94,11 +94,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Extract data based on type
+    let data: any[] = [];
+    if ('customers' in result && result.customers) {
+      data = result.customers;
+    } else if ('invoices' in result && result.invoices) {
+      data = result.invoices;
+    } else if ('payments' in result && result.payments) {
+      data = result.payments;
+    }
+
     return NextResponse.json({
       ok: true,
       type,
-      count: result.customers?.length || result.invoices?.length || result.payments?.length || 0,
-      data: result.customers || result.invoices || result.payments || [],
+      count: data.length,
+      data,
     });
   } catch (error: any) {
     console.error("QuickBooks import error:", error);
