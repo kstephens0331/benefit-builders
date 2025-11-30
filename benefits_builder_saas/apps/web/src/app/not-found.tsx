@@ -11,7 +11,7 @@ export default function NotFound() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 animate-fade-in">
       <Card variant="elevated" className="max-w-2xl w-full text-center animate-scale-in">
-        <CardContent padding="lg" className="py-16">
+        <CardContent className="py-16">
           {/* 404 Illustration */}
           <div className="mb-8">
             <div className="text-9xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 dark:from-primary-400 dark:to-accent-400 bg-clip-text text-transparent animate-bounce-in">
