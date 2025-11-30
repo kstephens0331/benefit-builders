@@ -141,10 +141,11 @@ export default function PaymentAlertsManager({
 
       if (response.ok) {
         const { alert: updatedAlert } = await response.json();
+        const originalAlert = alerts.find(a => a.id === alertId);
         setAlerts(alerts.map(a => a.id === alertId ? updatedAlert : a));
         setStats({
           ...stats,
-          [alert.status === 'active' ? 'active' : 'acknowledged']: stats[alert.status === 'active' ? 'active' : 'acknowledged'] - 1,
+          [originalAlert?.status === 'active' ? 'active' : 'acknowledged']: stats[originalAlert?.status === 'active' ? 'active' : 'acknowledged'] - 1,
           resolved: stats.resolved + 1,
         });
         setSelectedAlert(null);
