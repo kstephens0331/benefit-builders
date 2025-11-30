@@ -470,7 +470,7 @@ async function checkMissingInvoiceNumbers(
     .like("invoice_number", `${year}${month.toString().padStart(2, "0")}%`)
     .order("invoice_number");
 
-  const missing = findMissingSequence(invoices?.map(i => i.invoice_number) || []);
+  const missing = findMissingSequence(invoices?.map((i: any) => i.invoice_number) || []);
   const passed = missing.length === 0;
 
   return {
