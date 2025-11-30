@@ -530,7 +530,7 @@ async function calculateMonthSummary(
     .neq("payment_status", "paid");
 
   const outstandingAR = arData?.reduce(
-    (sum, inv) => sum + ((inv.total_cents - inv.amount_paid_cents) / 100),
+    (sum: number, inv: any) => sum + ((inv.total_cents - inv.amount_paid_cents) / 100),
     0
   ) || 0;
 
@@ -541,7 +541,7 @@ async function calculateMonthSummary(
     .neq("payment_status", "paid");
 
   const outstandingAP = apData?.reduce(
-    (sum, bill) => sum + (bill.total_amount - bill.amount_paid),
+    (sum: number, bill: any) => sum + (bill.total_amount - bill.amount_paid),
     0
   ) || 0;
 
@@ -588,7 +588,7 @@ function findDuplicates(items: any[]): any[] {
 function findMissingSequence(numbers: string[]): string[] {
   if (numbers.length === 0) return [];
 
-  const sorted = numbers.map(n => parseInt(n.split("-")[1] || "0")).sort((a, b) => a - b);
+  const sorted = numbers.map((n: string) => parseInt(n.split("-")[1] || "0")).sort((a: number, b: number) => a - b);
   const missing: string[] = [];
 
   for (let i = sorted[0]; i <= sorted[sorted.length - 1]; i++) {
