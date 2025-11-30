@@ -237,12 +237,12 @@ async function checkAccountBalance(db: any): Promise<ValidationCheck> {
     .neq("payment_status", "paid");
 
   const totalAR = arData?.reduce(
-    (sum, inv) => sum + ((inv.total_cents - inv.amount_paid_cents) / 100),
+    (sum: number, inv) => sum + ((inv.total_cents - inv.amount_paid_cents) / 100),
     0
   ) || 0;
 
   const totalAP = apData?.reduce(
-    (sum, bill) => sum + (bill.total_amount - bill.amount_paid),
+    (sum: number, bill) => sum + (bill.total_amount - bill.amount_paid),
     0
   ) || 0;
 
