@@ -13,6 +13,7 @@ create table if not exists companies (
   pay_frequency text not null check (pay_frequency in ('weekly','biweekly','semimonthly','monthly')),
   contact_email text,
   contact_name text,  -- Primary point of contact
+  contact_phone text, -- Primary contact phone number
   address text,       -- Street address
   city text,          -- City
   zip text,           -- ZIP/Postal code

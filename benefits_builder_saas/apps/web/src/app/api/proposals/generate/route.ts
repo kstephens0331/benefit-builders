@@ -136,12 +136,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate proposal metrics for each employee
+    // This calculates PROJECTED savings assuming all employees will elect Section 125
     const calculatedEmployees = employees.map(emp => {
       if (emp.isDisqualified || emp.grossPay < 500) {
         return {
           ...emp,
           qualifies: false,
           grossBenefitAllotment: 0,
+          employeeNetIncreaseMonthly: 0,
+          employeeNetIncreaseAnnual: 0,
+          employerNetSavingsMonthly: 0,
+          employerNetSavingsAnnual: 0,
           netMonthlySavings: 0,
           netAnnualSavings: 0,
           disqualificationReason: emp.grossPay < 500 ? "Gross pay below $500" : "Marked as not qualifying",
@@ -154,15 +159,22 @@ export async function POST(request: NextRequest) {
         emp.maritalStatus,
         emp.dependents,
         emp.state,
-        modelPercentage
+        modelPercentage,
+        '2025', // Default tier - could be passed from form
+        50 // Safety cap percent
       );
 
       return {
         ...emp,
         qualifies: true,
         grossBenefitAllotment: result.grossBenefitAllotment,
+        employeeNetIncreaseMonthly: result.employeeNetIncreaseMonthly,
+        employeeNetIncreaseAnnual: result.employeeNetIncreaseAnnual,
+        employerNetSavingsMonthly: result.employerNetSavingsMonthly,
+        employerNetSavingsAnnual: result.employerNetSavingsAnnual,
         netMonthlySavings: result.netMonthlySavings,
         netAnnualSavings: result.netAnnualSavings,
+        isCapped: result.isCapped,
       };
     });
 
@@ -201,7 +213,7 @@ export async function POST(request: NextRequest) {
 
     if (proposalError) throw new Error(proposalError.message);
 
-    // Save employee details
+    // Save employee details with projected Section 125 savings
     const employeeRecords = calculatedEmployees.map(emp => ({
       proposal_id: proposal.id,
       employee_name: emp.name,
@@ -211,6 +223,8 @@ export async function POST(request: NextRequest) {
       marital_status: emp.maritalStatus,
       dependents: emp.dependents,
       gross_benefit_allotment: emp.grossBenefitAllotment || 0,
+      employee_net_increase_monthly: emp.employeeNetIncreaseMonthly || 0,
+      employee_net_increase_annual: emp.employeeNetIncreaseAnnual || 0,
       net_monthly_employer_savings: emp.netMonthlySavings || 0,
       net_annual_employer_savings: emp.netAnnualSavings || 0,
       qualifies: emp.qualifies,

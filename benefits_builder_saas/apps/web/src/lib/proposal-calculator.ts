@@ -1,8 +1,11 @@
 // Proposal calculation logic for Benefits Builder proposals
+// Calculates projected Section 125 savings BEFORE employee election
+
+import { calculateSection125Amount, CompanyTier, FilingStatus, monthlyToPerPay } from './section125';
 
 /**
  * Calculate proposal metrics for an employee
- * Based on the Benefits Booster model
+ * This calculates PROJECTED savings assuming the employee will elect Section 125
  */
 export function calculateProposalMetrics(
   paycheckGross: number,
@@ -10,12 +13,14 @@ export function calculateProposalMetrics(
   maritalStatus: string,
   dependents: number,
   state: string,
-  modelPercentage: string // e.g., "5/1" for 5% employee, 1% employer
+  modelPercentage: string, // e.g., "5/3" for 5% employee, 3% employer
+  tier: CompanyTier = '2025',
+  safetyCapPercent: number = 50 // Max % of gross that can be deducted
 ) {
   // Parse model percentage
   const [employeeRateStr, employerRateStr] = modelPercentage.split("/");
-  const employeeRate = parseFloat(employeeRateStr) / 100 || 0.05;
-  const employerRate = parseFloat(employerRateStr) / 100 || 0.01;
+  const employeeRate = parseFloat(employeeRateStr) || 5;
+  const employerRate = parseFloat(employerRateStr) || 3;
 
   // Convert pay frequency to periods per year
   const payFreqMap: Record<string, number> = {
@@ -28,48 +33,95 @@ export function calculateProposalMetrics(
   const periodsPerYear = payFreqMap[payFreq] || 26;
   const periodsPerMonth = periodsPerYear / 12;
 
-  // Calculate annual gross
-  const annualGross = paycheckGross * periodsPerYear;
+  // Calculate monthly gross
+  const monthlyGross = paycheckGross * periodsPerMonth;
 
-  // Calculate Section 125 safe harbor limit (5% or $5,000 cap)
-  const safetyCapPercent = annualGross * 0.05;
-  const safetyCapFixed = 5000;
-  const safetyCap = Math.min(safetyCapPercent, safetyCapFixed);
+  // Get filing status for Section 125 calculation
+  const filingStatus: FilingStatus = maritalStatus === 'M' ? 'married' : 'single';
 
-  // Calculate gross benefit allotment (annual pretax amount)
-  // This is the amount the employee can contribute pretax
-  // Using the employee rate from model percentage
-  const grossBenefitAnnual = Math.min(annualGross * employeeRate, safetyCap);
-  const grossBenefitMonthly = grossBenefitAnnual / 12;
+  // Calculate TARGET monthly Section 125 amount from tier
+  const targetMonthly = calculateSection125Amount(tier, filingStatus, dependents);
 
-  // Calculate employer FICA savings
-  // Employer saves 7.65% FICA on the pretax amount
-  const ficaRate = 0.0765;
-  const employerFicaSavingsAnnual = grossBenefitAnnual * ficaRate;
-  const employerFicaSavingsMonthly = employerFicaSavingsAnnual / 12;
+  // Apply safety cap - max deduction as % of gross
+  const maxMonthlyDeduction = monthlyGross * (safetyCapPercent / 100);
+  const safeMonthly = Math.min(targetMonthly, maxMonthlyDeduction);
 
-  // Calculate employer fee (charged by Benefits Builder)
-  // Based on the employer rate from model percentage
-  const employerFeeAnnual = grossBenefitAnnual * employerRate / 0.05; // Normalize to the pretax amount
-  const employerFeeMonthly = employerFeeAnnual / 12;
+  // Convert to per-pay amount for calculations
+  const payPeriodCode = payFreq === 'W' ? 'w' : payFreq === 'B' ? 'b' : payFreq === 'S' ? 's' : payFreq === 'M' ? 'm' : 'b';
+  const benefitPerPay = monthlyToPerPay(safeMonthly, payPeriodCode);
 
-  // Net savings = FICA savings - BB fee
-  const netMonthlySavings = employerFicaSavingsMonthly - employerFeeMonthly;
-  const netAnnualSavings = employerFicaSavingsAnnual - employerFeeAnnual;
+  // FICA rates
+  const ssRate = 0.062;
+  const medRate = 0.0145;
+  const ficaRate = ssRate + medRate; // 7.65%
 
-  // Different savings rate based on marital status
-  // Single: $18.55/month ($222.60/year)
-  // Married: $29.15/month ($349.80/year)
-  // HOH: $29.15/month ($349.80/year)
-  const standardMonthlySavings = maritalStatus === "S" ? 18.55 : 29.15;
-  const standardAnnualSavings = maritalStatus === "S" ? 222.60 : 349.80;
+  // Calculate taxes WITHOUT Section 125 (current situation)
+  // Federal withholding estimate (simplified - ~12% for most brackets)
+  const estFedWithholdingRate = 0.12;
+  const beforeFIT = paycheckGross * estFedWithholdingRate;
+  const beforeFICA = paycheckGross * ficaRate;
+  const beforeTotalTax = beforeFIT + beforeFICA;
+  const beforeNetPay = paycheckGross - beforeTotalTax;
+
+  // Calculate taxes WITH Section 125
+  // The benefit amount is a PRE-TAX deduction
+  const taxablePayWithSection125 = paycheckGross - benefitPerPay;
+  const afterFIT = taxablePayWithSection125 * estFedWithholdingRate;
+  const afterFICA = taxablePayWithSection125 * ficaRate;
+  const afterTotalTax = afterFIT + afterFICA;
+
+  // Employee fee (percentage of benefit amount)
+  const employeeFeePerPay = benefitPerPay * (employeeRate / 100);
+  const employerFeePerPay = benefitPerPay * (employerRate / 100);
+
+  // Net pay WITH Section 125 = Gross - Reduced Taxes - Employee Fee
+  const afterNetPay = paycheckGross - afterTotalTax - employeeFeePerPay;
+
+  // Employee tax savings per pay
+  const employeeTaxSavingsPerPay = beforeTotalTax - afterTotalTax;
+
+  // Employee net increase (what they actually take home more)
+  const employeeNetIncreasePerPay = afterNetPay - beforeNetPay;
+
+  // Employer FICA savings per pay
+  const employerFicaSavingsPerPay = (paycheckGross * ficaRate) - (taxablePayWithSection125 * ficaRate);
+
+  // Employer net savings (FICA savings - BB fee)
+  const employerNetSavingsPerPay = employerFicaSavingsPerPay - employerFeePerPay;
+
+  // Convert to monthly and annual amounts
+  const employeeNetIncreaseMonthly = employeeNetIncreasePerPay * periodsPerMonth;
+  const employeeNetIncreaseAnnual = employeeNetIncreasePerPay * periodsPerYear;
+
+  const employerNetSavingsMonthly = employerNetSavingsPerPay * periodsPerMonth;
+  const employerNetSavingsAnnual = employerNetSavingsPerPay * periodsPerYear;
+
+  const employerFicaSavingsMonthly = employerFicaSavingsPerPay * periodsPerMonth;
 
   return {
-    grossBenefitAllotment: Math.round(grossBenefitMonthly * 100) / 100,
-    netMonthlySavings: standardMonthlySavings,
-    netAnnualSavings: standardAnnualSavings,
-    employerFicaSavings: Math.round(employerFicaSavingsMonthly * 100) / 100,
-    employerFee: Math.round(employerFeeMonthly * 100) / 100,
+    // Section 125 benefit amount
+    grossBenefitAllotment: Math.round(benefitPerPay * 100) / 100,
+    targetMonthly: targetMonthly,
+    safeMonthly: Math.round(safeMonthly * 100) / 100,
+    isCapped: safeMonthly < targetMonthly,
+
+    // Employee metrics
+    employeeNetIncreasePerPay: Math.round(employeeNetIncreasePerPay * 100) / 100,
+    employeeNetIncreaseMonthly: Math.round(employeeNetIncreaseMonthly * 100) / 100,
+    employeeNetIncreaseAnnual: Math.round(employeeNetIncreaseAnnual * 100) / 100,
+    employeeFeePerPay: Math.round(employeeFeePerPay * 100) / 100,
+
+    // Employer metrics
+    employerFicaSavingsPerPay: Math.round(employerFicaSavingsPerPay * 100) / 100,
+    employerFicaSavingsMonthly: Math.round(employerFicaSavingsMonthly * 100) / 100,
+    employerFeePerPay: Math.round(employerFeePerPay * 100) / 100,
+    employerNetSavingsPerPay: Math.round(employerNetSavingsPerPay * 100) / 100,
+    employerNetSavingsMonthly: Math.round(employerNetSavingsMonthly * 100) / 100,
+    employerNetSavingsAnnual: Math.round(employerNetSavingsAnnual * 100) / 100,
+
+    // Legacy fields for backward compatibility
+    netMonthlySavings: Math.round(employerNetSavingsMonthly * 100) / 100,
+    netAnnualSavings: Math.round(employerNetSavingsAnnual * 100) / 100,
   };
 }
 

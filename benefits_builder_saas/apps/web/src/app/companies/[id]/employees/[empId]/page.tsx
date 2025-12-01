@@ -31,7 +31,7 @@ export default async function EmployeePage({
   // Fetch company data for model rates and tier
   const { data: company, error: companyError } = await db
     .from("companies")
-    .select("id, name, state, model, employer_rate, employee_rate, pay_frequency, tier, safety_cap_percent")
+    .select("id, name, state, model, employer_rate, employee_rate, pay_frequency, tier, safety_cap_percent, contact_name, contact_phone")
     .eq("id", companyId)
     .single();
 
@@ -224,8 +224,35 @@ export default async function EmployeePage({
             />
           </div>
           <div>
+            <div className={label}>Pay Frequency</div>
+            <EmployeeFieldEditor
+              employeeId={empId}
+              fieldName="pay_period"
+              fieldLabel="Pay Frequency"
+              initialValue={effectivePayPeriod}
+              fieldType="select"
+              options={[
+                { value: "w", label: "Weekly" },
+                { value: "b", label: "Biweekly" },
+                { value: "s", label: "Semimonthly" },
+                { value: "m", label: "Monthly" },
+              ]}
+            />
+          </div>
+        </div>
+        <div className={row}>
+          <div>
             <div className={label}>Model</div>
             <div className="font-medium">{company?.model || "N/A"} ({employeeRate}% Emp / {employerRate}% Empr)</div>
+          </div>
+          <div>
+            <div className={label}>Point of Contact</div>
+            <div className="font-medium">
+              {company?.contact_name || "N/A"}
+              {company?.contact_phone && (
+                <span className="text-slate-500 ml-2">({company.contact_phone})</span>
+              )}
+            </div>
           </div>
         </div>
         <div className={row}>

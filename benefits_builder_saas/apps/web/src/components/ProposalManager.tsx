@@ -2,12 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Proposal = {
   id: string;
   proposal_name: string;
   company_name: string;
   company_id: string | null;
+  company_address?: string;
+  company_city?: string;
+  company_state?: string;
+  company_phone?: string;
+  company_email?: string;
+  company_contact?: string;
   effective_date: string;
   model_percentage: string;
   pay_period: string;
@@ -33,7 +40,10 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
   const router = useRouter();
   const [proposals, setProposals] = useState<Proposal[]>(initialProposals);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProposal, setEditingProposal] = useState<Proposal | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -148,6 +158,94 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
     window.open(`/api/proposals/${proposalId}/pdf`, "_blank");
   };
 
+  // Edit form state
+  const [editFormData, setEditFormData] = useState({
+    proposal_name: "",
+    company_name: "",
+    company_address: "",
+    company_city: "",
+    company_state: "",
+    company_phone: "",
+    company_email: "",
+    company_contact: "",
+    effective_date: "",
+    model_percentage: "",
+    pay_period: "",
+    status: "",
+  });
+
+  const handleEditProposal = (proposal: Proposal) => {
+    setEditingProposal(proposal);
+    setEditFormData({
+      proposal_name: proposal.proposal_name || "",
+      company_name: proposal.company_name || "",
+      company_address: proposal.company_address || "",
+      company_city: proposal.company_city || "",
+      company_state: proposal.company_state || "",
+      company_phone: proposal.company_phone || "",
+      company_email: proposal.company_email || "",
+      company_contact: proposal.company_contact || "",
+      effective_date: proposal.effective_date?.split("T")[0] || "",
+      model_percentage: proposal.model_percentage || "",
+      pay_period: proposal.pay_period || "",
+      status: proposal.status || "draft",
+    });
+    setShowEditModal(true);
+    setError(null);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProposal) return;
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/proposals/${editingProposal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editFormData),
+      });
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to update proposal");
+      }
+
+      setSuccess("Proposal updated successfully");
+      setShowEditModal(false);
+      setEditingProposal(null);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteProposal = async (proposalId: string) => {
+    if (!confirm("Are you sure you want to delete this proposal?")) return;
+
+    try {
+      const response = await fetch(`/api/proposals/${proposalId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to delete proposal");
+      }
+
+      setSuccess("Proposal deleted successfully");
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -255,11 +353,23 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
               {proposals.map((proposal) => (
                 <tr
                   key={proposal.id}
-                  className="border-b border-slate-100 hover:bg-slate-50"
+                  className={`border-b border-slate-100 hover:bg-slate-50 ${
+                    proposal.status === "draft" ? "cursor-pointer" : ""
+                  }`}
+                  onClick={() => {
+                    if (proposal.status === "draft") {
+                      handleEditProposal(proposal);
+                    }
+                  }}
                 >
                   <td className="py-3 px-4">
                     <div>
-                      <div className="font-medium">{proposal.proposal_name}</div>
+                      <div className={`font-medium ${proposal.status === "draft" ? "text-blue-600 hover:text-blue-700" : ""}`}>
+                        {proposal.proposal_name}
+                        {proposal.status === "draft" && (
+                          <span className="ml-2 text-xs text-slate-400">(click to edit)</span>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-500">
                         {formatDate(proposal.effective_date)}
                       </div>
@@ -287,13 +397,41 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
                       {proposal.status}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-center">
-                    <button
-                      onClick={() => handleDownloadPDF(proposal.id)}
-                      className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-                    >
-                      Download PDF
-                    </button>
+                  <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleDownloadPDF(proposal.id)}
+                        className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                        title="Download PDF"
+                      >
+                        PDF
+                      </button>
+                      {proposal.status === "draft" && (
+                        <>
+                          <button
+                            onClick={() => handleEditProposal(proposal)}
+                            className="text-slate-600 hover:text-slate-700 font-medium text-sm"
+                            title="Edit Proposal"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProposal(proposal.id)}
+                            className="text-red-600 hover:text-red-700 font-medium text-sm"
+                            title="Delete Proposal"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                      <Link
+                        href={`/proposals/${proposal.id}`}
+                        className="text-slate-600 hover:text-slate-700 font-medium text-sm"
+                        title="View Details"
+                      >
+                        View
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -535,6 +673,233 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
                 >
                   {isUploading ? "Generating..." : "Generate Proposal"}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && editingProposal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-200">
+              <h2 className="text-xl font-bold">Edit Proposal</h2>
+              <p className="text-sm text-slate-600 mt-1">
+                Update proposal details. Change status to "approved" when ready.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
+              {/* Error display */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+                  {error}
+                </div>
+              )}
+
+              {/* Proposal Name */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Proposal Name
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.proposal_name}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, proposal_name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                />
+              </div>
+
+              {/* Company Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-2">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.company_name}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, company_name: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-2">
+                    Company Address
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.company_address}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, company_address: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">City</label>
+                  <input
+                    type="text"
+                    value={editFormData.company_city}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, company_city: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">State</label>
+                  <input
+                    type="text"
+                    value={editFormData.company_state}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, company_state: e.target.value })
+                    }
+                    maxLength={2}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Phone</label>
+                  <input
+                    type="tel"
+                    value={editFormData.company_phone}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, company_phone: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={editFormData.company_email}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, company_email: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-2">
+                    Point of Contact
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.company_contact}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, company_contact: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              {/* Proposal Settings */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Effective Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editFormData.effective_date}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, effective_date: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Model Percentage
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.model_percentage}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        model_percentage: e.target.value,
+                      })
+                    }
+                    placeholder="5/3"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Pay Period
+                  </label>
+                  <select
+                    value={editFormData.pay_period}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, pay_period: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  >
+                    <option value="Weekly">Weekly</option>
+                    <option value="Bi-Weekly">Bi-Weekly</option>
+                    <option value="Semi-Monthly">Semi-Monthly</option>
+                    <option value="Monthly">Monthly</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Status
+                  </label>
+                  <select
+                    value={editFormData.status}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, status: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="sent">Sent</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-between pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => handleDeleteProposal(editingProposal.id)}
+                  disabled={isSaving}
+                  className="px-4 py-2 text-red-700 bg-red-50 rounded-lg hover:bg-red-100"
+                >
+                  Delete Proposal
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingProposal(null);
+                      setError(null);
+                    }}
+                    disabled={isSaving}
+                    className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
