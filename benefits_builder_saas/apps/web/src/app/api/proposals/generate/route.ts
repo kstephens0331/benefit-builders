@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import * as XLSX from "xlsx";
 import { calculateProposalMetrics } from "@/lib/proposal-calculator";
+import type { CompanyTier } from "@/lib/section125";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
     const effectiveDate = formData.get("effectiveDate") as string;
     const modelPercentage = formData.get("modelPercentage") as string || "5/1";
     const payPeriod = formData.get("payPeriod") as string || "Bi-Weekly";
+    const tier = (formData.get("tier") as CompanyTier) || "2025";
     const companyId = formData.get("companyId") as string || null;
 
     if (!file) {
@@ -160,7 +162,7 @@ export async function POST(request: NextRequest) {
         emp.dependents,
         emp.state,
         modelPercentage,
-        '2025', // Default tier - could be passed from form
+        tier, // Use company tier from form
         50 // Safety cap percent
       );
 

@@ -29,6 +29,17 @@ type Proposal = {
 type Company = {
   id: string;
   name: string;
+  state?: string;
+  model?: string;
+  pay_frequency?: string;
+  employer_rate?: number;
+  employee_rate?: number;
+  tier?: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  contact_name?: string;
 };
 
 type Props = {
@@ -61,6 +72,7 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
     effectiveDate: new Date().toISOString().split("T")[0],
     modelPercentage: "5/1",
     payPeriod: "Bi-Weekly",
+    tier: "2025",
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,15 +82,58 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
     }
   };
 
+  // Convert pay_frequency from database format to display format
+  const convertPayFrequency = (freq?: string): string => {
+    if (!freq) return "Bi-Weekly";
+    const map: Record<string, string> = {
+      weekly: "Weekly",
+      biweekly: "Bi-Weekly",
+      "bi-weekly": "Bi-Weekly",
+      semimonthly: "Semi-Monthly",
+      "semi-monthly": "Semi-Monthly",
+      monthly: "Monthly",
+    };
+    return map[freq.toLowerCase()] || "Bi-Weekly";
+  };
+
   const handleCompanyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const companyId = e.target.value;
-    setFormData({ ...formData, companyId });
 
     if (companyId) {
       const company = companies.find((c) => c.id === companyId);
       if (company) {
-        setFormData((prev) => ({ ...prev, companyName: company.name }));
+        // Auto-populate all company fields including model, pay frequency, and tier
+        setFormData((prev) => ({
+          ...prev,
+          companyId,
+          companyName: company.name,
+          companyAddress: company.address || "",
+          companyCity: company.city || "",
+          companyState: company.state || "",
+          companyPhone: company.phone || "",
+          companyEmail: company.email || "",
+          companyContact: company.contact_name || "",
+          modelPercentage: company.model || "5/1",
+          payPeriod: convertPayFrequency(company.pay_frequency),
+          tier: company.tier || "2025",
+        }));
       }
+    } else {
+      // Clear fields when "New Company" is selected
+      setFormData((prev) => ({
+        ...prev,
+        companyId: "",
+        companyName: "",
+        companyAddress: "",
+        companyCity: "",
+        companyState: "",
+        companyPhone: "",
+        companyEmail: "",
+        companyContact: "",
+        modelPercentage: "5/1",
+        payPeriod: "Bi-Weekly",
+        tier: "2025",
+      }));
     }
   };
 
@@ -113,6 +168,7 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
       uploadFormData.append("effectiveDate", formData.effectiveDate);
       uploadFormData.append("modelPercentage", formData.modelPercentage);
       uploadFormData.append("payPeriod", formData.payPeriod);
+      uploadFormData.append("tier", formData.tier);
       if (formData.companyId) {
         uploadFormData.append("companyId", formData.companyId);
       }
@@ -143,6 +199,7 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
         effectiveDate: new Date().toISOString().split("T")[0],
         modelPercentage: "5/1",
         payPeriod: "Bi-Weekly",
+        tier: "2025",
       });
 
       // Refresh proposals
