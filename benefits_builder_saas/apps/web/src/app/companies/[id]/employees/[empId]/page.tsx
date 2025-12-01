@@ -112,6 +112,20 @@ export default async function EmployeePage({
   const employerRate = Number(company?.employer_rate) || modelRates.employer_rate;
   const employeeRate = Number(company?.employee_rate) || modelRates.employee_rate;
 
+  // Convert company pay_frequency (full word) to pay_period code (single letter)
+  const convertPayFrequency = (freq?: string): string => {
+    switch (freq?.toLowerCase()) {
+      case 'weekly': return 'w';
+      case 'biweekly': return 'b';
+      case 'semimonthly': return 's';
+      case 'monthly': return 'm';
+      default: return 'b'; // default to biweekly
+    }
+  };
+
+  // Use employee's pay_period if set, otherwise fall back to company's pay_frequency
+  const effectivePayPeriod = emp.pay_period || convertPayFrequency(company?.pay_frequency);
+
   return (
     <main className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -120,7 +134,7 @@ export default async function EmployeePage({
             {emp.last_name}, {emp.first_name}
           </h1>
           <p className="text-slate-600 text-sm">
-            {company?.name} · {emp.state} · {payMap[emp.pay_period] ?? emp.pay_period} ·{" "}
+            {company?.name} · {emp.state || company?.state} · {payMap[effectivePayPeriod] ?? effectivePayPeriod} ·{" "}
             {emp.active ? "active" : `inactive${emp.inactive_date ? ` since ${emp.inactive_date}` : ""}`}
           </p>
         </div>
@@ -248,7 +262,7 @@ export default async function EmployeePage({
           gross_pay: grossPay,
           filing_status: emp.filing_status,
           dependents: emp.dependents || 0,
-          pay_period: emp.pay_period,
+          pay_period: effectivePayPeriod,
           state: employeeState,
         }}
         company={{

@@ -207,6 +207,25 @@ export function calculateSafeSection125Deduction(
 }
 
 /**
+ * Convert per-paycheck amount to monthly amount based on pay frequency
+ *
+ * @param perPaycheckAmount - Amount per paycheck
+ * @param payPeriod - Pay period code (w=weekly, b=biweekly, s=semimonthly, m=monthly)
+ * @returns Monthly amount
+ */
+export function perPayToMonthly(perPaycheckAmount: number, payPeriod: string): number {
+  const payPeriodsPerMonth: Record<string, number> = {
+    w: 52 / 12,      // ~4.33 weekly
+    b: 26 / 12,      // ~2.17 biweekly
+    s: 24 / 12,      // 2 semimonthly
+    m: 1,            // 1 monthly
+  };
+
+  const periods = payPeriodsPerMonth[payPeriod] || 26 / 12; // default to biweekly
+  return perPaycheckAmount * periods;
+}
+
+/**
  * Check if an employee's gross pay is sufficient for full Section 125 benefit
  *
  * @param tier - The company's pricing tier
@@ -233,42 +252,37 @@ export function checkSection125Affordability(
   safeMonthly: number;
   shortfallMonthly: number;
   percentOfGross: number;
+  grossMonthly: number;
 } {
   const targetMonthlyAmount = calculateSection125Amount(tier, filingStatus, dependents);
   const targetPerPaycheck = monthlyToPerPay(targetMonthlyAmount, payPeriod);
-  const safePerPaycheck = calculateSafeSection125Deduction(
-    tier,
-    filingStatus,
-    dependents,
-    grossPayPerPaycheck,
-    payPeriod,
-    maxPercentOfGross
-  );
+
+  // Calculate monthly gross pay from per-paycheck amount
+  const grossMonthly = perPayToMonthly(grossPayPerPaycheck, payPeriod);
+
+  // Calculate max monthly deduction as percentage of monthly gross
+  const maxMonthlyDeduction = grossMonthly * (maxPercentOfGross / 100);
+
+  // Safe monthly amount is the lesser of target or max allowed
+  const safeMonthly = Math.min(targetMonthlyAmount, maxMonthlyDeduction);
+
+  // Convert safe monthly to per-paycheck
+  const safePerPaycheck = monthlyToPerPay(safeMonthly, payPeriod);
 
   const shortfallPerPaycheck = targetPerPaycheck - safePerPaycheck;
+  const shortfallMonthly = targetMonthlyAmount - safeMonthly;
 
-  // Convert back to monthly for reporting
-  const payPeriodsPerMonth: Record<string, number> = {
-    w: 52 / 12,
-    b: 26 / 12,
-    s: 24 / 12,
-    m: 1,
-  };
-  const periodsPerMonth = payPeriodsPerMonth[payPeriod] || 26 / 12;
-
-  const safeMonthly = safePerPaycheck * periodsPerMonth;
-  const shortfallMonthly = shortfallPerPaycheck * periodsPerMonth;
-
-  const percentOfGross = (safePerPaycheck / grossPayPerPaycheck) * 100;
+  const percentOfGross = (safeMonthly / grossMonthly) * 100;
 
   return {
-    isSufficient: shortfallPerPaycheck === 0,
+    isSufficient: shortfallMonthly <= 0,
     targetPerPaycheck,
     safePerPaycheck,
     shortfallPerPaycheck,
     targetMonthly: targetMonthlyAmount,
     safeMonthly,
-    shortfallMonthly,
+    shortfallMonthly: Math.max(0, shortfallMonthly),
     percentOfGross,
+    grossMonthly,
   };
 }

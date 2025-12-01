@@ -37,10 +37,64 @@ export async function POST(request: NextRequest) {
     const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
 
     console.log('Excel parsing - total rows:', sheetData.length);
-    console.log('First 5 rows sample:');
-    sheetData.slice(0, 5).forEach((row, idx) => {
+    console.log('First 10 rows sample:');
+    sheetData.slice(0, 10).forEach((row, idx) => {
       console.log(`Row ${idx}:`, row);
     });
+
+    // Extract company info from specific cells
+    // Excel columns: A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, J=9
+    // Row indices are 0-based: Row 4 = index 3, Row 5 = index 4, etc.
+    let extractedCompanyName = '';
+    let extractedAddress = '';
+    let extractedCity = '';
+    let extractedState = '';
+    let extractedZip = '';
+    let extractedContactName = '';
+    let extractedPayFrequency = '';
+
+    // Company name is ALWAYS in cell F4 (row 3, column 5 in 0-indexed)
+    if (sheetData[3] && sheetData[3][5]) {
+      extractedCompanyName = sheetData[3][5].toString().trim();
+      console.log(`✓ Found company name in F4: "${extractedCompanyName}"`);
+    }
+
+    // Address is in cell F5 (row 4, column 5)
+    if (sheetData[4] && sheetData[4][5]) {
+      extractedAddress = sheetData[4][5].toString().trim();
+      console.log(`✓ Found address in F5: "${extractedAddress}"`);
+    }
+
+    // City is in cell F6 (row 5, column 5)
+    if (sheetData[5] && sheetData[5][5]) {
+      extractedCity = sheetData[5][5].toString().trim();
+      console.log(`✓ Found city in F6: "${extractedCity}"`);
+    }
+
+    // State and ZIP are in cell F7 (row 6, column 5) - format: "TX 75001" or "TX, 75001"
+    if (sheetData[6] && sheetData[6][5]) {
+      const stateZip = sheetData[6][5].toString().trim();
+      console.log(`✓ Found state/zip in F7: "${stateZip}"`);
+      // Parse state and zip - typically "TX 75001" or "TX, 75001" or "Texas 75001"
+      const stateZipMatch = stateZip.match(/^([A-Za-z]{2})[,\s]+(\d{5}(?:-\d{4})?)$/);
+      if (stateZipMatch) {
+        extractedState = stateZipMatch[1].toUpperCase();
+        extractedZip = stateZipMatch[2];
+      } else {
+        // Try to extract state code if it's just a 2-letter code
+        const stateMatch = stateZip.match(/([A-Z]{2})/);
+        const zipMatch = stateZip.match(/(\d{5}(?:-\d{4})?)/);
+        if (stateMatch) extractedState = stateMatch[1];
+        if (zipMatch) extractedZip = zipMatch[1];
+      }
+      console.log(`  → Parsed state: "${extractedState}", zip: "${extractedZip}"`);
+    }
+
+    // Point of contact is in cell J8 (row 7, column 9)
+    if (sheetData[7] && sheetData[7][9]) {
+      extractedContactName = sheetData[7][9].toString().trim();
+      console.log(`✓ Found point of contact in J8: "${extractedContactName}"`);
+    }
 
     // Find the header row (look for rows with "Last Name" or "First Name")
     let headerRowIndex = -1;
@@ -60,6 +114,54 @@ export async function POST(request: NextRequest) {
         break;
       }
     }
+
+    // Look for pay frequency and state in the header area
+    const rowsBeforeHeader = headerRowIndex > 0 ? headerRowIndex : 10;
+    for (let i = 0; i < rowsBeforeHeader; i++) {
+      const row = sheetData[i];
+      if (!row || row.length === 0) continue;
+
+      // Convert row to string for pattern matching
+      const rowText = row.filter((cell: any) => cell !== null && cell !== undefined && cell !== '').join(' ');
+      const rowTextLower = rowText.toLowerCase();
+
+      console.log(`Scanning row ${i} for company info: "${rowText.substring(0, 100)}"`);
+
+      // Look for pay frequency
+      if (!extractedPayFrequency) {
+        if (rowTextLower.includes('weekly') || rowTextLower.includes('biweekly') ||
+            rowTextLower.includes('bi-weekly') || rowTextLower.includes('semimonthly') ||
+            rowTextLower.includes('semi-monthly') || rowTextLower.includes('monthly')) {
+          if (rowTextLower.includes('biweekly') || rowTextLower.includes('bi-weekly')) {
+            extractedPayFrequency = 'biweekly';
+          } else if (rowTextLower.includes('semimonthly') || rowTextLower.includes('semi-monthly')) {
+            extractedPayFrequency = 'semimonthly';
+          } else if (rowTextLower.includes('monthly') && !rowTextLower.includes('semi')) {
+            extractedPayFrequency = 'monthly';
+          } else if (rowTextLower.includes('weekly') && !rowTextLower.includes('bi')) {
+            extractedPayFrequency = 'weekly';
+          }
+          if (extractedPayFrequency) {
+            console.log(`✓ Found pay frequency: "${extractedPayFrequency}"`);
+          }
+        }
+      }
+
+      // Look for state code (2-letter abbreviation)
+      if (!extractedState) {
+        for (const cell of row) {
+          const cellStr = (cell?.toString() || '').trim().toUpperCase();
+          // Match 2-letter state codes
+          if (cellStr.match(/^[A-Z]{2}$/) && isValidStateCode(cellStr)) {
+            extractedState = cellStr;
+            console.log(`✓ Found state code: "${extractedState}"`);
+            break;
+          }
+        }
+      }
+    }
+
+    console.log('Extracted company info:', { extractedCompanyName, extractedPayFrequency, extractedState });
 
     if (headerRowIndex === -1) {
       console.log('⚠ No header row found - using first row as headers');
@@ -84,7 +186,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Use Claude AI to analyze and structure the data
-    const structuredData = await parseWithClaude(rawData);
+    // Pass the extracted company info to help with parsing
+    const structuredData = await parseWithClaude(rawData, {
+      companyName: extractedCompanyName,
+      address: extractedAddress,
+      city: extractedCity,
+      state: extractedState,
+      zip: extractedZip,
+      contactName: extractedContactName,
+      payFrequency: extractedPayFrequency,
+      sheetName: sheetName,  // Sheet name sometimes contains company name
+    });
 
     if (!structuredData) {
       return NextResponse.json(
@@ -111,6 +223,7 @@ export async function POST(request: NextRequest) {
       debug_info: {
         columns_found: Object.keys(rawData[0] || {}),
         employees_parsed: structuredData.employees?.length || 0,
+        company_name_extracted: extractedCompanyName || '(none)',
       },
       ...result,
     });
@@ -123,10 +236,33 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function parseWithClaude(rawData: any[]): Promise<any> {
+// Helper function to validate US state codes
+function isValidStateCode(code: string): boolean {
+  const validStates = [
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
+  ];
+  return validStates.includes(code);
+}
+
+interface ExtractedCompanyInfo {
+  companyName: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  contactName: string;
+  payFrequency: string;
+  sheetName: string;
+}
+
+async function parseWithClaude(rawData: any[], extractedInfo?: ExtractedCompanyInfo): Promise<any> {
   if (!anthropicApiKey) {
     // Fallback to manual parsing if no API key
-    return manualParse(rawData);
+    return manualParse(rawData, extractedInfo);
   }
 
   try {
@@ -227,19 +363,26 @@ Return ONLY valid JSON in this exact structure:
   } catch (error) {
     console.error('Claude parsing error:', error);
     // Fallback to manual parsing
-    return manualParse(rawData);
+    return manualParse(rawData, extractedInfo);
   }
 }
 
-function manualParse(rawData: any[]): any {
+function manualParse(rawData: any[], extractedInfo?: ExtractedCompanyInfo): any {
   // Basic manual parsing logic
   // This is a fallback when AI is not available
 
   console.log('Manual parse - raw data sample:', JSON.stringify(rawData[0], null, 2));
   console.log('Manual parse - available columns:', Object.keys(rawData[0] || {}));
+  console.log('Manual parse - extracted company info:', extractedInfo);
 
-  const companyName = rawData[0]?.['Company Name'] || rawData[0]?.company || 'Imported Company';
-  const state = rawData[0]?.['State'] || rawData[0]?.state || 'TX';
+  // Use extracted company info (from specific cells) or fall back to row data
+  const companyName = extractedInfo?.companyName || rawData[0]?.['Company Name'] || rawData[0]?.company || 'Imported Company';
+  const state = extractedInfo?.state || rawData[0]?.['State'] || rawData[0]?.state || 'TX';
+  const address = extractedInfo?.address || '';
+  const city = extractedInfo?.city || '';
+  const zip = extractedInfo?.zip || '';
+  const contactName = extractedInfo?.contactName || '';
+  const payFrequency = extractedInfo?.payFrequency || 'biweekly';
 
   const employees = rawData.map((row: any, index: number) => {
     // Try to find first name from various possible column names
@@ -289,7 +432,11 @@ function manualParse(rawData: any[]): any {
     company: {
       name: companyName,
       state: state,
-      pay_frequency: 'biweekly', // default
+      address: address,
+      city: city,
+      zip: zip,
+      contact_name: contactName,
+      pay_frequency: payFrequency,
       model: '5/3', // default
     },
     employees: filteredEmployees,
@@ -374,8 +521,13 @@ async function processStructuredData(data: any) {
   const payFrequency = data.company?.pay_frequency || 'biweekly';
   // Model is required - use default if not provided
   const billingModel = data.company?.model || '5/3';
+  // Optional address fields
+  const address = data.company?.address || null;
+  const city = data.company?.city || null;
+  const zip = data.company?.zip || null;
+  const contactName = data.company?.contact_name || null;
 
-  console.log('Creating company with:', { companyName, companyState, payFrequency, billingModel });
+  console.log('Creating company with:', { companyName, companyState, payFrequency, billingModel, address, city, zip, contactName });
 
   // Create company
   const { data: company, error: companyError } = await supabase
@@ -386,6 +538,10 @@ async function processStructuredData(data: any) {
       pay_frequency: payFrequency,
       model: billingModel,
       contact_email: data.company?.contact_email || null,
+      contact_name: contactName,
+      address: address,
+      city: city,
+      zip: zip,
       status: 'active',
     })
     .select()

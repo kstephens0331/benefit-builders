@@ -162,17 +162,19 @@ export default function BenefitsCalculator({
   const employeeFee = benefitAmount * (employeeRate / 100);
   const employerFee = benefitAmount * (employerRate / 100);
 
-  // Calculate the plan distribution (benefit amount returned to employee after EE fee deducted)
-  // Formula: Plan Distribution % = (100 - Employee Rate)%
-  // Examples: 5/1 model → 95% back, 4/3 model → 96% back, 3/4 model → 97% back, 5/3 model → 95% back
-  const planDistributionPercent = (100 - employeeRate) / 100;
-  const planDistribution = benefitAmount * planDistributionPercent;
+  // Section 125 calculation:
+  // - The benefit amount is a PRE-TAX deduction (reduces taxable income)
+  // - This means taxes are calculated on (grossPay - benefitAmount)
+  // - The employee ONLY pays:
+  //   1. The reduced taxes (afterTotalTax)
+  //   2. The employee fee (small % of benefit amount)
+  //
+  // The benefit amount itself is NOT subtracted from their paycheck - it's a tax shelter,
+  // not an actual deduction from take-home pay. The employee gets the full tax savings
+  // minus only the small BB fee.
 
-  // Net pay BEFORE adding back plan distribution
-  const afterNetPayBeforeDistribution = grossPay - benefitAmount - afterTotalTax - employeeFee;
-
-  // Final net pay AFTER adding back plan distribution
-  const afterNetPay = afterNetPayBeforeDistribution + planDistribution;
+  // Net pay WITH Section 125 = Gross - Reduced Taxes - Employee Fee
+  const afterNetPay = grossPay - afterTotalTax - employeeFee;
 
   // Savings
   const employeeTaxSavings = beforeTotalTax - afterTotalTax;
@@ -197,18 +199,27 @@ export default function BenefitsCalculator({
           <div className="mb-4 p-4 bg-red-100 border-2 border-red-400 rounded-lg">
             <div className="font-bold text-red-900 mb-2">⚠️ INSUFFICIENT GROSS PAY</div>
             <div className="text-sm text-red-800 space-y-1">
+              <div>Monthly Gross Pay: <strong>${affordability.grossMonthly.toFixed(2)}</strong></div>
               <div>Target Monthly: <strong>${affordability.targetMonthly.toFixed(2)}</strong></div>
-              <div>Safe Monthly (capped at {safetyCapPercent}% of gross): <strong>${affordability.safeMonthly.toFixed(2)}</strong></div>
+              <div>Max Deduction ({safetyCapPercent}% of gross): <strong>${(affordability.grossMonthly * safetyCapPercent / 100).toFixed(2)}</strong></div>
+              <div>Safe Monthly: <strong>${affordability.safeMonthly.toFixed(2)}</strong></div>
               <div className="text-red-900 font-bold">Shortfall: ${affordability.shortfallMonthly.toFixed(2)}/month</div>
               <div className="mt-2 text-xs">
-                Employee's gross pay is too low for the full Section 125 benefit based on their tier.
-                Deduction capped at {affordability.percentOfGross.toFixed(1)}% of gross pay (maximum {safetyCapPercent}%).
+                Employee's monthly gross (${affordability.grossMonthly.toFixed(2)}) is too low for the full Section 125 benefit.
+                Deduction capped at {affordability.percentOfGross.toFixed(1)}% of monthly gross (maximum {safetyCapPercent}%).
               </div>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div>
+            <div className="text-sm text-slate-600">Monthly Gross</div>
+            <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
+              ${affordability.grossMonthly.toFixed(2)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1">${grossPay.toFixed(2)}/pay</div>
+          </div>
           <div>
             <div className="text-sm text-slate-600">Company Tier</div>
             <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
@@ -220,7 +231,7 @@ export default function BenefitsCalculator({
             <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
               {safetyCapPercent.toFixed(1)}%
             </div>
-            <div className="text-xs text-slate-500 mt-1">Max of gross pay</div>
+            <div className="text-xs text-slate-500 mt-1">Max of monthly gross</div>
           </div>
           <div>
             <div className="text-sm text-slate-600">
@@ -377,21 +388,13 @@ export default function BenefitsCalculator({
             </div>
             <div className="border-t border-green-300 my-2"></div>
             <div className="flex justify-between font-bold text-base">
-              <span className="text-slate-900">Pay (Net of Taxes):</span>
+              <span className="text-slate-900">Total Taxes + Fee:</span>
               <span className="text-green-700">
-                ${afterNetPayBeforeDistribution.toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-700">
-                Plan Distribution ({(planDistributionPercent * 100).toFixed(0)}%):
-              </span>
-              <span className="font-medium text-green-700">
-                +${planDistribution.toFixed(2)}
+                -${(afterTotalTax + employeeFee).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between font-bold text-lg bg-green-200 -mx-6 px-6 py-3 mt-3">
-              <span className="text-slate-900">FINAL NET PAY:</span>
+              <span className="text-slate-900">NET PAY:</span>
               <span className="text-green-900">${afterNetPay.toFixed(2)}</span>
             </div>
           </div>

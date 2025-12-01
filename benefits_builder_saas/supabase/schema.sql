@@ -12,6 +12,10 @@ create table if not exists companies (
   model text not null, -- e.g., "5/1"
   pay_frequency text not null check (pay_frequency in ('weekly','biweekly','semimonthly','monthly')),
   contact_email text,
+  contact_name text,  -- Primary point of contact
+  address text,       -- Street address
+  city text,          -- City
+  zip text,           -- ZIP/Postal code
   status text not null default 'active' check (status in ('active','inactive')),
   created_at timestamptz not null default now()
 );
