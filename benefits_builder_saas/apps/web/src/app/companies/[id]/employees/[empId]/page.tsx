@@ -31,7 +31,7 @@ export default async function EmployeePage({
   // Fetch company data for model rates and tier
   const { data: company, error: companyError } = await db
     .from("companies")
-    .select("id, name, model, employer_rate, employee_rate, pay_frequency, tier, safety_cap_percent")
+    .select("id, name, state, model, employer_rate, employee_rate, pay_frequency, tier, safety_cap_percent")
     .eq("id", companyId)
     .single();
 
