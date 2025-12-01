@@ -13,7 +13,7 @@ export default async function AdminPage() {
     db.from("employees").select("*", { count: "exact", head: true }),
     db.from("internal_users").select("*", { count: "exact", head: true }),
     db.from("invoices").select("*", { count: "exact", head: true }),
-    db.from("tax_state_rates").select("*", { count: "exact", head: true }),
+    db.from("tax_state_params").select("*", { count: "exact", head: true }),
   ]);
 
   const adminCards = [
@@ -61,7 +61,7 @@ export default async function AdminPage() {
       title: "Tax Rates",
       description: "Manage state and federal tax rates",
       count: taxRates.count || 0,
-      href: "/admin/tax-rates",
+      href: "/admin/tax",
       color: "bg-indigo-500",
       actions: ["Edit", "Import"],
     },

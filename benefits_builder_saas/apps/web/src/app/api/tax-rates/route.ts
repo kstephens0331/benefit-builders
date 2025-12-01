@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const db = createServiceClient();
 
   let query = db
-    .from("tax_state_rates")
+    .from("tax_state_params")
     .select("*")
     .order("state");
 
@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest) {
 
     // First try to update
     const { data: existing } = await db
-      .from("tax_state_rates")
+      .from("tax_state_params")
       .select("state, tax_year")
       .eq("state", state)
       .eq("tax_year", tax_year)
@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest) {
     if (existing) {
       // Update existing record
       const { data, error } = await db
-        .from("tax_state_rates")
+        .from("tax_state_params")
         .update(updates)
         .eq("state", state)
         .eq("tax_year", tax_year)
@@ -71,7 +71,7 @@ export async function PATCH(request: NextRequest) {
     } else {
       // Insert new record
       const { data, error } = await db
-        .from("tax_state_rates")
+        .from("tax_state_params")
         .insert({
           state,
           tax_year,
@@ -107,7 +107,7 @@ export async function DELETE(request: NextRequest) {
     const db = createServiceClient();
 
     const { error } = await db
-      .from("tax_state_rates")
+      .from("tax_state_params")
       .delete()
       .eq("state", state)
       .eq("tax_year", parseInt(taxYear));

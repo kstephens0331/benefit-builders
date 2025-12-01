@@ -425,7 +425,7 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
                         </>
                       )}
                       <Link
-                        href={`/proposals/${proposal.id}`}
+                        href={`/proposals/${proposal.id}` as any}
                         className="text-slate-600 hover:text-slate-700 font-medium text-sm"
                         title="View Details"
                       >
