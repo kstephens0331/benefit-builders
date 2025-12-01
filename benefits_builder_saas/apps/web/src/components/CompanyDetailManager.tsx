@@ -33,6 +33,24 @@ type Props = {
   initialEmployees: Employee[];
 };
 
+// Helper to convert pay frequency to abbreviation
+function getPayFrequencyAbbr(frequency?: string): string {
+  switch (frequency?.toLowerCase()) {
+    case 'weekly':
+      return 'W';
+    case 'biweekly':
+    case 'bi-weekly':
+      return 'B';
+    case 'semimonthly':
+    case 'semi-monthly':
+      return 'SM';
+    case 'monthly':
+      return 'M';
+    default:
+      return 'B'; // Default to biweekly
+  }
+}
+
 export default function CompanyDetailManager({ company, initialEmployees }: Props) {
   const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
@@ -316,7 +334,10 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                   Dependents: {emp.dependents} · Gross: $
                   {typeof emp.gross_pay === "number"
                     ? emp.gross_pay.toFixed(2)
-                    : "0.00"}
+                    : "0.00"}{" "}
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                    {getPayFrequencyAbbr(company.pay_frequency)}
+                  </span>
                 </div>
               </Link>
 
