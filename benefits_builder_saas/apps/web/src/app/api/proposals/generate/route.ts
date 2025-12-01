@@ -113,8 +113,8 @@ export async function POST(request: NextRequest) {
       };
       const payFreq = payFreqMap[payFreqRaw] || "B";
 
-      // Check if employee is marked as not qualifying (asterisk in name)
-      const isDisqualified = fullName.includes("*");
+      // Clean any asterisks from the name (they may come from Excel formatting)
+      // Disqualification is based on gross pay threshold only, not asterisks
       const cleanName = fullName.replace(/\*/g, "").trim();
 
       employees.push({
@@ -124,7 +124,6 @@ export async function POST(request: NextRequest) {
         grossPay,
         maritalStatus,
         dependents,
-        isDisqualified,
       });
     }
 
@@ -138,7 +137,8 @@ export async function POST(request: NextRequest) {
     // Calculate proposal metrics for each employee
     // This calculates PROJECTED savings assuming all employees will elect Section 125
     const calculatedEmployees = employees.map(emp => {
-      if (emp.isDisqualified || emp.grossPay < 500) {
+      // Only disqualify if gross pay is too low (< $500 per paycheck)
+      if (emp.grossPay < 500) {
         return {
           ...emp,
           qualifies: false,
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
           employerNetSavingsAnnual: 0,
           netMonthlySavings: 0,
           netAnnualSavings: 0,
-          disqualificationReason: emp.grossPay < 500 ? "Gross pay below $500" : "Marked as not qualifying",
+          disqualificationReason: "Gross pay below $500",
         };
       }
 

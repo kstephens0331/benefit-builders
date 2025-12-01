@@ -45,14 +45,16 @@ export async function GET(
 
     // Load Benefits Builder logo if available
     let logoImage = null;
-    const logoPath = path.join(process.cwd(), "public", "benefits-builder-logo.png");
+    const logoPath = path.join(process.cwd(), "public", "benefit-builder-logo-trans.png");
     if (fs.existsSync(logoPath)) {
       try {
         const logoBytes = fs.readFileSync(logoPath);
         logoImage = await pdfDoc.embedPng(logoBytes);
       } catch (e) {
-        console.log("Logo not found, skipping");
+        console.log("Logo not found, skipping:", e);
       }
+    } else {
+      console.log("Logo file not found at:", logoPath);
     }
 
     const pageWidth = 792; // US Letter width in points (landscape)
