@@ -140,6 +140,7 @@ export default async function EmployeePage({
         method: stateParams.method as 'none' | 'flat' | 'brackets',
         flat_rate: Number(stateParams.flat_rate) || undefined,
         brackets: stateParams.brackets as Array<{ over: number; rate: number }> || undefined,
+        standardDeduction: Number(stateParams.standard_deduction) || 0,
       }
     : hardcodedStateTax
     ? {
@@ -147,6 +148,7 @@ export default async function EmployeePage({
         method: hardcodedStateTax.method,
         flat_rate: hardcodedStateTax.flatRate,
         brackets: hardcodedStateTax.brackets,
+        standardDeduction: hardcodedStateTax.standardDeduction || 0,
       }
     : null;
 

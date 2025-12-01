@@ -5,13 +5,17 @@ import { calcFICA, calcFITFromTable, calcSITFlat } from "@/lib/tax";
 import { calculateSection125Amount, calculateSafeSection125Deduction, checkSection125Affordability, monthlyToPerPay, type CompanyTier, type FilingStatus } from "@/lib/section125";
 
 // Calculate state income tax based on method
+// IMPORTANT: For bracket states, brackets are ANNUAL amounts
+// We need to convert per-pay to annual, calculate tax, then convert back
 function calcStateTax(
-  taxableIncome: number,
+  perPayTaxableIncome: number,
+  periodsPerYear: number,
   stateWithholding?: {
     state: string;
     method: 'none' | 'flat' | 'brackets';
     flat_rate?: number;
     brackets?: Array<{ over: number; rate: number }>;
+    standardDeduction?: number;
   } | null
 ): number {
   if (!stateWithholding || stateWithholding.method === 'none') {
@@ -19,12 +23,19 @@ function calcStateTax(
   }
 
   if (stateWithholding.method === 'flat' && stateWithholding.flat_rate) {
-    return calcSITFlat(taxableIncome, stateWithholding.flat_rate);
+    return calcSITFlat(perPayTaxableIncome, stateWithholding.flat_rate);
   }
 
   if (stateWithholding.method === 'brackets' && stateWithholding.brackets) {
-    // Progressive bracket calculation
-    let tax = 0;
+    // State brackets are ANNUAL - convert per-pay to annual first
+    const annualGross = perPayTaxableIncome * periodsPerYear;
+
+    // Apply state standard deduction (MO = $14,600 for 2025)
+    const stateStandardDeduction = stateWithholding.standardDeduction || 0;
+    const annualTaxable = Math.max(0, annualGross - stateStandardDeduction);
+
+    // Progressive bracket calculation on annual income
+    let annualTax = 0;
     const brackets = stateWithholding.brackets.sort((a, b) => a.over - b.over);
 
     for (let i = 0; i < brackets.length; i++) {
@@ -33,13 +44,15 @@ function calcStateTax(
       const bracketFloor = bracket.over;
       const bracketCeiling = nextBracket ? nextBracket.over : Infinity;
 
-      if (taxableIncome > bracketFloor) {
-        const taxableInBracket = Math.min(taxableIncome, bracketCeiling) - bracketFloor;
-        tax += taxableInBracket * bracket.rate;
+      if (annualTaxable > bracketFloor) {
+        const taxableInBracket = Math.min(annualTaxable, bracketCeiling) - bracketFloor;
+        annualTax += taxableInBracket * bracket.rate;
       }
     }
 
-    return +tax.toFixed(2);
+    // Convert annual tax back to per-pay amount
+    const perPayTax = annualTax / periodsPerYear;
+    return +perPayTax.toFixed(2);
   }
 
   return 0;
@@ -142,7 +155,8 @@ export default function BenefitsCalculator({
     fedWithholding && fedWithholding.length > 0
       ? calcFITFromTable(beforeFITTaxable, fedWithholding)
       : beforeFITTaxable * 0.12;
-  const beforeSIT = calcStateTax(beforeFITTaxable, stateWithholding);
+  // State tax: pass gross pay (before fed deductions) since state uses its own deductions
+  const beforeSIT = calcStateTax(grossPay, payPeriodsPerYear, stateWithholding);
   const beforeTotalTax = beforeFICA.fica + beforeFIT + beforeSIT;
   const beforeNetPay = grossPay - beforeTotalTax;
 
@@ -156,7 +170,8 @@ export default function BenefitsCalculator({
     fedWithholding && fedWithholding.length > 0
       ? calcFITFromTable(afterFITTaxable, fedWithholding)
       : afterFITTaxable * 0.12;
-  const afterSIT = calcStateTax(afterFITTaxable, stateWithholding);
+  // State tax: pass gross pay minus Section 125 benefit (pre-tax deduction)
+  const afterSIT = calcStateTax(grossPay - benefitAmount, payPeriodsPerYear, stateWithholding);
   const afterTotalTax = afterFICA.fica + afterFIT + afterSIT;
 
   const employeeFee = benefitAmount * (employeeRate / 100);
