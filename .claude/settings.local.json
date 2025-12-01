@@ -24,7 +24,8 @@
       "Bash(git ls-tree:*)",
       "Bash(pnpm run build:*)",
       "Bash(nul)",
-      "Bash(node fix-params.js:*)"
+      "Bash(node fix-params.js:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

@@ -368,15 +368,24 @@ function parseBenefits(row: any): any[] {
 async function processStructuredData(data: any) {
   const supabase = createServiceClient();
 
+  // Validate and provide defaults for required fields
+  const companyName = data.company?.name || 'Imported Company';
+  const companyState = data.company?.state || 'TX';
+  const payFrequency = data.company?.pay_frequency || 'biweekly';
+  // Model is required - use default if not provided
+  const billingModel = data.company?.model || '5/3';
+
+  console.log('Creating company with:', { companyName, companyState, payFrequency, billingModel });
+
   // Create company
   const { data: company, error: companyError } = await supabase
     .from('companies')
     .insert({
-      name: data.company.name,
-      state: data.company.state,
-      pay_frequency: data.company.pay_frequency,
-      model: data.company.model,
-      contact_email: data.company.contact_email || null,
+      name: companyName,
+      state: companyState,
+      pay_frequency: payFrequency,
+      model: billingModel,
+      contact_email: data.company?.contact_email || null,
       status: 'active',
     })
     .select()
