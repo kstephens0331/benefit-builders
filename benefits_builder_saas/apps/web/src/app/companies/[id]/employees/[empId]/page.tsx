@@ -4,6 +4,28 @@ import { createServiceClient } from "@/lib/supabase";
 import BenefitsCalculator from "@/components/BenefitsCalculator";
 import SafetyCapEditor from "@/components/SafetyCapEditor";
 import EmployeeFieldEditor from "@/components/EmployeeFieldEditor";
+import { STATE_TAX_CONFIG } from "@/lib/proposal-calculator";
+
+// US State codes for dropdown
+const US_STATES = [
+  { value: "AL", label: "Alabama" }, { value: "AK", label: "Alaska" }, { value: "AZ", label: "Arizona" },
+  { value: "AR", label: "Arkansas" }, { value: "CA", label: "California" }, { value: "CO", label: "Colorado" },
+  { value: "CT", label: "Connecticut" }, { value: "DE", label: "Delaware" }, { value: "FL", label: "Florida" },
+  { value: "GA", label: "Georgia" }, { value: "HI", label: "Hawaii" }, { value: "ID", label: "Idaho" },
+  { value: "IL", label: "Illinois" }, { value: "IN", label: "Indiana" }, { value: "IA", label: "Iowa" },
+  { value: "KS", label: "Kansas" }, { value: "KY", label: "Kentucky" }, { value: "LA", label: "Louisiana" },
+  { value: "ME", label: "Maine" }, { value: "MD", label: "Maryland" }, { value: "MA", label: "Massachusetts" },
+  { value: "MI", label: "Michigan" }, { value: "MN", label: "Minnesota" }, { value: "MS", label: "Mississippi" },
+  { value: "MO", label: "Missouri" }, { value: "MT", label: "Montana" }, { value: "NE", label: "Nebraska" },
+  { value: "NV", label: "Nevada" }, { value: "NH", label: "New Hampshire" }, { value: "NJ", label: "New Jersey" },
+  { value: "NM", label: "New Mexico" }, { value: "NY", label: "New York" }, { value: "NC", label: "North Carolina" },
+  { value: "ND", label: "North Dakota" }, { value: "OH", label: "Ohio" }, { value: "OK", label: "Oklahoma" },
+  { value: "OR", label: "Oregon" }, { value: "PA", label: "Pennsylvania" }, { value: "RI", label: "Rhode Island" },
+  { value: "SC", label: "South Carolina" }, { value: "SD", label: "South Dakota" }, { value: "TN", label: "Tennessee" },
+  { value: "TX", label: "Texas" }, { value: "UT", label: "Utah" }, { value: "VT", label: "Vermont" },
+  { value: "VA", label: "Virginia" }, { value: "WA", label: "Washington" }, { value: "WV", label: "West Virginia" },
+  { value: "WI", label: "Wisconsin" }, { value: "WY", label: "Wyoming" }, { value: "DC", label: "District of Columbia" }
+];
 
 export default async function EmployeePage({
   params,
@@ -100,13 +122,33 @@ export default async function EmployeePage({
   }
 
   // Fetch state tax params (use employee state or company state)
-  const employeeState = emp.state || company?.state || "TX";
+  const employeeState = emp.state || company?.state || "MO";
   const { data: stateParams } = await db
     .from("tax_state_params")
-    .select("state, method, flat_rate, brackets")
+    .select("state, method, flat_rate, brackets, standard_deduction")
     .eq("state", employeeState)
     .eq("tax_year", currentYear)
     .single();
+
+  // Get hardcoded state tax config as fallback
+  const hardcodedStateTax = STATE_TAX_CONFIG[employeeState.toUpperCase()];
+
+  // Build state withholding object - use database if available, else use hardcoded config
+  const stateWithholdingData = stateParams
+    ? {
+        state: stateParams.state,
+        method: stateParams.method as 'none' | 'flat' | 'brackets',
+        flat_rate: Number(stateParams.flat_rate) || undefined,
+        brackets: stateParams.brackets as Array<{ over: number; rate: number }> || undefined,
+      }
+    : hardcodedStateTax
+    ? {
+        state: employeeState.toUpperCase(),
+        method: hardcodedStateTax.method,
+        flat_rate: hardcodedStateTax.flatRate,
+        brackets: hardcodedStateTax.brackets,
+      }
+    : null;
 
   const label = "text-xs uppercase tracking-wide text-slate-500";
   const row = "grid grid-cols-2 gap-4";
@@ -295,6 +337,17 @@ export default async function EmployeePage({
               companyDefault={Number(company?.safety_cap_percent) || 50}
             />
           </div>
+          <div>
+            <div className={label}>State</div>
+            <EmployeeFieldEditor
+              employeeId={empId}
+              fieldName="state"
+              fieldLabel="State"
+              initialValue={emp.state || company?.state || "MO"}
+              fieldType="select"
+              options={US_STATES}
+            />
+          </div>
         </div>
       </div>
 
@@ -336,16 +389,7 @@ export default async function EmployeePage({
           med_rate: Number(fedRates?.med_rate) || 0.0145,
         }}
         fedWithholding={fedWithholding}
-        stateWithholding={
-          stateParams
-            ? {
-                state: stateParams.state,
-                method: stateParams.method as 'none' | 'flat' | 'brackets',
-                flat_rate: Number(stateParams.flat_rate) || undefined,
-                brackets: stateParams.brackets as Array<{ over: number; rate: number }> || undefined,
-              }
-            : null
-        }
+        stateWithholding={stateWithholdingData}
         enrolledBenefits={totalBenefitDeductions}
       />
     </main>

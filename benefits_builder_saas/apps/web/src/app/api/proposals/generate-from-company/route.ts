@@ -65,20 +65,33 @@ export async function POST(request: NextRequest) {
     const actualModel = modelPercentage || company.model || "5/3";
     const actualTier = (tier || company.tier || "2025") as CompanyTier;
 
+    // Convert proposal pay period to single letter code for default
+    const proposalPayFreqMap: Record<string, string> = {
+      "Weekly": "W", "weekly": "W", "W": "W", "w": "W",
+      "Bi-Weekly": "B", "bi-weekly": "B", "biweekly": "B", "Biweekly": "B", "B": "B", "b": "B",
+      "Semi-Monthly": "S", "semi-monthly": "S", "semimonthly": "S", "Semimonthly": "S", "S": "S", "s": "S",
+      "Monthly": "M", "monthly": "M", "M": "M", "m": "M",
+      "Annual": "A", "annual": "A", "A": "A", "a": "A"
+    };
+    const defaultPayFreqCode = proposalPayFreqMap[payPeriod || "Bi-Weekly"] || "B";
+
     // Calculate proposal metrics for each employee
     const calculatedEmployees = employees.map(emp => {
       // Get employee's gross pay per paycheck
       const grossPay = emp.gross_pay || emp.paycheck_gross || 0;
 
       // Get employee's pay frequency (convert to single letter code)
-      const payFreqRaw = emp.pay_period || emp.pay_frequency || "B";
+      // Use employee's pay_period if set, otherwise use the proposal's pay period as default
+      const payFreqRaw = emp.pay_period || emp.pay_frequency || "";
       const payFreqMap: Record<string, string> = {
         W: "W", B: "B", S: "S", M: "M", A: "A",
+        w: "W", b: "B", s: "S", m: "M", a: "A",
         weekly: "W", biweekly: "B", "bi-weekly": "B",
         semimonthly: "S", "semi-monthly": "S",
         monthly: "M", annual: "A"
       };
-      const payFreq = payFreqMap[payFreqRaw.toUpperCase()] || payFreqMap[payFreqRaw.toLowerCase()] || "B";
+      // If employee has a pay frequency, use it; otherwise use proposal's default
+      const payFreq = payFreqRaw ? (payFreqMap[payFreqRaw.toUpperCase()] || payFreqMap[payFreqRaw.toLowerCase()] || defaultPayFreqCode) : defaultPayFreqCode;
 
       // Get marital status
       const maritalStatus = emp.marital_status || emp.filing_status || "S";

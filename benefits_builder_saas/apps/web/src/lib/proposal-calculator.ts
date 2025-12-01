@@ -521,6 +521,13 @@ export function calculateProposalMetrics(
   const medRate = 0.0145;
   const ficaRate = ssRate + medRate; // 7.65%
 
+  // Standard deduction based on filing status (2025 values)
+  const standardDeductionAnnual =
+    filingStatus === 'single' ? 14600 :
+    filingStatus === 'married' ? 29200 : 21900;
+  const standardDeductionPerPay = standardDeductionAnnual / periodsPerYear;
+  const dependentAllowancePerPay = dependents * (2000 / periodsPerYear);
+
   // Calculate annual income for state tax bracket calculations
   const annualGross = paycheckGross * periodsPerYear;
   const annualWithSection125 = (paycheckGross - benefitPerPay) * periodsPerYear;
@@ -538,19 +545,42 @@ export function calculateProposalMetrics(
   const beforeSIT = beforeSITAnnual / periodsPerYear;
   const afterSIT = afterSITAnnual / periodsPerYear;
 
-  // Calculate taxes WITHOUT Section 125 (current situation)
-  // Federal withholding estimate (simplified - ~12% for most brackets)
-  const estFedWithholdingRate = 0.12;
-  const beforeFIT = paycheckGross * estFedWithholdingRate;
+  // Calculate federal taxable income (gross minus standard deduction and dependent allowances)
+  const beforeFITTaxable = Math.max(0, paycheckGross - standardDeductionPerPay - dependentAllowancePerPay);
+  const afterFITTaxable = Math.max(0, paycheckGross - benefitPerPay - standardDeductionPerPay - dependentAllowancePerPay);
+
+  // Calculate FICA (does NOT get reduced by standard deduction)
   const beforeFICA = paycheckGross * ficaRate;
+  const afterFICA = (paycheckGross - benefitPerPay) * ficaRate;
+
+  // Calculate federal income tax using actual bracket calculations for 2025
+  // These are simplified estimates based on common income ranges
+  // Single filers: 10% up to ~$11,600, 12% to ~$47,150, 22% to ~$100,525
+  // Married filers: 10% up to ~$23,200, 12% to ~$94,300, 22% to ~$201,050
+  const estimateFIT = (taxable: number, status: FilingStatus): number => {
+    if (taxable <= 0) return 0;
+
+    if (status === 'married') {
+      // Married Filing Jointly 2025 brackets (per pay period simplified)
+      if (taxable <= 892) return taxable * 0.10;  // $23,200/26
+      if (taxable <= 3627) return 89.20 + (taxable - 892) * 0.12;  // $94,300/26
+      return 417.40 + (taxable - 3627) * 0.22;
+    } else {
+      // Single 2025 brackets (per pay period simplified)
+      if (taxable <= 446) return taxable * 0.10;  // $11,600/26
+      if (taxable <= 1814) return 44.60 + (taxable - 446) * 0.12;  // $47,150/26
+      return 208.76 + (taxable - 1814) * 0.22;
+    }
+  };
+
+  const beforeFIT = estimateFIT(beforeFITTaxable, filingStatus);
+  const afterFIT = estimateFIT(afterFITTaxable, filingStatus);
+
+  // Total taxes WITHOUT Section 125
   const beforeTotalTax = beforeFIT + beforeSIT + beforeFICA;
   const beforeNetPay = paycheckGross - beforeTotalTax;
 
-  // Calculate taxes WITH Section 125
-  // The benefit amount is a PRE-TAX deduction
-  const taxablePayWithSection125 = paycheckGross - benefitPerPay;
-  const afterFIT = taxablePayWithSection125 * estFedWithholdingRate;
-  const afterFICA = taxablePayWithSection125 * ficaRate;
+  // Total taxes WITH Section 125 (benefit amount reduces taxable income)
   const afterTotalTax = afterFIT + afterSIT + afterFICA;
 
   // Employee fee (percentage of benefit amount)
@@ -566,8 +596,8 @@ export function calculateProposalMetrics(
   // Employee net increase (what they actually take home more)
   const employeeNetIncreasePerPay = afterNetPay - beforeNetPay;
 
-  // Employer FICA savings per pay
-  const employerFicaSavingsPerPay = (paycheckGross * ficaRate) - (taxablePayWithSection125 * ficaRate);
+  // Employer FICA savings per pay (Section 125 benefit reduces FICA taxable wages)
+  const employerFicaSavingsPerPay = beforeFICA - afterFICA;
 
   // State tax savings per pay (difference between before and after Section 125)
   const stateTaxSavingsPerPay = beforeSIT - afterSIT;

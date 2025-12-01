@@ -63,6 +63,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Convert proposal pay period to single letter code for default
+    const proposalPayFreqMap: Record<string, string> = {
+      "Weekly": "W", "weekly": "W", "W": "W", "w": "W",
+      "Bi-Weekly": "B", "bi-weekly": "B", "biweekly": "B", "Biweekly": "B", "B": "B", "b": "B",
+      "Semi-Monthly": "S", "semi-monthly": "S", "semimonthly": "S", "Semimonthly": "S", "S": "S", "s": "S",
+      "Monthly": "M", "monthly": "M", "M": "M", "m": "M",
+      "Annual": "A", "annual": "A", "A": "A", "a": "A"
+    };
+    const defaultPayFreqCode = proposalPayFreqMap[payPeriod || "Bi-Weekly"] || "B";
+
     // Parse employees
     const headerRow = rawData[headerRowIndex];
     const employees: any[] = [];
@@ -101,19 +111,20 @@ export async function POST(request: NextRequest) {
 
       const fullName = `${firstName} ${lastName}`;
       const state = row[stateIdx]?.toString().trim() || "MO";
-      const payFreqRaw = row[payPeriodIdx]?.toString().trim().toUpperCase() || "B";
+      const payFreqRaw = row[payPeriodIdx]?.toString().trim().toUpperCase() || "";
       const grossPay = parseFloat(row[grossPayIdx]?.toString().replace(/[^0-9.]/g, "") || "0");
       const maritalStatus = row[maritalStatusIdx]?.toString().trim().toUpperCase() || "S";
       const dependents = parseInt(row[dependentsIdx]?.toString() || "0");
 
-      // Convert pay frequency codes to full names
+      // Convert pay frequency codes to single letter codes
+      // Use employee's pay frequency from census if provided, otherwise use proposal's pay period
       const payFreqMap: Record<string, string> = {
         W: "W", B: "B", S: "S", M: "M", A: "A",
         WEEKLY: "W", BIWEEKLY: "B", "BI-WEEKLY": "B",
         SEMIMONTHLY: "S", "SEMI-MONTHLY": "S",
         MONTHLY: "M", ANNUAL: "A"
       };
-      const payFreq = payFreqMap[payFreqRaw] || "B";
+      const payFreq = payFreqRaw ? (payFreqMap[payFreqRaw] || defaultPayFreqCode) : defaultPayFreqCode;
 
       // Clean any asterisks from the name (they may come from Excel formatting)
       // Disqualification is based on gross pay threshold only, not asterisks
