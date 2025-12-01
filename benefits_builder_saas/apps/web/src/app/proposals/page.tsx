@@ -1,6 +1,9 @@
 import { createServiceClient } from "@/lib/supabase";
 import ProposalManager from "@/components/ProposalManager";
 
+// Force dynamic rendering to always fetch fresh data
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Proposals - Benefits Builder",
 };
@@ -14,11 +17,16 @@ export default async function ProposalsPage() {
     .select("*")
     .order("created_at", { ascending: false });
 
-  // Fetch all companies for dropdown with all needed fields for auto-population
-  const { data: companies } = await db
+  // Fetch all companies - use * to get all fields, let the component filter what it needs
+  const { data: companies, error: companiesError } = await db
     .from("companies")
-    .select("id, name, state, model, pay_frequency, employer_rate, employee_rate, tier, address, city, phone, email, contact_name")
+    .select("*")
     .order("name");
+
+  // Log error if any for debugging
+  if (companiesError) {
+    console.error("Error fetching companies:", companiesError);
+  }
 
   return (
     <ProposalManager
