@@ -143,42 +143,69 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
     setError(null);
     setSuccess(null);
 
-    if (!selectedFile) {
-      setError("Please select a census file");
+    // Must either select a company OR upload a file
+    if (!selectedFile && !formData.companyId) {
+      setError("Please select a company or upload a census file");
       setIsUploading(false);
       return;
     }
 
-    if (!formData.companyName || !formData.effectiveDate) {
-      setError("Please fill in company name and effective date");
+    if (!formData.effectiveDate) {
+      setError("Please fill in the effective date");
+      setIsUploading(false);
+      return;
+    }
+
+    // If we have a company selected but no file, company name comes from the selection
+    if (!formData.companyName && !formData.companyId) {
+      setError("Please select a company or enter a company name");
       setIsUploading(false);
       return;
     }
 
     try {
-      const uploadFormData = new FormData();
-      uploadFormData.append("file", selectedFile);
-      uploadFormData.append("companyName", formData.companyName);
-      uploadFormData.append("companyAddress", formData.companyAddress);
-      uploadFormData.append("companyCity", formData.companyCity);
-      uploadFormData.append("companyState", formData.companyState);
-      uploadFormData.append("companyPhone", formData.companyPhone);
-      uploadFormData.append("companyEmail", formData.companyEmail);
-      uploadFormData.append("companyContact", formData.companyContact);
-      uploadFormData.append("effectiveDate", formData.effectiveDate);
-      uploadFormData.append("modelPercentage", formData.modelPercentage);
-      uploadFormData.append("payPeriod", formData.payPeriod);
-      uploadFormData.append("tier", formData.tier);
-      if (formData.companyId) {
-        uploadFormData.append("companyId", formData.companyId);
+      let response;
+      let data;
+
+      if (selectedFile) {
+        // Use census file upload route
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", selectedFile);
+        uploadFormData.append("companyName", formData.companyName);
+        uploadFormData.append("companyAddress", formData.companyAddress);
+        uploadFormData.append("companyCity", formData.companyCity);
+        uploadFormData.append("companyState", formData.companyState);
+        uploadFormData.append("companyPhone", formData.companyPhone);
+        uploadFormData.append("companyEmail", formData.companyEmail);
+        uploadFormData.append("companyContact", formData.companyContact);
+        uploadFormData.append("effectiveDate", formData.effectiveDate);
+        uploadFormData.append("modelPercentage", formData.modelPercentage);
+        uploadFormData.append("payPeriod", formData.payPeriod);
+        uploadFormData.append("tier", formData.tier);
+        if (formData.companyId) {
+          uploadFormData.append("companyId", formData.companyId);
+        }
+
+        response = await fetch("/api/proposals/generate", {
+          method: "POST",
+          body: uploadFormData,
+        });
+        data = await response.json();
+      } else {
+        // Use existing company employees route
+        response = await fetch("/api/proposals/generate-from-company", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            companyId: formData.companyId,
+            effectiveDate: formData.effectiveDate,
+            modelPercentage: formData.modelPercentage,
+            payPeriod: formData.payPeriod,
+            tier: formData.tier,
+          }),
+        });
+        data = await response.json();
       }
-
-      const response = await fetch("/api/proposals/generate", {
-        method: "POST",
-        body: uploadFormData,
-      });
-
-      const data = await response.json();
 
       if (!data.ok) {
         throw new Error(data.error || "Failed to generate proposal");
@@ -526,21 +553,55 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
             <div className="p-6 border-b border-slate-200">
               <h2 className="text-xl font-bold">Generate New Proposal</h2>
               <p className="text-sm text-slate-600 mt-1">
-                Upload an employee census file to generate a proposal
+                Select an existing company or upload a census file
               </p>
             </div>
 
             <form onSubmit={handleUpload} className="p-6 space-y-4">
-              {/* File Upload */}
+              {/* Company Selection - Primary */}
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  Census File (Excel) *
+                  Select Company *
+                </label>
+                <select
+                  value={formData.companyId}
+                  onChange={handleCompanyChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                >
+                  <option value="">-- Select a Company --</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name} {company.state ? `(${company.state})` : ""}
+                    </option>
+                  ))}
+                </select>
+                {companies.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    No companies found. Please add companies first or upload a census file.
+                  </p>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-slate-500">or upload census</span>
+                </div>
+              </div>
+
+              {/* File Upload - Optional */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Census File (Excel) {!formData.companyId && <span className="text-red-500">*</span>}
                 </label>
                 <input
                   type="file"
                   accept=".xlsx,.xls"
                   onChange={handleFileChange}
-                  required
+                  required={!formData.companyId}
                   className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
                 {selectedFile && (
@@ -548,25 +609,11 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
                     Selected: {selectedFile.name}
                   </p>
                 )}
-              </div>
-
-              {/* Existing Company */}
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Existing Company (Optional)
-                </label>
-                <select
-                  value={formData.companyId}
-                  onChange={handleCompanyChange}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                >
-                  <option value="">-- New Company --</option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
+                {formData.companyId && !selectedFile && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Will use existing employees from selected company
+                  </p>
+                )}
               </div>
 
               {/* Company Info */}
