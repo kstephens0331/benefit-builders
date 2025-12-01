@@ -77,7 +77,29 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
     model: company.model,
     tier: company.tier || "2025",
     status: company.status,
+    pay_frequency: company.pay_frequency || "biweekly",
   });
+
+  // US States list for dropdown
+  const US_STATES = [
+    { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' }, { code: 'AZ', name: 'Arizona' },
+    { code: 'AR', name: 'Arkansas' }, { code: 'CA', name: 'California' }, { code: 'CO', name: 'Colorado' },
+    { code: 'CT', name: 'Connecticut' }, { code: 'DE', name: 'Delaware' }, { code: 'DC', name: 'District of Columbia' },
+    { code: 'FL', name: 'Florida' }, { code: 'GA', name: 'Georgia' }, { code: 'HI', name: 'Hawaii' },
+    { code: 'ID', name: 'Idaho' }, { code: 'IL', name: 'Illinois' }, { code: 'IN', name: 'Indiana' },
+    { code: 'IA', name: 'Iowa' }, { code: 'KS', name: 'Kansas' }, { code: 'KY', name: 'Kentucky' },
+    { code: 'LA', name: 'Louisiana' }, { code: 'ME', name: 'Maine' }, { code: 'MD', name: 'Maryland' },
+    { code: 'MA', name: 'Massachusetts' }, { code: 'MI', name: 'Michigan' }, { code: 'MN', name: 'Minnesota' },
+    { code: 'MS', name: 'Mississippi' }, { code: 'MO', name: 'Missouri' }, { code: 'MT', name: 'Montana' },
+    { code: 'NE', name: 'Nebraska' }, { code: 'NV', name: 'Nevada' }, { code: 'NH', name: 'New Hampshire' },
+    { code: 'NJ', name: 'New Jersey' }, { code: 'NM', name: 'New Mexico' }, { code: 'NY', name: 'New York' },
+    { code: 'NC', name: 'North Carolina' }, { code: 'ND', name: 'North Dakota' }, { code: 'OH', name: 'Ohio' },
+    { code: 'OK', name: 'Oklahoma' }, { code: 'OR', name: 'Oregon' }, { code: 'PA', name: 'Pennsylvania' },
+    { code: 'RI', name: 'Rhode Island' }, { code: 'SC', name: 'South Carolina' }, { code: 'SD', name: 'South Dakota' },
+    { code: 'TN', name: 'Tennessee' }, { code: 'TX', name: 'Texas' }, { code: 'UT', name: 'Utah' },
+    { code: 'VT', name: 'Vermont' }, { code: 'VA', name: 'Virginia' }, { code: 'WA', name: 'Washington' },
+    { code: 'WV', name: 'West Virginia' }, { code: 'WI', name: 'Wisconsin' }, { code: 'WY', name: 'Wyoming' },
+  ];
 
   // Generate proposal state
   const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
@@ -408,22 +430,25 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                     <label className="block text-sm font-medium mb-1">
                       State *
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={companyFormData.state}
                       onChange={(e) =>
                         setCompanyFormData({ ...companyFormData, state: e.target.value })
                       }
                       className="w-full px-3 py-2 border rounded-lg"
                       required
-                      maxLength={2}
-                      placeholder="CA"
-                    />
+                    >
+                      {US_STATES.map((s) => (
+                        <option key={s.code} value={s.code}>
+                          {s.code} - {s.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Model (Fee %) *
+                      Model (Employee % / Employer %) *
                     </label>
                     <select
                       value={companyFormData.model}
@@ -432,9 +457,31 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                       }
                       className="w-full px-3 py-2 border rounded-lg"
                     >
-                      <option value="8">8%</option>
-                      <option value="7">7%</option>
-                      <option value="6">6%</option>
+                      <option value="5/3">5/3 (5% Employee / 3% Employer)</option>
+                      <option value="5/1">5/1 (5% Employee / 1% Employer)</option>
+                      <option value="4/3">4/3 (4% Employee / 3% Employer)</option>
+                      <option value="4/4">4/4 (4% Employee / 4% Employer)</option>
+                      <option value="3/4">3/4 (3% Employee / 4% Employer)</option>
+                      <option value="6/0">6/0 (6% Employee / 0% Employer)</option>
+                      <option value="1/5">1/5 (1% Employee / 5% Employer)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Pay Frequency *
+                    </label>
+                    <select
+                      value={companyFormData.pay_frequency}
+                      onChange={(e) =>
+                        setCompanyFormData({ ...companyFormData, pay_frequency: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="weekly">Weekly (52 pay periods)</option>
+                      <option value="biweekly">Biweekly (26 pay periods)</option>
+                      <option value="semimonthly">Semimonthly (24 pay periods)</option>
+                      <option value="monthly">Monthly (12 pay periods)</option>
                     </select>
                   </div>
 

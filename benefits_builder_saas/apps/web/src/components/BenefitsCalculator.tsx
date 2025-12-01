@@ -1,8 +1,49 @@
 "use client";
 
 import { useState } from "react";
-import { calcFICA, calcFITFromTable } from "@/lib/tax";
+import { calcFICA, calcFITFromTable, calcSITFlat } from "@/lib/tax";
 import { calculateSection125Amount, calculateSafeSection125Deduction, checkSection125Affordability, monthlyToPerPay, type CompanyTier, type FilingStatus } from "@/lib/section125";
+
+// Calculate state income tax based on method
+function calcStateTax(
+  taxableIncome: number,
+  stateWithholding?: {
+    state: string;
+    method: 'none' | 'flat' | 'brackets';
+    flat_rate?: number;
+    brackets?: Array<{ over: number; rate: number }>;
+  } | null
+): number {
+  if (!stateWithholding || stateWithholding.method === 'none') {
+    return 0;
+  }
+
+  if (stateWithholding.method === 'flat' && stateWithholding.flat_rate) {
+    return calcSITFlat(taxableIncome, stateWithholding.flat_rate);
+  }
+
+  if (stateWithholding.method === 'brackets' && stateWithholding.brackets) {
+    // Progressive bracket calculation
+    let tax = 0;
+    const brackets = stateWithholding.brackets.sort((a, b) => a.over - b.over);
+
+    for (let i = 0; i < brackets.length; i++) {
+      const bracket = brackets[i];
+      const nextBracket = brackets[i + 1];
+      const bracketFloor = bracket.over;
+      const bracketCeiling = nextBracket ? nextBracket.over : Infinity;
+
+      if (taxableIncome > bracketFloor) {
+        const taxableInBracket = Math.min(taxableIncome, bracketCeiling) - bracketFloor;
+        tax += taxableInBracket * bracket.rate;
+      }
+    }
+
+    return +tax.toFixed(2);
+  }
+
+  return 0;
+}
 
 type Props = {
   employee: {
@@ -10,6 +51,7 @@ type Props = {
     filing_status: string;
     dependents: number;
     pay_period: string;
+    state?: string;
   };
   company: {
     model: string;
@@ -17,6 +59,7 @@ type Props = {
     employee_rate: number;
     tier: CompanyTier;
     safety_cap_percent: number;
+    state?: string;
   };
   fedRates: {
     ss_rate: number;
@@ -27,6 +70,12 @@ type Props = {
     baseTax: number;
     pct: number;
   }>;
+  stateWithholding?: {
+    state: string;
+    method: 'none' | 'flat' | 'brackets';
+    flat_rate?: number;
+    brackets?: Array<{ over: number; rate: number }>;
+  } | null;
   enrolledBenefits: number; // Current enrolled amount
 };
 
@@ -35,6 +84,7 @@ export default function BenefitsCalculator({
   company,
   fedRates,
   fedWithholding,
+  stateWithholding,
   enrolledBenefits,
 }: Props) {
   const grossPay = Number(employee.gross_pay) || 0;
@@ -92,7 +142,8 @@ export default function BenefitsCalculator({
     fedWithholding && fedWithholding.length > 0
       ? calcFITFromTable(beforeFITTaxable, fedWithholding)
       : beforeFITTaxable * 0.12;
-  const beforeTotalTax = beforeFICA.fica + beforeFIT;
+  const beforeSIT = calcStateTax(beforeFITTaxable, stateWithholding);
+  const beforeTotalTax = beforeFICA.fica + beforeFIT + beforeSIT;
   const beforeNetPay = grossPay - beforeTotalTax;
 
   // AFTER (with benefits)
@@ -105,7 +156,8 @@ export default function BenefitsCalculator({
     fedWithholding && fedWithholding.length > 0
       ? calcFITFromTable(afterFITTaxable, fedWithholding)
       : afterFITTaxable * 0.12;
-  const afterTotalTax = afterFICA.fica + afterFIT;
+  const afterSIT = calcStateTax(afterFITTaxable, stateWithholding);
+  const afterTotalTax = afterFICA.fica + afterFIT + afterSIT;
 
   const employeeFee = benefitAmount * (employeeRate / 100);
   const employerFee = benefitAmount * (employerRate / 100);
@@ -252,6 +304,12 @@ export default function BenefitsCalculator({
               <span className="text-slate-700">Federal Income Tax:</span>
               <span className="font-medium text-red-700">-${beforeFIT.toFixed(2)}</span>
             </div>
+            {stateWithholding && stateWithholding.method !== 'none' && (
+              <div className="flex justify-between">
+                <span className="text-slate-700">State Income Tax ({stateWithholding.state}):</span>
+                <span className="font-medium text-red-700">-${beforeSIT.toFixed(2)}</span>
+              </div>
+            )}
             <div className="border-t border-red-300 my-2"></div>
             <div className="flex justify-between font-bold text-base">
               <span className="text-slate-900">Total Taxes:</span>
@@ -303,6 +361,12 @@ export default function BenefitsCalculator({
               <span className="text-slate-700">Federal Income Tax:</span>
               <span className="font-medium text-green-700">-${afterFIT.toFixed(2)}</span>
             </div>
+            {stateWithholding && stateWithholding.method !== 'none' && (
+              <div className="flex justify-between">
+                <span className="text-slate-700">State Income Tax ({stateWithholding.state}):</span>
+                <span className="font-medium text-green-700">-${afterSIT.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-slate-700">
                 Benefits Builder Fee ({employeeRate}%):

@@ -68,6 +68,15 @@ export default async function EmployeePage({
     .eq("filing_status", emp.filing_status)
     .order("over", { ascending: true });
 
+  // Fetch state tax params (use employee state or company state)
+  const employeeState = emp.state || company?.state || "TX";
+  const { data: stateParams } = await db
+    .from("tax_state_params")
+    .select("state, method, flat_rate, brackets")
+    .eq("state", employeeState)
+    .eq("tax_year", currentYear)
+    .single();
+
   const label = "text-xs uppercase tracking-wide text-slate-500";
   const row = "grid grid-cols-2 gap-4";
 
@@ -85,8 +94,23 @@ export default async function EmployeePage({
   );
 
   const grossPay = Number(emp.gross_pay) || 0;
-  const employerRate = Number(company?.employer_rate) || 0;
-  const employeeRate = Number(company?.employee_rate) || 0;
+
+  // Parse model rates from model string (e.g., "5/3" = 5% employee, 3% employer)
+  const parseModelRates = (model: string): { employee_rate: number; employer_rate: number } => {
+    const parts = model?.split('/') || [];
+    if (parts.length === 2) {
+      return {
+        employee_rate: parseFloat(parts[0]) || 0,
+        employer_rate: parseFloat(parts[1]) || 0,
+      };
+    }
+    // Default to 5/3 if model can't be parsed
+    return { employee_rate: 5, employer_rate: 3 };
+  };
+
+  const modelRates = parseModelRates(company?.model || "5/3");
+  const employerRate = Number(company?.employer_rate) || modelRates.employer_rate;
+  const employeeRate = Number(company?.employee_rate) || modelRates.employee_rate;
 
   return (
     <main className="max-w-6xl mx-auto p-6 space-y-6">
@@ -225,6 +249,7 @@ export default async function EmployeePage({
           filing_status: emp.filing_status,
           dependents: emp.dependents || 0,
           pay_period: emp.pay_period,
+          state: employeeState,
         }}
         company={{
           model: company?.model || "N/A",
@@ -232,6 +257,7 @@ export default async function EmployeePage({
           employee_rate: employeeRate,
           tier: (company?.tier as any) || "2025",
           safety_cap_percent: Number(emp?.safety_cap_percent ?? company?.safety_cap_percent) || 50,
+          state: company?.state,
         }}
         fedRates={{
           ss_rate: Number(fedRates?.ss_rate) || 0.062,
@@ -245,6 +271,16 @@ export default async function EmployeePage({
                 pct: Number(r.pct),
               }))
             : []
+        }
+        stateWithholding={
+          stateParams
+            ? {
+                state: stateParams.state,
+                method: stateParams.method as 'none' | 'flat' | 'brackets',
+                flat_rate: Number(stateParams.flat_rate) || undefined,
+                brackets: stateParams.brackets as Array<{ over: number; rate: number }> || undefined,
+              }
+            : null
         }
         enrolledBenefits={totalBenefitDeductions}
       />
