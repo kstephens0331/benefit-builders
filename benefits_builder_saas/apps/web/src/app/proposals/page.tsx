@@ -14,12 +14,10 @@ export default async function ProposalsPage() {
     .select("*")
     .order("created_at", { ascending: false });
 
-  // Fetch companies for dropdown with all needed fields for auto-population
-  // Include all companies (active or without status set) - exclude only explicitly inactive
+  // Fetch all companies for dropdown with all needed fields for auto-population
   const { data: companies } = await db
     .from("companies")
     .select("id, name, state, model, pay_frequency, employer_rate, employee_rate, tier, address, city, phone, email, contact_name")
-    .or("status.eq.active,status.is.null")
     .order("name");
 
   return (
