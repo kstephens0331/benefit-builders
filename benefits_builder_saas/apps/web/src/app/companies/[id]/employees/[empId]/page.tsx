@@ -59,14 +59,45 @@ export default async function EmployeePage({
     .eq("tax_year", currentYear)
     .single();
 
-  // Fetch federal withholding table
-  const { data: fedWithholding } = await db
-    .from("tax_federal_withholding_15t")
-    .select("tax_year, pay_period, filing_status, over, base_tax, pct")
+  // Fetch federal withholding table (15-T percentage method)
+  // The table stores data in JSONB format with pay_frequency not pay_period
+  const payFrequencyMap: Record<string, string> = {
+    w: "weekly",
+    b: "biweekly",
+    s: "semimonthly",
+    m: "monthly",
+  };
+  const payFrequency = payFrequencyMap[emp.pay_period] || "biweekly";
+
+  const { data: fedWithholdingRaw } = await db
+    .from("withholding_federal_15t")
+    .select("tax_year, pay_frequency, filing_status, percentage_method_json")
     .eq("tax_year", currentYear)
-    .eq("pay_period", emp.pay_period)
+    .eq("pay_frequency", payFrequency)
     .eq("filing_status", emp.filing_status)
-    .order("over", { ascending: true });
+    .single();
+
+  // Parse the JSONB percentage_method_json into the bracket format expected by calcFITFromTable
+  // The DB stores: { brackets: [{max, rate, base}] } but calcFITFromTable expects [{over, baseTax, pct}]
+  // Convert from "max" (upper bound) format to "over" (lower bound) format
+  const fedWithholding: Array<{ over: number; baseTax: number; pct: number }> = [];
+  if (fedWithholdingRaw?.percentage_method_json) {
+    const jsonData = fedWithholdingRaw.percentage_method_json as {
+      standard_deduction?: number;
+      brackets?: Array<{ max: number | null; rate: number; base: number }>;
+    };
+    if (jsonData.brackets && Array.isArray(jsonData.brackets)) {
+      let prevMax = 0;
+      for (const bracket of jsonData.brackets) {
+        fedWithholding.push({
+          over: prevMax,
+          baseTax: bracket.base || 0,
+          pct: bracket.rate || 0,
+        });
+        prevMax = bracket.max || Infinity;
+      }
+    }
+  }
 
   // Fetch state tax params (use employee state or company state)
   const employeeState = emp.state || company?.state || "TX";
@@ -304,15 +335,7 @@ export default async function EmployeePage({
           ss_rate: Number(fedRates?.ss_rate) || 0.062,
           med_rate: Number(fedRates?.med_rate) || 0.0145,
         }}
-        fedWithholding={
-          fedWithholding
-            ? fedWithholding.map((r) => ({
-                over: Number(r.over),
-                baseTax: Number(r.base_tax),
-                pct: Number(r.pct),
-              }))
-            : []
-        }
+        fedWithholding={fedWithholding}
         stateWithholding={
           stateParams
             ? {
