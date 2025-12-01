@@ -58,6 +58,19 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Function to refresh proposals from API
+  const refreshProposals = async () => {
+    try {
+      const response = await fetch("/api/proposals");
+      const result = await response.json();
+      if (result.ok && result.data) {
+        setProposals(result.data);
+      }
+    } catch (err) {
+      console.error("Error refreshing proposals:", err);
+    }
+  };
+
   // Form state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
@@ -229,8 +242,8 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
         tier: "2025",
       });
 
-      // Refresh proposals
-      router.refresh();
+      // Refresh proposals list
+      await refreshProposals();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -301,7 +314,7 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
       setSuccess("Proposal updated successfully");
       setShowEditModal(false);
       setEditingProposal(null);
-      router.refresh();
+      await refreshProposals();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -324,7 +337,7 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
       }
 
       setSuccess("Proposal deleted successfully");
-      router.refresh();
+      await refreshProposals();
     } catch (err: any) {
       setError(err.message);
     }
