@@ -36,7 +36,7 @@ type EmployeeRow = {
   pay_period: string | null;
   filing_status: string | null;
   dependents: number;
-  paycheck_gross: number | null;
+  gross_pay: number | null;
   pretax_per_pay: number;
   pretax_monthly: number;
   employer_fica_saved_per_pay: number;
@@ -46,6 +46,16 @@ type EmployeeRow = {
 function formatMoney(n: number | null | undefined) {
   const v = typeof n === "number" ? n : 0;
   return `$${v.toFixed(2)}`;
+}
+
+function formatPayPeriod(p: string | null | undefined) {
+  const map: Record<string, string> = {
+    w: "Weekly",
+    b: "Biweekly",
+    s: "Semimonthly",
+    m: "Monthly",
+  };
+  return map[(p ?? "").toLowerCase()] || p || "-";
 }
 
 export default async function ReportsPage() {
@@ -72,7 +82,7 @@ export default async function ReportsPage() {
   // Get employees with filing status and dependents for Section 125 calculation
   const { data: emps } = await db
     .from("employees")
-    .select("id,company_id,active,pay_period,paycheck_gross,first_name,last_name,filing_status,dependents,safety_cap_percent")
+    .select("id,company_id,active,pay_period,gross_pay,first_name,last_name,filing_status,dependents,safety_cap_percent")
     .eq("active", true);
 
   const payMap: Record<string, number> = { w: 52, b: 26, s: 24, m: 12 };
@@ -117,7 +127,7 @@ export default async function ReportsPage() {
     const company = companyById.get(e.company_id);
     if (bucket) bucket.employees_active += 1;
 
-    const gross = Number(e.paycheck_gross ?? 0);
+    const gross = Number(e.gross_pay ?? 0);
     const payPeriod = e.pay_period || "b";
     const perMonth = ppm(payPeriod);
 
@@ -166,7 +176,7 @@ export default async function ReportsPage() {
       pay_period: payPeriod,
       filing_status: filingStatus,
       dependents: dependents,
-      paycheck_gross: gross,
+      gross_pay: gross,
       pretax_per_pay: +projectedPerPay.toFixed(2),
       pretax_monthly: +projectedMonthly.toFixed(2),
       employer_fica_saved_per_pay: savedPerPay,
@@ -353,11 +363,11 @@ export default async function ReportsPage() {
                       {e.last_name}, {e.first_name}
                     </Link>
                   </td>
-                  <td className="p-3">{e.pay_period ?? "-"}</td>
+                  <td className="p-3">{formatPayPeriod(e.pay_period)}</td>
                   <td className="p-3 capitalize">{e.filing_status ?? "-"}</td>
                   <td className="p-3 text-center">{e.dependents}</td>
                   <td className="p-3 text-right">
-                    {formatMoney(e.paycheck_gross ?? 0)}
+                    {formatMoney(e.gross_pay ?? 0)}
                   </td>
                   <td className="p-3 text-right text-blue-600 font-medium">
                     {formatMoney(e.pretax_per_pay)}
