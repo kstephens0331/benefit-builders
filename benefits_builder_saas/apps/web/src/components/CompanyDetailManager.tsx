@@ -26,6 +26,12 @@ type Company = {
   employer_rate?: number;
   employee_rate?: number;
   pay_frequency?: string;
+  contact_name?: string;
+  contact_phone?: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
 };
 
 type Props = {
@@ -78,6 +84,12 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
     tier: company.tier || "2025",
     status: company.status,
     pay_frequency: company.pay_frequency || "biweekly",
+    contact_name: company.contact_name || "",
+    contact_phone: company.contact_phone || "",
+    address: company.address || "",
+    city: company.city || "",
+    phone: company.phone || "",
+    email: company.email || "",
   });
 
   // US States list for dropdown
@@ -518,6 +530,102 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                       <option value="inactive">Inactive</option>
                       <option value="pending">Pending</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Contact & Address Information */}
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="font-medium mb-3">Contact & Address</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Point of Contact
+                      </label>
+                      <input
+                        type="text"
+                        value={companyFormData.contact_name}
+                        onChange={(e) =>
+                          setCompanyFormData({ ...companyFormData, contact_name: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                        placeholder="Contact Name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Contact Phone
+                      </label>
+                      <input
+                        type="tel"
+                        value={companyFormData.contact_phone}
+                        onChange={(e) =>
+                          setCompanyFormData({ ...companyFormData, contact_phone: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                        placeholder="(555) 123-4567"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium mb-1">
+                        Address
+                      </label>
+                      <input
+                        type="text"
+                        value={companyFormData.address}
+                        onChange={(e) =>
+                          setCompanyFormData({ ...companyFormData, address: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                        placeholder="Street Address"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        City
+                      </label>
+                      <input
+                        type="text"
+                        value={companyFormData.city}
+                        onChange={(e) =>
+                          setCompanyFormData({ ...companyFormData, city: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                        placeholder="City"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Company Phone
+                      </label>
+                      <input
+                        type="tel"
+                        value={companyFormData.phone}
+                        onChange={(e) =>
+                          setCompanyFormData({ ...companyFormData, phone: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                        placeholder="(555) 123-4567"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={companyFormData.email}
+                        onChange={(e) =>
+                          setCompanyFormData({ ...companyFormData, email: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                        placeholder="company@example.com"
+                      />
+                    </div>
                   </div>
                 </div>
 

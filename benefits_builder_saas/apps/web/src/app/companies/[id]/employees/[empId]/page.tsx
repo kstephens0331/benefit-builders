@@ -183,9 +183,11 @@ export default async function EmployeePage({
     return { employee_rate: 5, employer_rate: 3 };
   };
 
+  // Model format: "X/Y" where X = Employee %, Y = Employer %
+  // Use model string parsing as source of truth since database values may be inconsistent
   const modelRates = parseModelRates(company?.model || "5/3");
-  const employerRate = Number(company?.employer_rate) || modelRates.employer_rate;
-  const employeeRate = Number(company?.employee_rate) || modelRates.employee_rate;
+  const employeeRate = modelRates.employee_rate;
+  const employerRate = modelRates.employer_rate;
 
   // Convert company pay_frequency (full word) to pay_period code (single letter)
   const convertPayFrequency = (freq?: string): string => {
@@ -321,12 +323,11 @@ export default async function EmployeePage({
             <div className="font-medium">{company?.model || "N/A"} ({employeeRate}% Emp / {employerRate}% Empr)</div>
           </div>
           <div>
-            <div className={label}>Point of Contact</div>
+            <div className={label}>Company</div>
             <div className="font-medium">
-              {company?.contact_name || "N/A"}
-              {company?.contact_phone && (
-                <span className="text-slate-500 ml-2">({company.contact_phone})</span>
-              )}
+              <Link href={`/companies/${companyId}`} className="text-blue-600 hover:underline">
+                {company?.name || "N/A"}
+              </Link>
             </div>
           </div>
         </div>
