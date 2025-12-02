@@ -73,10 +73,10 @@ export default async function ReportsPage() {
     .eq("tax_year", taxYear)
     .single();
 
-  // Get companies with tier information
+  // Get companies with tier information and pay_frequency
   const { data: companiesData } = await db
     .from("companies")
-    .select("id,name,state,model,status,tier,safety_cap_percent")
+    .select("id,name,state,model,status,tier,safety_cap_percent,pay_frequency")
     .eq("status", "active");
 
   // Get employees with filing status and dependents for Section 125 calculation
@@ -88,7 +88,7 @@ export default async function ReportsPage() {
   const payMap: Record<string, number> = { w: 52, b: 26, s: 24, m: 12 };
   const ppm = (pp: string | null | undefined) => (payMap[pp ?? "b"] ?? 26) / 12;
 
-  // Build company index with tier info
+  // Build company index with tier info and pay_frequency
   const companyById = new Map<string, {
     id: string;
     name: string;
@@ -97,6 +97,7 @@ export default async function ReportsPage() {
     tier: string | null;
     status: string | null;
     safety_cap_percent: number | null;
+    pay_frequency: string | null;
   }>();
   for (const c of companiesData ?? []) {
     companyById.set(c.id, c);
@@ -122,13 +123,24 @@ export default async function ReportsPage() {
   // This assumes all employees will elect the Section 125 benefit
   const employeeRows: EmployeeRow[] = [];
 
+  // Helper to convert company pay_frequency to pay period code
+  const getPayPeriodCode = (payFrequency: string | null | undefined): string => {
+    const freq = (payFrequency || "").toLowerCase();
+    if (freq === "weekly" || freq === "w") return "w";
+    if (freq === "biweekly" || freq === "bi-weekly" || freq === "b") return "b";
+    if (freq === "semimonthly" || freq === "semi-monthly" || freq === "s") return "s";
+    if (freq === "monthly" || freq === "m") return "m";
+    return "b"; // Default to biweekly only if nothing specified
+  };
+
   for (const e of emps ?? []) {
     const bucket = byCompany[e.company_id];
     const company = companyById.get(e.company_id);
     if (bucket) bucket.employees_active += 1;
 
     const gross = Number(e.gross_pay ?? 0);
-    const payPeriod = e.pay_period || "b";
+    // Use employee pay_period if set, otherwise use company's pay_frequency
+    const payPeriod = e.pay_period || getPayPeriodCode(company?.pay_frequency);
     const perMonth = ppm(payPeriod);
 
     // Get company tier (default to 2025 if not set)
