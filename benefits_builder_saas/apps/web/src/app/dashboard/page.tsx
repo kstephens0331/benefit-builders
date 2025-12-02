@@ -572,25 +572,25 @@ export default function DashboardPage() {
             <h2 className="text-3xl font-bold mb-6">Key Insights & Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all">
-                <div className="text-primary-100 text-sm mb-2 font-medium">Enrollment Opportunity</div>
+                <div className="text-white/80 text-sm mb-2 font-medium">Enrollment Opportunity</div>
                 <div className="text-4xl font-bold mb-1">
                   {summary.total_employees - summary.enrolled_employees}
                 </div>
-                <div className="text-primary-100 text-sm">employees not enrolled</div>
+                <div className="text-white/80 text-sm">employees not enrolled</div>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all">
-                <div className="text-primary-100 text-sm mb-2 font-medium">Potential Additional Revenue</div>
+                <div className="text-white/80 text-sm mb-2 font-medium">Potential Additional Revenue</div>
                 <div className="text-4xl font-bold mb-1">
                   ${((summary.total_employees - summary.enrolled_employees) * summary.avg_revenue_per_employee).toFixed(0)}
                 </div>
-                <div className="text-primary-100 text-sm">if 100% enrolled</div>
+                <div className="text-white/80 text-sm">if 100% enrolled</div>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all">
-                <div className="text-primary-100 text-sm mb-2 font-medium">Target Action</div>
+                <div className="text-white/80 text-sm mb-2 font-medium">Target Action</div>
                 <div className="text-4xl font-bold mb-1">
                   {summary.enrollment_rate < 80 ? "Increase" : "Maintain"}
                 </div>
-                <div className="text-primary-100 text-sm">enrollment rate to 80%+</div>
+                <div className="text-white/80 text-sm">enrollment rate to 80%+</div>
               </div>
             </div>
           </CardContent>

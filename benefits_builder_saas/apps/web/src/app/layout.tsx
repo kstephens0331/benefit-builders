@@ -42,7 +42,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <header className="sticky top-0 z-40 border-b border-neutral-200 dark:border-neutral-700 bg-white/90 dark:bg-neutral-800/90 backdrop-blur-lg shadow-sm">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                 <a
-                  className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-400 dark:to-primary-500 bg-clip-text text-transparent hover:scale-105 transition-transform"
+                  className="text-xl font-bold tracking-tight text-primary-700 hover:text-primary-800 hover:scale-105 transition-all"
                   href="/"
                 >
                   Benefits Builder
