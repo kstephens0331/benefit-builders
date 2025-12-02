@@ -476,6 +476,254 @@ export default function BenefitsCalculator({
           </div>
         </div>
       </div>
+
+      {/* Detailed Math Breakdown */}
+      <div className="p-6 bg-white rounded-2xl shadow-lg border-2 border-slate-200">
+        <h3 className="text-lg font-bold text-slate-900 mb-4">📊 Detailed Math Breakdown</h3>
+        <p className="text-sm text-slate-600 mb-6">Step-by-step calculations to verify all numbers</p>
+
+        {/* Input Parameters */}
+        <div className="mb-6 p-4 bg-slate-50 rounded-lg">
+          <h4 className="font-bold text-slate-800 mb-3">Input Parameters</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <div className="text-slate-500">Gross Pay/Check</div>
+              <div className="font-mono font-bold">${grossPay.toFixed(2)}</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Pay Periods/Year</div>
+              <div className="font-mono font-bold">{payPeriodsPerYear}</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Filing Status</div>
+              <div className="font-mono font-bold">{employee.filing_status}</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Dependents</div>
+              <div className="font-mono font-bold">{employee.dependents}</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Company Tier</div>
+              <div className="font-mono font-bold">{company.tier}</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Safety Cap %</div>
+              <div className="font-mono font-bold">{safetyCapPercent}%</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Employee Rate</div>
+              <div className="font-mono font-bold">{employeeRate}%</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Employer Rate</div>
+              <div className="font-mono font-bold">{employerRate}%</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 125 Calculation */}
+        <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <h4 className="font-bold text-blue-900 mb-3">Step 1: Section 125 Amount Calculation</h4>
+          <div className="space-y-2 text-sm font-mono">
+            <div className="flex justify-between">
+              <span>Monthly Gross = ${grossPay.toFixed(2)} × ({payPeriodsPerYear}/12)</span>
+              <span className="font-bold">${affordability.grossMonthly.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Target Monthly (from tier table)</span>
+              <span className="font-bold">${affordability.targetMonthly.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Max Monthly ({safetyCapPercent}% cap) = ${affordability.grossMonthly.toFixed(2)} × {safetyCapPercent}%</span>
+              <span className="font-bold">${(affordability.grossMonthly * safetyCapPercent / 100).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-blue-900 font-bold border-t border-blue-300 pt-2">
+              <span>Safe Monthly = min(Target, Max)</span>
+              <span>${affordability.safeMonthly.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-blue-900 font-bold">
+              <span>Per Paycheck = ${affordability.safeMonthly.toFixed(2)} × (12/{payPeriodsPerYear})</span>
+              <span>${section125PerPaycheck.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* FICA Calculation */}
+        <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+          <h4 className="font-bold text-purple-900 mb-3">Step 2: FICA Calculation (7.65% = 6.2% SS + 1.45% Med)</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2 text-sm font-mono">
+              <div className="font-bold text-red-700 mb-2">WITHOUT Section 125:</div>
+              <div className="flex justify-between">
+                <span>SS = ${grossPay.toFixed(2)} × 6.2%</span>
+                <span>${beforeFICA.ss.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Med = ${grossPay.toFixed(2)} × 1.45%</span>
+                <span>${beforeFICA.med.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold border-t border-purple-300 pt-2">
+                <span>Total FICA</span>
+                <span>${beforeFICA.fica.toFixed(2)}</span>
+              </div>
+            </div>
+            <div className="space-y-2 text-sm font-mono">
+              <div className="font-bold text-green-700 mb-2">WITH Section 125:</div>
+              <div className="flex justify-between">
+                <span>Taxable = ${grossPay.toFixed(2)} - ${benefitAmount.toFixed(2)}</span>
+                <span>${(grossPay - benefitAmount).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>SS = ${(grossPay - benefitAmount).toFixed(2)} × 6.2%</span>
+                <span>${afterFICA.ss.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Med = ${(grossPay - benefitAmount).toFixed(2)} × 1.45%</span>
+                <span>${afterFICA.med.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold border-t border-purple-300 pt-2">
+                <span>Total FICA</span>
+                <span>${afterFICA.fica.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Employer Savings Calculation */}
+        <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+          <h4 className="font-bold text-green-900 mb-3">Step 3: Employer Net Savings (Per Pay Period)</h4>
+          <div className="space-y-2 text-sm font-mono">
+            <div className="flex justify-between">
+              <span>FICA Savings = ${beforeFICA.fica.toFixed(2)} - ${afterFICA.fica.toFixed(2)}</span>
+              <span className="font-bold text-green-700">${employerFICASavings.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Or: Section 125 × 7.65% = ${benefitAmount.toFixed(2)} × 7.65%</span>
+              <span className="font-bold">${(benefitAmount * 0.0765).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-red-700">
+              <span>BB Fee = ${benefitAmount.toFixed(2)} × {employerRate}%</span>
+              <span>-${employerFee.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between font-bold text-green-900 border-t border-green-300 pt-2 text-base">
+              <span>ER Net Savings/Pay = ${employerFICASavings.toFixed(2)} - ${employerFee.toFixed(2)}</span>
+              <span>${employerNetSavings.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Monthly & Annual Projections */}
+          <div className="mt-4 pt-4 border-t border-green-300">
+            <h5 className="font-bold text-green-800 mb-2">Monthly & Annual Projections:</h5>
+            <div className="space-y-2 text-sm font-mono">
+              <div className="flex justify-between">
+                <span>ER Savings/Mo = ${employerNetSavings.toFixed(2)} × ({payPeriodsPerYear}/12)</span>
+                <span className="font-bold">${(employerNetSavings * payPeriodsPerYear / 12).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>ER Savings/Yr = ${employerNetSavings.toFixed(2)} × {payPeriodsPerYear}</span>
+                <span className="font-bold">${(employerNetSavings * payPeriodsPerYear).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Employee Benefit Calculation */}
+        <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+          <h4 className="font-bold text-indigo-900 mb-3">Step 4: Employee Allowable Benefit (Net Pay Increase)</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2 text-sm font-mono">
+              <div className="font-bold text-red-700 mb-2">WITHOUT Section 125:</div>
+              <div className="flex justify-between">
+                <span>Gross Pay</span>
+                <span>${grossPay.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>- FICA</span>
+                <span>-${beforeFICA.fica.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>- FIT</span>
+                <span>-${beforeFIT.toFixed(2)}</span>
+              </div>
+              {stateWithholding && stateWithholding.method !== 'none' && (
+                <div className="flex justify-between">
+                  <span>- SIT ({stateWithholding.state})</span>
+                  <span>-${beforeSIT.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold border-t border-indigo-300 pt-2">
+                <span>Net Pay</span>
+                <span>${beforeNetPay.toFixed(2)}</span>
+              </div>
+            </div>
+            <div className="space-y-2 text-sm font-mono">
+              <div className="font-bold text-green-700 mb-2">WITH Section 125:</div>
+              <div className="flex justify-between">
+                <span>Gross Pay</span>
+                <span>${grossPay.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>- FICA (reduced)</span>
+                <span>-${afterFICA.fica.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>- FIT (reduced)</span>
+                <span>-${afterFIT.toFixed(2)}</span>
+              </div>
+              {stateWithholding && stateWithholding.method !== 'none' && (
+                <div className="flex justify-between">
+                  <span>- SIT (reduced)</span>
+                  <span>-${afterSIT.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>- EE Fee ({employeeRate}%)</span>
+                <span>-${employeeFee.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold border-t border-indigo-300 pt-2">
+                <span>Net Pay</span>
+                <span>${afterNetPay.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-indigo-300">
+            <div className="flex justify-between font-bold text-lg">
+              <span>Allowable Benefit = ${afterNetPay.toFixed(2)} - ${beforeNetPay.toFixed(2)}</span>
+              <span className="text-blue-700">${employeeNetIncrease.toFixed(2)}/pay</span>
+            </div>
+            <div className="text-xs text-slate-600 mt-1">
+              This is how much MORE the employee takes home with Section 125
+            </div>
+          </div>
+        </div>
+
+        {/* BB Revenue Summary */}
+        <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+          <h4 className="font-bold text-amber-900 mb-3">Step 5: Benefits Builder Revenue</h4>
+          <div className="space-y-2 text-sm font-mono">
+            <div className="flex justify-between">
+              <span>EE Fee = ${benefitAmount.toFixed(2)} × {employeeRate}%</span>
+              <span>${employeeFee.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>ER Fee = ${benefitAmount.toFixed(2)} × {employerRate}%</span>
+              <span>${employerFee.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between font-bold border-t border-amber-300 pt-2">
+              <span>Total BB Revenue/Pay</span>
+              <span>${bbTotalFees.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between font-bold">
+              <span>BB Revenue/Month = ${bbTotalFees.toFixed(2)} × ({payPeriodsPerYear}/12)</span>
+              <span>${(bbTotalFees * payPeriodsPerYear / 12).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between font-bold">
+              <span>BB Revenue/Year = ${bbTotalFees.toFixed(2)} × {payPeriodsPerYear}</span>
+              <span>${(bbTotalFees * payPeriodsPerYear).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
