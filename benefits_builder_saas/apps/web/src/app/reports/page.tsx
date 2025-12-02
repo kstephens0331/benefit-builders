@@ -1,46 +1,41 @@
 // apps/web/src/app/reports/page.tsx
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createServiceClient } from "@/lib/supabase";
-import { computeFeesForPretaxMonthly } from "@/lib/fees";
-import { calcFICA } from "@/lib/tax";
-import {
-  calculateSection125Amount,
-  calculateSafeSection125Deduction,
-  perPayToMonthly,
-  type CompanyTier,
-  type FilingStatus,
-} from "@/lib/section125";
 
-type CompanyRow = {
-  company_id: string;
-  company_name: string;
-  state: string | null;
-  model: string | null;
-  tier: string | null;
-  status: string | null;
-  employees_active: number;
-  pretax_monthly: number;
-  employer_fica_saved_monthly: number;
-  employee_fee_monthly: number;
-  employer_fee_monthly: number;
-  employer_net_monthly: number;
-};
-
-type EmployeeRow = {
-  employee_id: string;
-  company_id: string;
-  company_name: string;
+type Employee = {
+  id: string;
   first_name: string;
   last_name: string;
-  active: boolean;
-  pay_period: string | null;
-  filing_status: string | null;
+  filing_status: string;
   dependents: number;
-  gross_pay: number | null;
-  pretax_per_pay: number;
-  pretax_monthly: number;
-  employer_fica_saved_per_pay: number;
-  employer_fica_saved_monthly: number;
+  gross_pay: number;
+  pay_period: string;
+  active: boolean;
+  // Calculated fields
+  section_125_per_pay: number;
+  section_125_monthly: number;
+  allowable_benefit: number;
+  er_savings_monthly: number;
+  er_savings_annual: number;
+};
+
+type Company = {
+  id: string;
+  name: string;
+  state: string;
+  model: string;
+  tier: string;
+  pay_frequency: string;
+  employer_rate: number;
+  employee_rate: number;
+  employees: Employee[];
+  // Aggregates
+  total_employees: number;
+  total_section_125_monthly: number;
+  total_er_savings_monthly: number;
+  total_er_savings_annual: number;
 };
 
 function formatMoney(n: number | null | undefined) {
@@ -54,201 +49,146 @@ function formatPayPeriod(p: string | null | undefined) {
     b: "Biweekly",
     s: "Semimonthly",
     m: "Monthly",
+    weekly: "Weekly",
+    biweekly: "Biweekly",
+    semimonthly: "Semimonthly",
+    monthly: "Monthly",
   };
   return map[(p ?? "").toLowerCase()] || p || "-";
 }
 
-export default async function ReportsPage() {
-  const db = createServiceClient();
+export default function ReportsPage() {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const now = new Date();
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const [yearStr] = period.split("-");
-  const taxYear = Number(yearStr) || now.getFullYear();
 
-  // Fetch data directly instead of HTTP calls
-  // Get federal tax rates
-  const { data: fed } = await db
-    .from("tax_federal_params")
-    .select("ss_rate, med_rate")
-    .eq("tax_year", taxYear)
-    .single();
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  // Get companies with tier information and pay_frequency
-  const { data: companiesData } = await db
-    .from("companies")
-    .select("id,name,state,model,status,tier,safety_cap_percent,pay_frequency")
-    .eq("status", "active");
-
-  // Get employees with filing status and dependents for Section 125 calculation
-  const { data: emps } = await db
-    .from("employees")
-    .select("id,company_id,active,pay_period,gross_pay,first_name,last_name,filing_status,dependents,safety_cap_percent")
-    .eq("active", true);
-
-  const payMap: Record<string, number> = { w: 52, b: 26, s: 24, m: 12 };
-  const ppm = (pp: string | null | undefined) => (payMap[pp ?? "b"] ?? 26) / 12;
-
-  // Build company index with tier info and pay_frequency
-  const companyById = new Map<string, {
-    id: string;
-    name: string;
-    state: string | null;
-    model: string | null;
-    tier: string | null;
-    status: string | null;
-    safety_cap_percent: number | null;
-    pay_frequency: string | null;
-  }>();
-  for (const c of companiesData ?? []) {
-    companyById.set(c.id, c);
-  }
-
-  // Build company summaries
-  const byCompany: Record<string, any> = {};
-  for (const c of companiesData ?? []) {
-    byCompany[c.id] = {
-      company_id: c.id,
-      company_name: c.name,
-      state: c.state,
-      model: c.model,
-      tier: c.tier,
-      status: c.status,
-      employees_active: 0,
-      pretax_monthly: 0,
-      employer_fica_saved_monthly: 0,
-    };
-  }
-
-  // Calculate PROJECTED Section 125 for each employee
-  // This assumes all employees will elect the Section 125 benefit
-  const employeeRows: EmployeeRow[] = [];
-
-  // Helper to convert company pay_frequency to pay period code
-  const getPayPeriodCode = (payFrequency: string | null | undefined): string => {
-    const freq = (payFrequency || "").toLowerCase();
-    if (freq === "weekly" || freq === "w") return "w";
-    if (freq === "biweekly" || freq === "bi-weekly" || freq === "b") return "b";
-    if (freq === "semimonthly" || freq === "semi-monthly" || freq === "s") return "s";
-    if (freq === "monthly" || freq === "m") return "m";
-    return "b"; // Default to biweekly only if nothing specified
-  };
-
-  for (const e of emps ?? []) {
-    const bucket = byCompany[e.company_id];
-    const company = companyById.get(e.company_id);
-    if (bucket) bucket.employees_active += 1;
-
-    const gross = Number(e.gross_pay ?? 0);
-    // Use employee pay_period if set, otherwise use company's pay_frequency
-    const payPeriod = e.pay_period || getPayPeriodCode(company?.pay_frequency);
-    const perMonth = ppm(payPeriod);
-
-    // Get company tier (default to 2025 if not set)
-    const tier: CompanyTier = (company?.tier as CompanyTier) || "2025";
-
-    // Get filing status (default to single if not set)
-    const filingStatus: FilingStatus = (e.filing_status as FilingStatus) || "single";
-    const dependents = e.dependents || 0;
-
-    // Get safety cap (employee override > company default > 50%)
-    const safetyCapPercent = Number(e.safety_cap_percent ?? company?.safety_cap_percent) || 50;
-
-    // Calculate PROJECTED Section 125 amount (assuming employee elects)
-    const projectedPerPay = calculateSafeSection125Deduction(
-      tier,
-      filingStatus,
-      dependents,
-      gross,
-      payPeriod,
-      safetyCapPercent
-    );
-
-    const projectedMonthly = perPayToMonthly(projectedPerPay, payPeriod);
-
-    // Calculate employer FICA savings based on PROJECTED Section 125 amount
-    const ssRate = Number(fed?.ss_rate || 0.062);
-    const medRate = Number(fed?.med_rate || 0.0145);
-    const before = calcFICA(gross, 0, ssRate, medRate);
-    const after = calcFICA(gross, projectedPerPay, ssRate, medRate);
-    const savedPerPay = +(before.fica - after.fica).toFixed(2);
-    const savedMonthly = +(savedPerPay * perMonth).toFixed(2);
-
-    if (bucket) {
-      bucket.pretax_monthly += projectedMonthly;
-      bucket.employer_fica_saved_monthly += savedMonthly;
+  async function fetchData() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/reports/data");
+      const json = await res.json();
+      if (json.ok) {
+        setCompanies(json.companies || []);
+      }
+    } catch (error) {
+      console.error("Failed to load reports:", error);
     }
+    setLoading(false);
+  }
 
-    employeeRows.push({
-      employee_id: e.id,
-      company_id: e.company_id,
-      company_name: company?.name ?? "",
-      first_name: e.first_name,
-      last_name: e.last_name,
-      active: !!e.active,
-      pay_period: payPeriod,
-      filing_status: filingStatus,
-      dependents: dependents,
-      gross_pay: gross,
-      pretax_per_pay: +projectedPerPay.toFixed(2),
-      pretax_monthly: +projectedMonthly.toFixed(2),
-      employer_fica_saved_per_pay: savedPerPay,
-      employer_fica_saved_monthly: savedMonthly,
+  function toggleCompany(companyId: string) {
+    setExpandedCompanies(prev => {
+      const next = new Set(prev);
+      if (next.has(companyId)) {
+        next.delete(companyId);
+      } else {
+        next.add(companyId);
+      }
+      return next;
     });
   }
 
-  // Finalize company rows with fees
-  const companies: CompanyRow[] = Object.values(byCompany).map((r: any) => {
-    const fees = computeFeesForPretaxMonthly(+r.pretax_monthly.toFixed(2), r.model);
-    const employer_net = +(+r.employer_fica_saved_monthly.toFixed(2) - fees.employerFeeMonthly).toFixed(2);
-    return {
-      ...r,
-      pretax_monthly: +r.pretax_monthly.toFixed(2),
-      employer_fica_saved_monthly: +r.employer_fica_saved_monthly.toFixed(2),
-      employee_fee_monthly: fees.employeeFeeMonthly,
-      employer_fee_monthly: fees.employerFeeMonthly,
-      employer_net_monthly: employer_net,
-    };
-  });
+  function expandAll() {
+    setExpandedCompanies(new Set(companies.map(c => c.id)));
+  }
 
-  const employees: EmployeeRow[] = employeeRows;
+  function collapseAll() {
+    setExpandedCompanies(new Set());
+  }
+
+  async function saveEmployee(employee: Employee) {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          first_name: employee.first_name,
+          last_name: employee.last_name,
+          filing_status: employee.filing_status,
+          dependents: employee.dependents,
+          gross_pay: employee.gross_pay,
+          active: employee.active,
+        }),
+      });
+      if (res.ok) {
+        setEditingEmployee(null);
+        fetchData(); // Refresh to get recalculated values
+      }
+    } catch (error) {
+      console.error("Failed to save employee:", error);
+    }
+    setSaving(false);
+  }
 
   // Calculate totals
-  const totalEmployees = employees.length;
-  const totalPretaxMonthly = companies.reduce((sum, c) => sum + c.pretax_monthly, 0);
-  const totalEmployerFICASaved = companies.reduce((sum, c) => sum + c.employer_fica_saved_monthly, 0);
-  const totalEmployeeFees = companies.reduce((sum, c) => sum + c.employee_fee_monthly, 0);
-  const totalEmployerFees = companies.reduce((sum, c) => sum + c.employer_fee_monthly, 0);
-  const totalEmployerNet = companies.reduce((sum, c) => sum + c.employer_net_monthly, 0);
+  const totalEmployees = companies.reduce((sum, c) => sum + c.total_employees, 0);
+  const totalSection125Monthly = companies.reduce((sum, c) => sum + c.total_section_125_monthly, 0);
+  const totalErSavingsMonthly = companies.reduce((sum, c) => sum + c.total_er_savings_monthly, 0);
+  const totalErSavingsAnnual = companies.reduce((sum, c) => sum + c.total_er_savings_annual, 0);
+
+  if (loading) {
+    return (
+      <main className="max-w-7xl mx-auto p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-slate-200 rounded w-48"></div>
+          <div className="h-64 bg-slate-200 rounded"></div>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="max-w-7xl mx-auto p-6 space-y-8">
+    <main className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Reports</h1>
           <p className="text-sm text-slate-600 mt-1">
-            Projected Section 125 savings (assuming all employees elect)
+            Section 125 savings by company — {period}
           </p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={expandAll}
+            className="px-3 py-2 text-sm border rounded-lg hover:bg-slate-50"
+          >
+            Expand All
+          </button>
+          <button
+            onClick={collapseAll}
+            className="px-3 py-2 text-sm border rounded-lg hover:bg-slate-50"
+          >
+            Collapse All
+          </button>
           <a
-            className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 transition flex items-center gap-2"
+            className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center gap-2"
             href={`/api/reports/excel?period=${period}`}
             download
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            Download Excel
+            Excel
           </a>
           <a
-            className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition flex items-center gap-2"
+            className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition flex items-center gap-2"
             href={`/api/reports/pdf?period=${period}`}
             target="_blank"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
-            Download PDF
+            PDF
           </a>
         </div>
       </div>
@@ -256,160 +196,223 @@ export default async function ReportsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow p-4">
-          <div className="text-2xl font-bold text-blue-600">{totalEmployees}</div>
+          <div className="text-2xl font-bold text-blue-600">{companies.length}</div>
+          <div className="text-sm text-slate-600">Companies</div>
+        </div>
+        <div className="bg-white rounded-xl shadow p-4">
+          <div className="text-2xl font-bold text-purple-600">{totalEmployees}</div>
           <div className="text-sm text-slate-600">Active Employees</div>
         </div>
         <div className="bg-white rounded-xl shadow p-4">
-          <div className="text-2xl font-bold text-green-600">{formatMoney(totalPretaxMonthly)}</div>
-          <div className="text-sm text-slate-600">Projected Pretax/Mo</div>
+          <div className="text-2xl font-bold text-green-600">{formatMoney(totalErSavingsMonthly)}</div>
+          <div className="text-sm text-slate-600">ER Savings/Mo</div>
         </div>
         <div className="bg-white rounded-xl shadow p-4">
-          <div className="text-2xl font-bold text-purple-600">{formatMoney(totalEmployerFICASaved)}</div>
-          <div className="text-sm text-slate-600">ER FICA Saved/Mo</div>
-        </div>
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="text-2xl font-bold text-amber-600">{formatMoney(totalEmployerNet)}</div>
-          <div className="text-sm text-slate-600">ER Net Savings/Mo</div>
+          <div className="text-2xl font-bold text-green-700">{formatMoney(totalErSavingsAnnual)}</div>
+          <div className="text-sm text-slate-600">ER Savings/Yr</div>
         </div>
       </div>
 
-      {/* Companies summary */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Companies — {period}</h2>
-        <div className="overflow-x-auto rounded-xl border bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-700">
-              <tr>
-                <th className="text-left p-3">Company</th>
-                <th className="text-left p-3">State</th>
-                <th className="text-left p-3">Model</th>
-                <th className="text-left p-3">Tier</th>
-                <th className="text-right p-3">Active Emps</th>
-                <th className="text-right p-3">Pretax (mo)</th>
-                <th className="text-right p-3">ER FICA Saved (mo)</th>
-                <th className="text-right p-3">EE Fees (mo)</th>
-                <th className="text-right p-3">ER Fees (mo)</th>
-                <th className="text-right p-3">ER Net (mo)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {companies.map((c) => (
-                <tr key={c.company_id} className="border-t">
-                  <td className="p-3">
-                    <Link
-                      className="underline underline-offset-2"
-                      href={`/companies/${c.company_id}`}
-                    >
-                      {c.company_name}
-                    </Link>
-                  </td>
-                  <td className="p-3">{c.state ?? "-"}</td>
-                  <td className="p-3">{c.model ?? "-"}</td>
-                  <td className="p-3">{c.tier ?? "2025"}</td>
-                  <td className="p-3 text-right">{c.employees_active}</td>
-                  <td className="p-3 text-right">{formatMoney(c.pretax_monthly)}</td>
-                  <td className="p-3 text-right text-green-600 font-medium">
-                    {formatMoney(c.employer_fica_saved_monthly)}
-                  </td>
-                  <td className="p-3 text-right">
-                    {formatMoney(c.employee_fee_monthly)}
-                  </td>
-                  <td className="p-3 text-right">
-                    {formatMoney(c.employer_fee_monthly)}
-                  </td>
-                  <td className="p-3 text-right text-green-600 font-medium">
-                    {formatMoney(c.employer_net_monthly)}
-                  </td>
-                </tr>
-              ))}
-              {companies.length === 0 && (
-                <tr>
-                  <td className="p-4 text-slate-600" colSpan={10}>
-                    No data yet.
-                  </td>
-                </tr>
-              )}
-              {companies.length > 0 && (
-                <tr className="bg-slate-100 font-semibold border-t-2 border-slate-300">
-                  <td className="p-3" colSpan={4}>TOTALS</td>
-                  <td className="p-3 text-right">{totalEmployees}</td>
-                  <td className="p-3 text-right">{formatMoney(totalPretaxMonthly)}</td>
-                  <td className="p-3 text-right text-green-700">{formatMoney(totalEmployerFICASaved)}</td>
-                  <td className="p-3 text-right">{formatMoney(totalEmployeeFees)}</td>
-                  <td className="p-3 text-right">{formatMoney(totalEmployerFees)}</td>
-                  <td className="p-3 text-right text-green-700">{formatMoney(totalEmployerNet)}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {/* Companies with Accordion */}
+      <div className="space-y-4">
+        {companies.map((company) => {
+          const isExpanded = expandedCompanies.has(company.id);
+          return (
+            <div key={company.id} className="bg-white rounded-xl shadow overflow-hidden">
+              {/* Company Header - Clickable */}
+              <button
+                onClick={() => toggleCompany(company.id)}
+                className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition"
+              >
+                <div className="flex items-center gap-4">
+                  <svg
+                    className={`w-5 h-5 text-slate-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  <div className="text-left">
+                    <div className="font-semibold text-lg">{company.name}</div>
+                    <div className="text-sm text-slate-500">
+                      {company.state} • {company.model} • {formatPayPeriod(company.pay_frequency)} • {company.total_employees} employees
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-8 text-right">
+                  <div>
+                    <div className="text-sm text-slate-500">ER Savings/Mo</div>
+                    <div className="font-semibold text-green-600">{formatMoney(company.total_er_savings_monthly)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-slate-500">ER Savings/Yr</div>
+                    <div className="font-semibold text-green-700">{formatMoney(company.total_er_savings_annual)}</div>
+                  </div>
+                </div>
+              </button>
 
-      {/* Employee enrollment */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Employees — {period}</h2>
-        <div className="overflow-x-auto rounded-xl border bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-700">
-              <tr>
-                <th className="text-left p-3">Company</th>
-                <th className="text-left p-3">Employee</th>
-                <th className="text-left p-3">Pay Period</th>
-                <th className="text-left p-3">Filing</th>
-                <th className="text-center p-3">Deps</th>
-                <th className="text-right p-3">Gross/Pay</th>
-                <th className="text-right p-3">Sec 125/Pay</th>
-                <th className="text-right p-3">Sec 125/Mo</th>
-                <th className="text-right p-3">ER Saved/Mo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {employees.map((e, idx) => (
-                <tr key={`${e.company_id}-${idx}`} className="border-t">
-                  <td className="p-3">{e.company_name}</td>
-                  <td className="p-3">
-                    <Link
-                      className="underline underline-offset-2 hover:text-blue-600"
-                      href={`/companies/${e.company_id}/employees/${e.employee_id}`}
-                    >
-                      {e.last_name}, {e.first_name}
-                    </Link>
-                  </td>
-                  <td className="p-3">{formatPayPeriod(e.pay_period)}</td>
-                  <td className="p-3 capitalize">{e.filing_status ?? "-"}</td>
-                  <td className="p-3 text-center">{e.dependents}</td>
-                  <td className="p-3 text-right">
-                    {formatMoney(e.gross_pay ?? 0)}
-                  </td>
-                  <td className="p-3 text-right text-blue-600 font-medium">
-                    {formatMoney(e.pretax_per_pay)}
-                  </td>
-                  <td className="p-3 text-right text-blue-600 font-medium">
-                    {formatMoney(e.pretax_monthly)}
-                  </td>
-                  <td className="p-3 text-right text-green-600 font-medium">
-                    {formatMoney(e.employer_fica_saved_monthly)}
-                  </td>
-                </tr>
-              ))}
-              {employees.length === 0 && (
-                <tr>
-                  <td className="p-4 text-slate-600" colSpan={9}>
-                    No data yet.
-                  </td>
-                </tr>
+              {/* Employee Table - Expandable */}
+              {isExpanded && (
+                <div className="border-t">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-slate-700">
+                      <tr>
+                        <th className="text-left p-3">Employee</th>
+                        <th className="text-center p-3">Filing</th>
+                        <th className="text-center p-3">Deps</th>
+                        <th className="text-right p-3">Gross/Pay</th>
+                        <th className="text-right p-3">Sec 125/Pay</th>
+                        <th className="text-right p-3">Allowable Benefit</th>
+                        <th className="text-right p-3">ER Savings/Mo</th>
+                        <th className="text-right p-3">ER Savings/Yr</th>
+                        <th className="text-center p-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {company.employees.map((emp) => (
+                        <tr key={emp.id} className="border-t hover:bg-slate-50">
+                          <td className="p-3">
+                            <Link
+                              href={`/companies/${company.id}/employees/${emp.id}`}
+                              className="text-blue-600 hover:underline"
+                            >
+                              {emp.last_name}, {emp.first_name}
+                            </Link>
+                            {!emp.active && (
+                              <span className="ml-2 text-xs text-red-500">(inactive)</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center capitalize">{emp.filing_status}</td>
+                          <td className="p-3 text-center">{emp.dependents}</td>
+                          <td className="p-3 text-right">{formatMoney(emp.gross_pay)}</td>
+                          <td className="p-3 text-right text-blue-600">{formatMoney(emp.section_125_per_pay)}</td>
+                          <td className="p-3 text-right text-blue-700 font-medium">{formatMoney(emp.allowable_benefit)}</td>
+                          <td className="p-3 text-right text-green-600">{formatMoney(emp.er_savings_monthly)}</td>
+                          <td className="p-3 text-right text-green-700">{formatMoney(emp.er_savings_annual)}</td>
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => setEditingEmployee(emp)}
+                              className="text-blue-600 hover:text-blue-800 text-sm"
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {company.employees.length === 0 && (
+                        <tr>
+                          <td colSpan={9} className="p-4 text-center text-slate-500">
+                            No active employees
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </div>
+          );
+        })}
 
-      {/* Note about projections */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
-        <strong>Note:</strong> These are <strong>projected</strong> savings assuming all active employees elect the Section 125 benefit.
-        Actual savings will depend on employee elections. The Section 125 amounts are calculated based on each company's tier
-        and each employee's filing status and dependents, capped at the safety percentage of gross pay.
+        {companies.length === 0 && (
+          <div className="bg-white rounded-xl shadow p-8 text-center text-slate-500">
+            No active companies found
+          </div>
+        )}
       </div>
+
+      {/* Edit Employee Modal */}
+      {editingEmployee && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold mb-4">
+              Edit Employee: {editingEmployee.first_name} {editingEmployee.last_name}
+            </h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">First Name</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.first_name}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, first_name: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.last_name}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, last_name: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Filing Status</label>
+                  <select
+                    value={editingEmployee.filing_status}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, filing_status: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    <option value="single">Single</option>
+                    <option value="married">Married</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Dependents</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingEmployee.dependents}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, dependents: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Gross Pay per Period</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editingEmployee.gross_pay}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, gross_pay: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="active"
+                  checked={editingEmployee.active}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, active: e.target.checked })}
+                  className="rounded"
+                />
+                <label htmlFor="active" className="text-sm">Active</label>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-6">
+              <button
+                onClick={() => setEditingEmployee(null)}
+                className="px-4 py-2 border rounded-lg hover:bg-slate-50"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => saveEmployee(editingEmployee)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
