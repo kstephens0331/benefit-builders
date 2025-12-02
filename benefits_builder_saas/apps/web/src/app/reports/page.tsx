@@ -17,6 +17,7 @@ type Employee = {
   section_125_per_pay: number;
   section_125_monthly: number;
   allowable_benefit: number;
+  allowable_benefit_monthly: number;
   er_savings_monthly: number;
   er_savings_annual: number;
 };
@@ -265,9 +266,9 @@ export default function ReportsPage() {
                         <th className="text-left p-3">Employee</th>
                         <th className="text-center p-3">Filing</th>
                         <th className="text-center p-3">Deps</th>
+                        <th className="text-center p-3">Pay Freq</th>
                         <th className="text-right p-3">Gross/Pay</th>
-                        <th className="text-right p-3">Sec 125/Pay</th>
-                        <th className="text-right p-3">Allowable Benefit</th>
+                        <th className="text-right p-3">Allowable Benefit/Mo</th>
                         <th className="text-right p-3">ER Savings/Mo</th>
                         <th className="text-right p-3">ER Savings/Yr</th>
                         <th className="text-center p-3">Actions</th>
@@ -289,9 +290,9 @@ export default function ReportsPage() {
                           </td>
                           <td className="p-3 text-center capitalize">{emp.filing_status}</td>
                           <td className="p-3 text-center">{emp.dependents}</td>
+                          <td className="p-3 text-center">{formatPayPeriod(emp.pay_period)}</td>
                           <td className="p-3 text-right">{formatMoney(emp.gross_pay)}</td>
-                          <td className="p-3 text-right text-blue-600">{formatMoney(emp.section_125_per_pay)}</td>
-                          <td className="p-3 text-right text-blue-700 font-medium">{formatMoney(emp.allowable_benefit)}</td>
+                          <td className="p-3 text-right text-blue-700 font-medium">{formatMoney(emp.allowable_benefit_monthly)}</td>
                           <td className="p-3 text-right text-green-600">{formatMoney(emp.er_savings_monthly)}</td>
                           <td className="p-3 text-right text-green-700">{formatMoney(emp.er_savings_annual)}</td>
                           <td className="p-3 text-center">

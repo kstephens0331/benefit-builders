@@ -125,6 +125,9 @@ export async function GET() {
       const erSavingsMonthly = erNetSavingsPerPay * periodsPerMonth;
       const erSavingsAnnual = erNetSavingsPerPay * periodsPerYear;
 
+      // Calculate monthly allowable benefit
+      const allowableBenefitMonthly = allowableBenefit * periodsPerMonth;
+
       const employeeData = {
         id: emp.id,
         first_name: emp.first_name,
@@ -137,6 +140,7 @@ export async function GET() {
         section_125_per_pay: +section125PerPay.toFixed(2),
         section_125_monthly: +section125Monthly.toFixed(2),
         allowable_benefit: +allowableBenefit.toFixed(2),
+        allowable_benefit_monthly: +allowableBenefitMonthly.toFixed(2),
         er_savings_monthly: +erSavingsMonthly.toFixed(2),
         er_savings_annual: +erSavingsAnnual.toFixed(2),
       };
