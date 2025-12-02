@@ -194,7 +194,7 @@ export default async function ProposalDetailPage({
                 <th className="text-right py-3 px-4 font-semibold">Gross/Pay</th>
                 <th className="text-center py-3 px-4 font-semibold">Status</th>
                 <th className="text-center py-3 px-4 font-semibold">Deps</th>
-                <th className="text-right py-3 px-4 font-semibold">Sec 125 Benefit</th>
+                <th className="text-right py-3 px-4 font-semibold">Allowable Benefit</th>
                 <th className="text-right py-3 px-4 font-semibold">ER Savings/mo</th>
                 <th className="text-right py-3 px-4 font-semibold">ER Savings/yr</th>
                 <th className="text-center py-3 px-4 font-semibold">Qualifies</th>
@@ -212,7 +212,7 @@ export default async function ProposalDetailPage({
                   <td className="py-3 px-4 text-right">{formatCurrency(emp.paycheck_gross)}</td>
                   <td className="py-3 px-4 text-center">{emp.marital_status || "-"}</td>
                   <td className="py-3 px-4 text-center">{emp.dependents || 0}</td>
-                  <td className="py-3 px-4 text-right">{formatCurrency(emp.gross_benefit_allotment)}</td>
+                  <td className="py-3 px-4 text-right text-blue-600">{formatCurrency(emp.employee_net_increase_monthly)}</td>
                   <td className="py-3 px-4 text-right text-green-600">{formatCurrency(emp.net_monthly_employer_savings)}</td>
                   <td className="py-3 px-4 text-right text-green-600">{formatCurrency(emp.net_annual_employer_savings)}</td>
                   <td className="py-3 px-4 text-center">
