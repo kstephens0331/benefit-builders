@@ -21,11 +21,15 @@ interface DashboardData {
     total_employees: number;
     active_employees: number;
     enrolled_employees: number;
+    non_enrolled_employees: number;
     enrollment_rate: number;
     monthly_revenue: number;
     annual_revenue_projected: number;
     total_employer_savings: number;
     profit_margin_percent: number;
+    potential_monthly_revenue: number;
+    potential_annual_revenue: number;
+    potential_er_savings: number;
     avg_employees_per_company: number;
     avg_revenue_per_company: number;
     avg_revenue_per_employee: number;
@@ -478,23 +482,23 @@ export default function DashboardPage() {
               <div className="bg-white rounded-lg p-4 shadow-sm border border-neutral-200 hover:shadow-md transition-all">
                 <div className="text-neutral-600 text-sm mb-2 font-medium">Enrollment Opportunity</div>
                 <div className="text-4xl font-bold mb-1 text-neutral-900">
-                  {summary.total_employees - summary.enrolled_employees}
+                  {summary.non_enrolled_employees}
                 </div>
                 <div className="text-neutral-600 text-sm">employees not enrolled</div>
               </div>
               <div className="bg-white rounded-lg p-4 shadow-sm border border-neutral-200 hover:shadow-md transition-all">
                 <div className="text-neutral-600 text-sm mb-2 font-medium">Potential Additional Revenue</div>
                 <div className="text-4xl font-bold mb-1 text-neutral-900">
-                  ${((summary.total_employees - summary.enrolled_employees) * summary.avg_revenue_per_employee).toFixed(0)}
+                  ${summary.potential_monthly_revenue.toFixed(0)}/mo
                 </div>
-                <div className="text-neutral-600 text-sm">if 100% enrolled</div>
+                <div className="text-neutral-600 text-sm">${summary.potential_annual_revenue.toFixed(0)}/year if 100% enrolled</div>
               </div>
               <div className="bg-white rounded-lg p-4 shadow-sm border border-neutral-200 hover:shadow-md transition-all">
-                <div className="text-neutral-600 text-sm mb-2 font-medium">Target Action</div>
+                <div className="text-neutral-600 text-sm mb-2 font-medium">Potential ER Savings</div>
                 <div className="text-4xl font-bold mb-1 text-neutral-900">
-                  {summary.enrollment_rate < 80 ? "Increase" : "Maintain"}
+                  ${summary.potential_er_savings.toFixed(0)}/mo
                 </div>
-                <div className="text-neutral-600 text-sm">enrollment rate to 80%+</div>
+                <div className="text-neutral-600 text-sm">additional employer savings</div>
               </div>
             </div>
           </CardContent>

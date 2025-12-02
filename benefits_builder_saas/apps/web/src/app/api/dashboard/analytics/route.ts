@@ -5,6 +5,11 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { getModelRates } from "@/lib/models";
 import { calcFICA } from "@/lib/tax";
+import {
+  calculateSafeSection125Deduction,
+  type CompanyTier,
+  type FilingStatus,
+} from "@/lib/section125";
 
 export const runtime = "nodejs";
 
@@ -39,22 +44,15 @@ export async function GET(req: Request) {
       .select("*", { count: "exact", head: true })
       .eq("active", true);
 
-    // Employees with Benefits
-    const { data: employeesWithBenefits } = await db
+    // Enrolled Employees (consent_status = 'elect')
+    const { count: enrolledEmployees } = await db
       .from("employees")
-      .select("id")
-      .eq("active", true);
+      .select("*", { count: "exact", head: true })
+      .eq("active", true)
+      .eq("consent_status", "elect");
 
-    const employeeIds = (employeesWithBenefits || []).map(e => e.id);
-    const { data: uniqueBenefitEmployees } = employeeIds.length > 0
-      ? await db
-          .from("employee_benefits")
-          .select("employee_id")
-          .in("employee_id", employeeIds)
-      : { data: [] };
-
-    const enrolledCount = new Set((uniqueBenefitEmployees || []).map(b => b.employee_id)).size;
-    const enrollmentRate = totalEmployees ? (enrolledCount / totalEmployees * 100).toFixed(1) : "0.0";
+    const enrolledCount = enrolledEmployees || 0;
+    const enrollmentRate = activeEmployees ? (enrolledCount / activeEmployees * 100).toFixed(1) : "0.0";
 
     // ========================================================================
     // REVENUE CALCULATIONS (Current Month)
@@ -72,11 +70,23 @@ export async function GET(req: Request) {
       .eq("tax_year", currentYear)
       .single();
 
-    // Calculate revenue from all companies
+    // Calculate revenue from all companies using enrolled employees
     const { data: companies } = await db
       .from("companies")
-      .select("id, name, model, pay_frequency")
+      .select("id, name, model, pay_frequency, tier, employer_rate, employee_rate, safety_cap_percent")
       .eq("status", "active");
+
+    // Helper to convert pay_frequency to code
+    const getPayPeriodCode = (payFrequency: string | null | undefined): string => {
+      const freq = (payFrequency || "").toLowerCase();
+      if (freq === "weekly" || freq === "w") return "w";
+      if (freq === "biweekly" || freq === "bi-weekly" || freq === "b") return "b";
+      if (freq === "semimonthly" || freq === "semi-monthly" || freq === "s") return "s";
+      if (freq === "monthly" || freq === "m") return "m";
+      return "b";
+    };
+
+    const payPeriodMap: Record<string, number> = { w: 52, b: 26, s: 24, m: 12, weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
 
     let totalMonthlyRevenue = 0;
     let totalEmployerSavings = 0;
@@ -84,61 +94,81 @@ export async function GET(req: Request) {
     const companyMetrics: any[] = [];
 
     for (const company of companies || []) {
+      // Fetch only ENROLLED employees (consent_status = 'elect')
       const { data: emps } = await db
         .from("employees")
-        .select("id, gross_pay")
+        .select("id, gross_pay, pay_period, filing_status, dependents, safety_cap_percent")
+        .eq("company_id", company.id)
+        .eq("active", true)
+        .eq("consent_status", "elect");
+
+      // Also count total active employees for metrics
+      const { count: totalActiveEmps } = await db
+        .from("employees")
+        .select("*", { count: "exact", head: true })
         .eq("company_id", company.id)
         .eq("active", true);
 
-      if (!emps || emps.length === 0) continue;
-
-      // Fetch all benefits for this company's employees
-      const empIds = emps.map(e => e.id);
-      const { data: benefits } = await db
-        .from("employee_benefits")
-        .select("employee_id, per_pay_amount, reduces_fica")
-        .in("employee_id", empIds);
-
-      const benefitsByEmp = new Map<string, Array<{ per_pay_amount: number; reduces_fica: boolean }>>();
-      for (const ben of benefits || []) {
-        if (!benefitsByEmp.has(ben.employee_id)) {
-          benefitsByEmp.set(ben.employee_id, []);
-        }
-        benefitsByEmp.get(ben.employee_id)!.push({
-          per_pay_amount: Number(ben.per_pay_amount || 0),
-          reduces_fica: !!ben.reduces_fica
+      if (!emps || emps.length === 0) {
+        companyMetrics.push({
+          company_id: company.id,
+          company_name: company.name,
+          employees: totalActiveEmps || 0,
+          enrolled: 0,
+          pretax_monthly: 0,
+          bb_profit: 0,
+          employer_savings: 0
         });
+        continue;
       }
 
-      const payPeriodMap: Record<string, number> = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
-      const periodsPerYear = payPeriodMap[company.pay_frequency] || 26;
+      const companyPayPeriod = getPayPeriodCode(company.pay_frequency);
+      const periodsPerYear = payPeriodMap[companyPayPeriod] || 26;
       const periodsPerMonth = periodsPerYear / 12;
+      const tier: CompanyTier = (company.tier as CompanyTier) || "2025";
+      const companySafetyCapPercent = Number(company.safety_cap_percent) || 50;
+      const employerRate = Number(company.employer_rate) || 3;
+      const employeeRate = Number(company.employee_rate) || 5;
+      const ficaRate = 0.0765;
 
-      let companyPretaxMonthly = 0;
+      let companySection125Monthly = 0;
       let companyEmployerSavings = 0;
 
       for (const emp of emps) {
-        const empBenefits = benefitsByEmp.get(emp.id) || [];
-        const perPayPretax = empBenefits.reduce((sum, b) => sum + b.per_pay_amount, 0);
-        const perPayPretaxFica = empBenefits.filter(b => b.reduces_fica).reduce((sum, b) => sum + b.per_pay_amount, 0);
+        const grossPay = Number(emp.gross_pay || 0);
+        const payPeriod = emp.pay_period || companyPayPeriod;
+        const filingStatus: FilingStatus = (emp.filing_status as FilingStatus) || "single";
+        const dependents = Number(emp.dependents) || 0;
+        const safetyCapPercent = Number(emp.safety_cap_percent ?? companySafetyCapPercent) || 50;
 
-        companyPretaxMonthly += perPayPretax * periodsPerMonth;
+        // Calculate Section 125 amount using the same logic as other pages
+        const section125PerPay = calculateSafeSection125Deduction(
+          tier,
+          filingStatus,
+          dependents,
+          grossPay,
+          payPeriod,
+          safetyCapPercent
+        );
+
+        const empPeriodsPerYear = payPeriodMap[payPeriod] || 26;
+        const empPeriodsPerMonth = empPeriodsPerYear / 12;
+
+        companySection125Monthly += section125PerPay * empPeriodsPerMonth;
 
         // Calculate employer FICA savings
-        const grossPay = Number(emp.gross_pay || 0);
-        if (grossPay > 0 && perPayPretaxFica > 0) {
-          const ficaBefore = calcFICA(grossPay, 0, Number(fed?.ss_rate || 0.062), Number(fed?.med_rate || 0.0145));
-          const ficaAfter = calcFICA(grossPay, perPayPretaxFica, Number(fed?.ss_rate || 0.062), Number(fed?.med_rate || 0.0145));
-          const ficaSaved = ficaBefore.fica - ficaAfter.fica;
-          companyEmployerSavings += ficaSaved * periodsPerMonth;
+        if (grossPay > 0 && section125PerPay > 0) {
+          const erFicaSavingsPerPay = section125PerPay * ficaRate;
+          const employerFeePerPay = section125PerPay * (employerRate / 100);
+          const erNetSavingsPerPay = erFicaSavingsPerPay - employerFeePerPay;
+          companyEmployerSavings += erNetSavingsPerPay * empPeriodsPerMonth;
         }
       }
 
       // Calculate BB profit from model fees
-      const [employeeRate, employerRate] = getModelRates(company.model);
-      const employeeFee = companyPretaxMonthly * employeeRate;
-      const employerFee = companyPretaxMonthly * employerRate;
-      const companyBBProfit = employeeFee + employerFee;
+      const companyEmployeeFee = companySection125Monthly * (employeeRate / 100);
+      const companyEmployerFee = companySection125Monthly * (employerRate / 100);
+      const companyBBProfit = companyEmployeeFee + companyEmployerFee;
 
       totalMonthlyRevenue += companyBBProfit;
       totalEmployerSavings += companyEmployerSavings;
@@ -147,9 +177,9 @@ export async function GET(req: Request) {
       companyMetrics.push({
         company_id: company.id,
         company_name: company.name,
-        employees: emps.length,
-        enrolled: benefitsByEmp.size,
-        pretax_monthly: companyPretaxMonthly,
+        employees: totalActiveEmps || 0,
+        enrolled: emps.length,
+        pretax_monthly: companySection125Monthly,
         bb_profit: companyBBProfit,
         employer_savings: companyEmployerSavings
       });
@@ -224,12 +254,70 @@ export async function GET(req: Request) {
       .slice(0, 10);
 
     // ========================================================================
+    // POTENTIAL REVENUE FROM NON-ENROLLED EMPLOYEES
+    // ========================================================================
+
+    let potentialMonthlyRevenue = 0;
+    let potentialErSavings = 0;
+
+    for (const company of companies || []) {
+      // Fetch NON-ENROLLED active employees
+      const { data: nonEnrolledEmps } = await db
+        .from("employees")
+        .select("id, gross_pay, pay_period, filing_status, dependents, safety_cap_percent")
+        .eq("company_id", company.id)
+        .eq("active", true)
+        .neq("consent_status", "elect");
+
+      if (!nonEnrolledEmps || nonEnrolledEmps.length === 0) continue;
+
+      const companyPayPeriod = getPayPeriodCode(company.pay_frequency);
+      const tier: CompanyTier = (company.tier as CompanyTier) || "2025";
+      const companySafetyCapPercent = Number(company.safety_cap_percent) || 50;
+      const employerRate = Number(company.employer_rate) || 3;
+      const employeeRate = Number(company.employee_rate) || 5;
+      const ficaRate = 0.0765;
+
+      for (const emp of nonEnrolledEmps) {
+        const grossPay = Number(emp.gross_pay || 0);
+        const payPeriod = emp.pay_period || companyPayPeriod;
+        const filingStatus: FilingStatus = (emp.filing_status as FilingStatus) || "single";
+        const dependents = Number(emp.dependents) || 0;
+        const safetyCapPercent = Number(emp.safety_cap_percent ?? companySafetyCapPercent) || 50;
+
+        const section125PerPay = calculateSafeSection125Deduction(
+          tier,
+          filingStatus,
+          dependents,
+          grossPay,
+          payPeriod,
+          safetyCapPercent
+        );
+
+        const empPeriodsPerYear = payPeriodMap[payPeriod] || 26;
+        const empPeriodsPerMonth = empPeriodsPerYear / 12;
+
+        const section125Monthly = section125PerPay * empPeriodsPerMonth;
+        const empBBRevenue = section125Monthly * ((employeeRate + employerRate) / 100);
+        potentialMonthlyRevenue += empBBRevenue;
+
+        // Calculate potential employer savings
+        if (grossPay > 0 && section125PerPay > 0) {
+          const erFicaSavingsPerPay = section125PerPay * ficaRate;
+          const employerFeePerPay = section125PerPay * (employerRate / 100);
+          const erNetSavingsPerPay = erFicaSavingsPerPay - employerFeePerPay;
+          potentialErSavings += erNetSavingsPerPay * empPeriodsPerMonth;
+        }
+      }
+    }
+
+    // ========================================================================
     // KEY METRICS SUMMARY
     // ========================================================================
 
-    const avgEmployeesPerCompany = activeCompanies && totalEmployees ? (totalEmployees / activeCompanies).toFixed(1) : "0.0";
+    const avgEmployeesPerCompany = activeCompanies && activeEmployees ? (activeEmployees / activeCompanies).toFixed(1) : "0.0";
     const avgRevenuePerCompany = activeCompanies && totalMonthlyRevenue ? (totalMonthlyRevenue / activeCompanies).toFixed(2) : "0.00";
-    const avgRevenuePerEmployee = totalEmployees && totalMonthlyRevenue ? (totalMonthlyRevenue / totalEmployees).toFixed(2) : "0.00";
+    const avgRevenuePerEmployee = enrolledCount && totalMonthlyRevenue ? (totalMonthlyRevenue / enrolledCount).toFixed(2) : "0.00";
 
     // ========================================================================
     // RESPONSE
@@ -246,12 +334,18 @@ export async function GET(req: Request) {
         total_employees: totalEmployees || 0,
         active_employees: activeEmployees || 0,
         enrolled_employees: enrolledCount,
+        non_enrolled_employees: (activeEmployees || 0) - enrolledCount,
         enrollment_rate: parseFloat(enrollmentRate),
 
         monthly_revenue: parseFloat(totalMonthlyRevenue.toFixed(2)),
         annual_revenue_projected: parseFloat((totalMonthlyRevenue * 12).toFixed(2)),
         total_employer_savings: parseFloat(totalEmployerSavings.toFixed(2)),
         profit_margin_percent: parseFloat(profitMargin),
+
+        // Potential revenue from non-enrolled employees
+        potential_monthly_revenue: parseFloat(potentialMonthlyRevenue.toFixed(2)),
+        potential_annual_revenue: parseFloat((potentialMonthlyRevenue * 12).toFixed(2)),
+        potential_er_savings: parseFloat(potentialErSavings.toFixed(2)),
 
         avg_employees_per_company: parseFloat(avgEmployeesPerCompany),
         avg_revenue_per_company: parseFloat(avgRevenuePerCompany),
