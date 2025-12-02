@@ -30,8 +30,6 @@ type Company = {
   contact_phone?: string;
   address?: string;
   city?: string;
-  phone?: string;
-  email?: string;
 };
 
 type Props = {
@@ -88,8 +86,6 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
     contact_phone: company.contact_phone || "",
     address: company.address || "",
     city: company.city || "",
-    phone: company.phone || "",
-    email: company.email || "",
   });
 
   // US States list for dropdown
@@ -597,35 +593,6 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Company Phone
-                      </label>
-                      <input
-                        type="tel"
-                        value={companyFormData.phone}
-                        onChange={(e) =>
-                          setCompanyFormData({ ...companyFormData, phone: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border rounded-lg"
-                        placeholder="(555) 123-4567"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium mb-1">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={companyFormData.email}
-                        onChange={(e) =>
-                          setCompanyFormData({ ...companyFormData, email: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border rounded-lg"
-                        placeholder="company@example.com"
-                      />
-                    </div>
                   </div>
                 </div>
 
