@@ -181,158 +181,62 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Key Metrics Grid */}
+        {/* Key Metrics Grid - Colorful Gradient Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Total Companies */}
-          <a href="/companies">
-            <Card
-              variant="elevated"
-              interactive
-              className="group border-l-4 border-primary-500 dark:border-primary-400 animate-slide-in-up"
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                      Total Companies
-                    </div>
-                    <div className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mt-2">
-                      {summary.total_companies}
-                    </div>
-                  </div>
-                  <Badge variant="primary" size="sm">
-                    All
-                  </Badge>
-                </div>
-                <div className="text-sm text-primary-600 dark:text-primary-400 mt-4 font-medium group-hover:translate-x-1 transition-transform">
-                  View all companies →
-                </div>
-              </CardContent>
-            </Card>
+          {/* Companies - Blue */}
+          <a href="/companies" className="block">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg p-6 hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer">
+              <div className="text-sm opacity-90 mb-2">Companies</div>
+              <div className="text-4xl font-bold">{summary.active_companies}</div>
+              <div className="text-xs opacity-75 mt-2">{summary.total_companies} total</div>
+              <div className="text-sm mt-4 opacity-90 hover:opacity-100">View all →</div>
+            </div>
           </a>
 
-          {/* Active Companies */}
-          <a href="/companies?status=active">
-            <Card
-              variant="elevated"
-              interactive
-              className="group border-l-4 border-success-500 dark:border-success-400 animate-slide-in-up"
-              style={{ animationDelay: "0.1s" }}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                      Active Companies
-                    </div>
-                    <div className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mt-2">
-                      {summary.active_companies}
-                    </div>
-                  </div>
-                  <Badge variant="success" size="sm" dot>
-                    Active
-                  </Badge>
-                </div>
-                <div className="text-sm text-success-600 dark:text-success-400 mt-4 font-medium group-hover:translate-x-1 transition-transform">
-                  View active →
-                </div>
-              </CardContent>
-            </Card>
+          {/* Employees - Purple */}
+          <a href="/admin/employees" className="block">
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-2xl shadow-lg p-6 hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer">
+              <div className="text-sm opacity-90 mb-2">Employees</div>
+              <div className="text-4xl font-bold">{summary.active_employees}</div>
+              <div className="text-xs opacity-75 mt-2">{summary.enrolled_employees} enrolled</div>
+              <div className="text-sm mt-4 opacity-90 hover:opacity-100">View all →</div>
+            </div>
           </a>
 
-          {/* Total Employees */}
-          <a href="/admin/employees">
-            <Card
-              variant="elevated"
-              interactive
-              className="group border-l-4 border-accent-500 dark:border-accent-400 animate-slide-in-up"
-              style={{ animationDelay: "0.2s" }}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                      Total Employees
-                    </div>
-                    <div className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mt-2">
-                      {summary.total_employees}
-                    </div>
-                  </div>
-                  <Badge variant="secondary" size="sm">
-                    All
-                  </Badge>
-                </div>
-                <div className="text-sm text-accent-600 dark:text-accent-400 mt-4 font-medium group-hover:translate-x-1 transition-transform">
-                  View all employees →
-                </div>
-              </CardContent>
-            </Card>
+          {/* ER Savings - Green (consistent with reports) */}
+          <a href="/reports" className="block">
+            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-2xl shadow-lg p-6 hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer">
+              <div className="text-sm opacity-90 mb-2">ER Savings/Mo</div>
+              <div className="text-4xl font-bold">${summary.total_employer_savings.toFixed(0)}</div>
+              <div className="text-xs opacity-75 mt-2">employer net savings</div>
+              <div className="text-sm mt-4 opacity-90 hover:opacity-100">View reports →</div>
+            </div>
           </a>
 
-          {/* Active Employees */}
-          <a href="/admin/employees?active=true">
-            <Card
-              variant="elevated"
-              interactive
-              className="group border-l-4 border-blue-500 dark:border-blue-400 animate-slide-in-up"
-              style={{ animationDelay: "0.3s" }}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                      Active Employees
-                    </div>
-                    <div className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mt-2">
-                      {summary.active_employees}
-                    </div>
-                  </div>
-                  <Badge variant="info" size="sm" dot>
-                    Active
-                  </Badge>
-                </div>
-                <div className="text-sm text-blue-600 dark:text-blue-400 mt-4 font-medium group-hover:translate-x-1 transition-transform">
-                  View active →
-                </div>
-              </CardContent>
-            </Card>
-          </a>
+          {/* BB Revenue - Emerald */}
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-2xl shadow-lg p-6">
+            <div className="text-sm opacity-90 mb-2">BB Revenue/Mo</div>
+            <div className="text-4xl font-bold">${summary.monthly_revenue.toFixed(0)}</div>
+            <div className="text-xs opacity-75 mt-2">${summary.annual_revenue_projected.toFixed(0)}/year projected</div>
+          </div>
         </div>
 
-        {/* Secondary Metrics */}
+        {/* Secondary Metrics - Colorful Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card variant="elevated" className="animate-scale-in">
-            <CardContent className="p-6">
-              <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                Avg Employees/Company
-              </div>
-              <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-2">
-                {summary.avg_employees_per_company}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-2xl shadow-lg p-6">
+            <div className="text-sm opacity-90 mb-2">Avg Employees/Company</div>
+            <div className="text-3xl font-bold">{summary.avg_employees_per_company}</div>
+          </div>
 
-          <Card variant="elevated" className="animate-scale-in" style={{ animationDelay: "0.1s" }}>
-            <CardContent className="p-6">
-              <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                Avg Revenue/Company
-              </div>
-              <div className="text-2xl font-bold text-success-600 dark:text-success-400 mt-2">
-                ${summary.avg_revenue_per_company}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl shadow-lg p-6">
+            <div className="text-sm opacity-90 mb-2">Avg Revenue/Company</div>
+            <div className="text-3xl font-bold">${summary.avg_revenue_per_company}</div>
+          </div>
 
-          <Card variant="elevated" className="animate-scale-in" style={{ animationDelay: "0.2s" }}>
-            <CardContent className="p-6">
-              <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                Avg Revenue/Employee
-              </div>
-              <div className="text-2xl font-bold text-success-600 dark:text-success-400 mt-2">
-                ${summary.avg_revenue_per_employee}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white rounded-2xl shadow-lg p-6">
+            <div className="text-sm opacity-90 mb-2">Avg Revenue/Employee</div>
+            <div className="text-3xl font-bold">${summary.avg_revenue_per_employee}</div>
+          </div>
         </div>
 
         {/* Revenue Trend Chart */}

@@ -193,23 +193,27 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Colorful Gradients */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="text-2xl font-bold text-blue-600">{companies.length}</div>
-          <div className="text-sm text-slate-600">Companies</div>
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg p-6">
+          <div className="text-sm opacity-90 mb-2">Companies</div>
+          <div className="text-4xl font-bold">{companies.length}</div>
+          <div className="text-xs opacity-75 mt-2">active companies</div>
         </div>
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="text-2xl font-bold text-purple-600">{totalEmployees}</div>
-          <div className="text-sm text-slate-600">Enrolled Employees</div>
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-2xl shadow-lg p-6">
+          <div className="text-sm opacity-90 mb-2">Enrolled Employees</div>
+          <div className="text-4xl font-bold">{totalEmployees}</div>
+          <div className="text-xs opacity-75 mt-2">participating in Section 125</div>
         </div>
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="text-2xl font-bold text-green-600">{formatMoney(totalErSavingsMonthly)}</div>
-          <div className="text-sm text-slate-600">ER Savings/Mo</div>
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-2xl shadow-lg p-6">
+          <div className="text-sm opacity-90 mb-2">ER Savings/Mo</div>
+          <div className="text-4xl font-bold">{formatMoney(totalErSavingsMonthly)}</div>
+          <div className="text-xs opacity-75 mt-2">employer net savings</div>
         </div>
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="text-2xl font-bold text-green-700">{formatMoney(totalErSavingsAnnual)}</div>
-          <div className="text-sm text-slate-600">ER Savings/Yr</div>
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-2xl shadow-lg p-6">
+          <div className="text-sm opacity-90 mb-2">ER Savings/Yr</div>
+          <div className="text-4xl font-bold">{formatMoney(totalErSavingsAnnual)}</div>
+          <div className="text-xs opacity-75 mt-2">annual projection</div>
         </div>
       </div>
 

@@ -1,6 +1,12 @@
 // apps/web/src/app/companies/[id]/deductions/page.tsx
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase";
+import {
+  calculateSafeSection125Deduction,
+  perPayToMonthly,
+  type CompanyTier,
+  type FilingStatus,
+} from "@/lib/section125";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -9,16 +15,30 @@ const PAY_PERIODS_PER_YEAR: Record<string, number> = {
   biweekly: 26,
   semimonthly: 24,
   monthly: 12,
+  w: 52,
+  b: 26,
+  s: 24,
+  m: 12,
 };
+
+// Helper to convert pay_frequency to code
+function getPayPeriodCode(payFrequency: string | null | undefined): string {
+  const freq = (payFrequency || "").toLowerCase();
+  if (freq === "weekly" || freq === "w") return "w";
+  if (freq === "biweekly" || freq === "bi-weekly" || freq === "b") return "b";
+  if (freq === "semimonthly" || freq === "semi-monthly" || freq === "s") return "s";
+  if (freq === "monthly" || freq === "m") return "m";
+  return "b";
+}
 
 export default async function CompanyDeductionsPage({ params }: Params) {
   const { id: companyId } = await params;
   const db = createServiceClient();
 
-  // Fetch company data
+  // Fetch company data with tier
   const { data: company, error: cErr } = await db
     .from("companies")
-    .select("id, name, state, model, status, employer_rate, employee_rate, pay_frequency")
+    .select("id, name, state, model, status, employer_rate, employee_rate, pay_frequency, tier, safety_cap_percent")
     .eq("id", companyId)
     .single();
 
@@ -30,25 +50,13 @@ export default async function CompanyDeductionsPage({ params }: Params) {
     );
   }
 
-  // Fetch all employees with their benefits
+  // Fetch ENROLLED employees only (consent_status = 'elect')
   const { data: employees, error: eErr } = await db
     .from("employees")
-    .select(`
-      id,
-      first_name,
-      last_name,
-      gross_pay,
-      active,
-      employee_benefits (
-        id,
-        plan_code,
-        per_pay_amount,
-        reduces_fit,
-        reduces_fica
-      )
-    `)
+    .select("id, first_name, last_name, gross_pay, pay_period, filing_status, dependents, active, safety_cap_percent, consent_status")
     .eq("company_id", companyId)
     .eq("active", true)
+    .eq("consent_status", "elect")
     .order("last_name");
 
   if (eErr) {
@@ -62,15 +70,17 @@ export default async function CompanyDeductionsPage({ params }: Params) {
   const employerRate = Number(company.employer_rate) || 0;
   const employeeRate = Number(company.employee_rate) || 0;
   const ficaRate = 0.0765; // 7.65%
-  const payPeriodsPerYear = PAY_PERIODS_PER_YEAR[company.pay_frequency] || 26;
+  const companyPayPeriod = getPayPeriodCode(company.pay_frequency);
+  const payPeriodsPerYear = PAY_PERIODS_PER_YEAR[companyPayPeriod] || 26;
+  const tier: CompanyTier = (company.tier as CompanyTier) || "2025";
+  const companySafetyCapPercent = Number(company.safety_cap_percent) || 50;
 
-  // Calculate totals for each employee
+  // Calculate Section 125 for each employee
   type EmployeeWithCalcs = {
     id: string;
     name: string;
     gross_pay: number;
-    benefits: Array<{ plan_code: string; per_pay_amount: number }>;
-    total_deductions: number;
+    section_125_per_pay: number;
     employer_fica_savings: number;
     employer_fee: number;
     employer_net_savings: number;
@@ -78,44 +88,50 @@ export default async function CompanyDeductionsPage({ params }: Params) {
   };
 
   const employeesWithCalcs: EmployeeWithCalcs[] = (employees || []).map((emp: any) => {
-    const benefits = emp.employee_benefits || [];
-    const total_deductions = benefits.reduce(
-      (sum: number, b: any) => sum + (Number(b.per_pay_amount) || 0),
-      0
+    const gross = Number(emp.gross_pay) || 0;
+    const payPeriod = emp.pay_period || companyPayPeriod;
+    const filingStatus: FilingStatus = (emp.filing_status as FilingStatus) || "single";
+    const dependents = Number(emp.dependents) || 0;
+    const safetyCapPercent = Number(emp.safety_cap_percent ?? companySafetyCapPercent) || 50;
+
+    // Calculate Section 125 amount using the same logic as BenefitsCalculator
+    const section125PerPay = calculateSafeSection125Deduction(
+      tier,
+      filingStatus,
+      dependents,
+      gross,
+      payPeriod,
+      safetyCapPercent
     );
 
-    const employer_fica_savings = total_deductions * ficaRate;
-    const employer_fee = total_deductions * (employerRate / 100);
-    const employee_fee = total_deductions * (employeeRate / 100);
+    const employer_fica_savings = section125PerPay * ficaRate;
+    const employer_fee = section125PerPay * (employerRate / 100);
+    const employee_fee = section125PerPay * (employeeRate / 100);
     const employer_net_savings = employer_fica_savings - employer_fee;
 
     return {
       id: emp.id,
       name: `${emp.last_name}, ${emp.first_name}`,
-      gross_pay: Number(emp.gross_pay) || 0,
-      benefits: benefits.map((b: any) => ({
-        plan_code: b.plan_code,
-        per_pay_amount: Number(b.per_pay_amount) || 0,
-      })),
-      total_deductions,
-      employer_fica_savings,
-      employer_fee,
-      employer_net_savings,
-      employee_fee,
+      gross_pay: gross,
+      section_125_per_pay: +section125PerPay.toFixed(2),
+      employer_fica_savings: +employer_fica_savings.toFixed(2),
+      employer_fee: +employer_fee.toFixed(2),
+      employer_net_savings: +employer_net_savings.toFixed(2),
+      employee_fee: +employee_fee.toFixed(2),
     };
   });
 
   // Company totals (per pay period)
   const companyTotals = employeesWithCalcs.reduce(
     (acc, emp) => ({
-      total_deductions: acc.total_deductions + emp.total_deductions,
+      section_125_per_pay: acc.section_125_per_pay + emp.section_125_per_pay,
       employer_fica_savings: acc.employer_fica_savings + emp.employer_fica_savings,
       employer_fee: acc.employer_fee + emp.employer_fee,
       employer_net_savings: acc.employer_net_savings + emp.employer_net_savings,
       employee_fee: acc.employee_fee + emp.employee_fee,
     }),
     {
-      total_deductions: 0,
+      section_125_per_pay: 0,
       employer_fica_savings: 0,
       employer_fee: 0,
       employer_net_savings: 0,
@@ -125,7 +141,7 @@ export default async function CompanyDeductionsPage({ params }: Params) {
 
   // Annual projections
   const annualTotals = {
-    total_deductions: companyTotals.total_deductions * payPeriodsPerYear,
+    section_125_per_pay: companyTotals.section_125_per_pay * payPeriodsPerYear,
     employer_fica_savings: companyTotals.employer_fica_savings * payPeriodsPerYear,
     employer_fee: companyTotals.employer_fee * payPeriodsPerYear,
     employer_net_savings: companyTotals.employer_net_savings * payPeriodsPerYear,
@@ -133,7 +149,7 @@ export default async function CompanyDeductionsPage({ params }: Params) {
   };
 
   // Count employees with benefits
-  const employeesWithBenefits = employeesWithCalcs.filter((e) => e.total_deductions > 0);
+  const employeesWithBenefits = employeesWithCalcs.filter((e) => e.section_125_per_pay > 0);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -172,10 +188,10 @@ export default async function CompanyDeductionsPage({ params }: Params) {
           <div className="text-xs opacity-75 mt-2">out of {employeesWithCalcs.length} active</div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-lg">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-2xl shadow-lg">
           <div className="text-sm opacity-90 mb-2">Per Pay Period</div>
-          <div className="text-4xl font-bold">{formatCurrency(companyTotals.total_deductions)}</div>
-          <div className="text-xs opacity-75 mt-2">Total Deductions</div>
+          <div className="text-4xl font-bold">{formatCurrency(companyTotals.section_125_per_pay)}</div>
+          <div className="text-xs opacity-75 mt-2">Section 125 Deductions</div>
         </div>
 
         <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white p-6 rounded-2xl shadow-lg">
@@ -184,7 +200,7 @@ export default async function CompanyDeductionsPage({ params }: Params) {
           <div className="text-xs opacity-75 mt-2">After {employerRate}% fee</div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-2xl shadow-lg">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-lg">
           <div className="text-sm opacity-90 mb-2">Annual ER Savings</div>
           <div className="text-4xl font-bold">{formatCurrency(annualTotals.employer_net_savings)}</div>
           <div className="text-xs opacity-75 mt-2">{payPeriodsPerYear} pay periods/year</div>
@@ -198,8 +214,8 @@ export default async function CompanyDeductionsPage({ params }: Params) {
           <h3 className="text-lg font-bold text-slate-800 mb-4">Per Pay Period Breakdown</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-slate-600">Total Pre-Tax Deductions</span>
-              <span className="font-bold text-lg">{formatCurrency(companyTotals.total_deductions)}</span>
+              <span className="text-slate-600">Section 125 Deductions</span>
+              <span className="font-bold text-lg">{formatCurrency(companyTotals.section_125_per_pay)}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b">
               <span className="text-slate-600">Employer FICA Savings (7.65%)</span>
@@ -225,8 +241,8 @@ export default async function CompanyDeductionsPage({ params }: Params) {
           <h3 className="text-lg font-bold text-slate-800 mb-4">Annual Projection ({payPeriodsPerYear} periods)</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center py-2 border-b border-slate-300">
-              <span className="text-slate-600">Total Annual Deductions</span>
-              <span className="font-bold text-lg">{formatCurrency(annualTotals.total_deductions)}</span>
+              <span className="text-slate-600">Annual Section 125 Deductions</span>
+              <span className="font-bold text-lg">{formatCurrency(annualTotals.section_125_per_pay)}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-slate-300">
               <span className="text-slate-600">Annual ER FICA Savings</span>
@@ -261,8 +277,8 @@ export default async function CompanyDeductionsPage({ params }: Params) {
               <thead className="bg-slate-100 text-sm border-b-2">
                 <tr>
                   <th className="px-4 py-3 text-left font-bold text-slate-700">Employee</th>
-                  <th className="px-4 py-3 text-left font-bold text-slate-700">Benefits</th>
-                  <th className="px-4 py-3 text-right font-bold text-slate-700">Total Deductions</th>
+                  <th className="px-4 py-3 text-right font-bold text-slate-700">Gross Pay</th>
+                  <th className="px-4 py-3 text-right font-bold text-slate-700">Section 125</th>
                   <th className="px-4 py-3 text-right font-bold text-slate-700">ER FICA Savings</th>
                   <th className="px-4 py-3 text-right font-bold text-slate-700">ER Fee</th>
                   <th className="px-4 py-3 text-right font-bold text-slate-700">ER Net Savings</th>
@@ -280,22 +296,11 @@ export default async function CompanyDeductionsPage({ params }: Params) {
                         {emp.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-3">
-                      {emp.benefits.length > 0 ? (
-                        <div className="text-sm space-y-1">
-                          {emp.benefits.map((b, idx) => (
-                            <div key={idx} className="flex justify-between gap-4">
-                              <span className="text-slate-700 font-medium">{b.plan_code}</span>
-                              <span className="text-slate-900 font-semibold">{formatCurrency(b.per_pay_amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 text-sm italic">No benefits</span>
-                      )}
+                    <td className="px-4 py-3 text-right text-slate-600">
+                      {formatCurrency(emp.gross_pay)}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-slate-900">
-                      {formatCurrency(emp.total_deductions)}
+                      {formatCurrency(emp.section_125_per_pay)}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-green-700">
                       {formatCurrency(emp.employer_fica_savings)}
@@ -316,10 +321,10 @@ export default async function CompanyDeductionsPage({ params }: Params) {
                 <tr>
                   <td className="px-4 py-4 text-slate-800" colSpan={2}>
                     <div className="font-bold text-lg">TOTALS</div>
-                    <div className="text-xs font-normal text-slate-600">{employeesWithBenefits.length} employees with benefits</div>
+                    <div className="text-xs font-normal text-slate-600">{employeesWithBenefits.length} employees enrolled</div>
                   </td>
                   <td className="px-4 py-4 text-right text-slate-900">
-                    {formatCurrency(companyTotals.total_deductions)}
+                    {formatCurrency(companyTotals.section_125_per_pay)}
                   </td>
                   <td className="px-4 py-4 text-right text-green-700">
                     {formatCurrency(companyTotals.employer_fica_savings)}
@@ -339,8 +344,8 @@ export default async function CompanyDeductionsPage({ params }: Params) {
           </div>
         ) : (
           <div className="text-center py-12 text-slate-500">
-            <p className="text-lg font-medium">No active employees</p>
-            <p className="text-sm mt-2">Add employees to see deduction details</p>
+            <p className="text-lg font-medium">No enrolled employees</p>
+            <p className="text-sm mt-2">Employees must elect to participate in the Section 125 program</p>
           </div>
         )}
       </div>
