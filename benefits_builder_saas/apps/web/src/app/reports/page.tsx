@@ -152,9 +152,9 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Reports</h1>
+          <h1 className="text-2xl font-bold">Enrolled Employees Report</h1>
           <p className="text-sm text-slate-600 mt-1">
-            Section 125 savings by company — {period}
+            Section 125 savings for enrolled employees — {period}
           </p>
         </div>
         <div className="flex gap-3">
@@ -201,7 +201,7 @@ export default function ReportsPage() {
         </div>
         <div className="bg-white rounded-xl shadow p-4">
           <div className="text-2xl font-bold text-purple-600">{totalEmployees}</div>
-          <div className="text-sm text-slate-600">Active Employees</div>
+          <div className="text-sm text-slate-600">Enrolled Employees</div>
         </div>
         <div className="bg-white rounded-xl shadow p-4">
           <div className="text-2xl font-bold text-green-600">{formatMoney(totalErSavingsMonthly)}</div>

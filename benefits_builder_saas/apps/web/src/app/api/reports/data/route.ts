@@ -31,11 +31,12 @@ export async function GET() {
       .select("id, name, state, model, tier, pay_frequency, employer_rate, employee_rate, safety_cap_percent")
       .eq("status", "active");
 
-    // Fetch all active employees
+    // Fetch only ENROLLED employees (consent_status = 'elect')
     const { data: employeesData } = await db
       .from("employees")
-      .select("id, company_id, first_name, last_name, filing_status, dependents, gross_pay, pay_period, active, safety_cap_percent")
-      .eq("active", true);
+      .select("id, company_id, first_name, last_name, filing_status, dependents, gross_pay, pay_period, active, safety_cap_percent, consent_status")
+      .eq("active", true)
+      .eq("consent_status", "elect");
 
     // Helper to convert pay_frequency to code
     const getPayPeriodCode = (payFrequency: string | null | undefined): string => {
