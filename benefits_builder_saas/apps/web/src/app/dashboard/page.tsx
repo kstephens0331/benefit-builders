@@ -567,30 +567,30 @@ export default function DashboardPage() {
         </div>
 
         {/* Action Items */}
-        <Card className="bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800 text-white border-none animate-bounce-in">
+        <Card className="bg-gradient-to-r from-neutral-100 to-neutral-200 border border-neutral-300 animate-bounce-in">
           <CardContent className="p-6">
-            <h2 className="text-3xl font-bold mb-6">Key Insights & Actions</h2>
+            <h2 className="text-3xl font-bold mb-6 text-neutral-900">Key Insights & Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all">
-                <div className="text-white/80 text-sm mb-2 font-medium">Enrollment Opportunity</div>
-                <div className="text-4xl font-bold mb-1">
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-neutral-200 hover:shadow-md transition-all">
+                <div className="text-neutral-600 text-sm mb-2 font-medium">Enrollment Opportunity</div>
+                <div className="text-4xl font-bold mb-1 text-neutral-900">
                   {summary.total_employees - summary.enrolled_employees}
                 </div>
-                <div className="text-white/80 text-sm">employees not enrolled</div>
+                <div className="text-neutral-600 text-sm">employees not enrolled</div>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all">
-                <div className="text-white/80 text-sm mb-2 font-medium">Potential Additional Revenue</div>
-                <div className="text-4xl font-bold mb-1">
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-neutral-200 hover:shadow-md transition-all">
+                <div className="text-neutral-600 text-sm mb-2 font-medium">Potential Additional Revenue</div>
+                <div className="text-4xl font-bold mb-1 text-neutral-900">
                   ${((summary.total_employees - summary.enrolled_employees) * summary.avg_revenue_per_employee).toFixed(0)}
                 </div>
-                <div className="text-white/80 text-sm">if 100% enrolled</div>
+                <div className="text-neutral-600 text-sm">if 100% enrolled</div>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all">
-                <div className="text-white/80 text-sm mb-2 font-medium">Target Action</div>
-                <div className="text-4xl font-bold mb-1">
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-neutral-200 hover:shadow-md transition-all">
+                <div className="text-neutral-600 text-sm mb-2 font-medium">Target Action</div>
+                <div className="text-4xl font-bold mb-1 text-neutral-900">
                   {summary.enrollment_rate < 80 ? "Increase" : "Maintain"}
                 </div>
-                <div className="text-white/80 text-sm">enrollment rate to 80%+</div>
+                <div className="text-neutral-600 text-sm">enrollment rate to 80%+</div>
               </div>
             </div>
           </CardContent>
