@@ -192,15 +192,15 @@ describe('Benefit Calculations', () => {
       expect(result.our_fee).toBe(2500); // Same as employee_benefit
     });
 
-    it('should apply 4/3 model correctly', () => {
-      const result = applyBillingModel(employee, '4/3');
+    it('should apply 3/4 model correctly', () => {
+      const result = applyBillingModel(employee, '3/4');
 
-      expect(result.employee_benefit).toBe(2000);
-      expect(result.employer_contribution).toBe(1500);
+      expect(result.employee_benefit).toBe(1500);
+      expect(result.employer_contribution).toBe(2000);
     });
 
     it('should ensure fees and contributions are calculated correctly', () => {
-      const models = ['5/3', '5/0', '4/4', '5/1', '4/3'];
+      const models = ['5/3', '5/0', '4/4', '5/1', '3/4'];
 
       models.forEach(model => {
         const result = applyBillingModel(employee, model);

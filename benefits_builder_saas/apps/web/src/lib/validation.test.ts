@@ -75,7 +75,7 @@ describe('Validation Utilities', () => {
   describe('billingModelValidator', () => {
     it('should validate correct billing models', () => {
       expect(billingModelValidator.safeParse('5/3').success).toBe(true);
-      expect(billingModelValidator.safeParse('4/3').success).toBe(true);
+      expect(billingModelValidator.safeParse('3/4').success).toBe(true);
       expect(billingModelValidator.safeParse('5/1').success).toBe(true);
       expect(billingModelValidator.safeParse('5/0').success).toBe(true);
       expect(billingModelValidator.safeParse('4/4').success).toBe(true);

@@ -277,7 +277,7 @@ COMPANY INFORMATION:
 - Company name
 - State (2-letter code)
 - Pay frequency (weekly, biweekly, semimonthly, or monthly)
-- Billing model (one of: 5/3, 4/3, 5/1, 4/4)
+- Billing model (one of: 5/3, 3/4, 5/1, 4/4)
 
 EMPLOYEE INFORMATION (array):
 For each employee:

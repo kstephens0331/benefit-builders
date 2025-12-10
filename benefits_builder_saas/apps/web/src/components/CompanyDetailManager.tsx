@@ -30,6 +30,11 @@ type Company = {
   contact_phone?: string;
   address?: string;
   city?: string;
+  // Custom Section 125 amounts for 3/4 model (monthly)
+  sec125_single_0?: number;
+  sec125_married_0?: number;
+  sec125_single_deps?: number;
+  sec125_married_deps?: number;
 };
 
 type Props = {
@@ -86,6 +91,11 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
     contact_phone: company.contact_phone || "",
     address: company.address || "",
     city: company.city || "",
+    // Custom Section 125 amounts for 3/4 model (monthly)
+    sec125_single_0: company.sec125_single_0 || 800,
+    sec125_married_0: company.sec125_married_0 || 1200,
+    sec125_single_deps: company.sec125_single_deps || 1200,
+    sec125_married_deps: company.sec125_married_deps || 1700,
   });
 
   // US States list for dropdown
@@ -467,13 +477,102 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                     >
                       <option value="5/3">5/3 (5% Employee / 3% Employer)</option>
                       <option value="5/1">5/1 (5% Employee / 1% Employer)</option>
-                      <option value="4/3">4/3 (4% Employee / 3% Employer)</option>
-                      <option value="4/4">4/4 (4% Employee / 4% Employer)</option>
                       <option value="3/4">3/4 (3% Employee / 4% Employer)</option>
+                      <option value="4/4">4/4 (4% Employee / 4% Employer)</option>
                       <option value="6/0">6/0 (6% Employee / 0% Employer)</option>
                       <option value="1/5">1/5 (1% Employee / 5% Employer)</option>
                     </select>
                   </div>
+
+                  {/* Custom Section 125 amounts for 3/4 model */}
+                  {companyFormData.model === "3/4" && (
+                    <div className="col-span-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h4 className="font-medium text-blue-800 mb-3">
+                        Custom Section 125 Monthly Amounts (3/4 Model)
+                      </h4>
+                      <p className="text-sm text-blue-600 mb-3">
+                        Enter the monthly Section 125 amounts for each filing status category ($800-$1700).
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Single, No Dependents
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-gray-500">$</span>
+                            <input
+                              type="number"
+                              min="800"
+                              max="1700"
+                              step="50"
+                              value={companyFormData.sec125_single_0}
+                              onChange={(e) =>
+                                setCompanyFormData({ ...companyFormData, sec125_single_0: Number(e.target.value) })
+                              }
+                              className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Married, No Dependents
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-gray-500">$</span>
+                            <input
+                              type="number"
+                              min="800"
+                              max="1700"
+                              step="50"
+                              value={companyFormData.sec125_married_0}
+                              onChange={(e) =>
+                                setCompanyFormData({ ...companyFormData, sec125_married_0: Number(e.target.value) })
+                              }
+                              className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Single with Dependents
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-gray-500">$</span>
+                            <input
+                              type="number"
+                              min="800"
+                              max="1700"
+                              step="50"
+                              value={companyFormData.sec125_single_deps}
+                              onChange={(e) =>
+                                setCompanyFormData({ ...companyFormData, sec125_single_deps: Number(e.target.value) })
+                              }
+                              className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Married with Dependents
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-gray-500">$</span>
+                            <input
+                              type="number"
+                              min="800"
+                              max="1700"
+                              step="50"
+                              value={companyFormData.sec125_married_deps}
+                              onChange={(e) =>
+                                setCompanyFormData({ ...companyFormData, sec125_married_deps: Number(e.target.value) })
+                              }
+                              className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium mb-1">

@@ -64,7 +64,7 @@ describe('API: /api/companies', () => {
   });
 
   it('should validate billing model format', () => {
-    const validModels = ['5/3', '4/3', '5/1', '5/0', '4/4'];
+    const validModels = ['5/3', '3/4', '5/1', '5/0', '4/4'];
     const invalidModels = ['6/6', '3/3', 'invalid'];
 
     validModels.forEach(model => {

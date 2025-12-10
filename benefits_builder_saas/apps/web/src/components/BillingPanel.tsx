@@ -170,7 +170,7 @@ export default function BillingPanel() {
       </div>
 
       <p className="text-xs text-slate-500">
-        Model fees (5/3, 4/3, 5/1, 4/4) are applied to monthly pre-tax totals. “Run Close” updates invoices for the selected period.
+        Model fees (5/3, 3/4, 5/1, 4/4) are applied to monthly pre-tax totals. "Run Close" updates invoices for the selected period.
       </p>
     </div>
   );

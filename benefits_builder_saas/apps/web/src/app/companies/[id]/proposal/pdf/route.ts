@@ -109,7 +109,7 @@ export async function GET(
   ).toFixed(2);
 
   // 3) Build a comparison for all models
-  const models: BillingModel[] = ["5/3", "4/3", "5/1", "4/4"];
+  const models: BillingModel[] = ["5/3", "3/4", "5/1", "4/4"];
   const all = computeAllModels(totalPretaxMonthly, models).map((row) => ({
     ...row,
     employerNetMonthly: +(totalEmployerFicaMonthlySaved - row.employerFeeMonthly).toFixed(2),

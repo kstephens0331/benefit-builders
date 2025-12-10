@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   const modelParsed = parseModel(company.model);
   if (!modelParsed) {
     return NextResponse.json(
-      { ok: false, error: `Company model must be one of: 5/3, 4/3, 5/1, 4/4 (got "${company.model ?? ""}")` },
+      { ok: false, error: `Company model must be one of: 5/3, 3/4, 5/1, 4/4 (got "${company.model ?? ""}")` },
       { status: 400 }
     );
   }

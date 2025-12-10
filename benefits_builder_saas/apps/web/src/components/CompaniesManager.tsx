@@ -395,7 +395,7 @@ export default function CompaniesManager({ initialCompanies }: Props) {
                       className="w-full px-3 py-2 border rounded-lg"
                     >
                       <option value="5/3">5/3 (5% Employee / 3% Employer)</option>
-                      <option value="4/3">4/3 (4% Employee / 3% Employer)</option>
+                      <option value="3/4">3/4 (3% Employee / 4% Employer)</option>
                       <option value="5/1">5/1 (5% Employee / 1% Employer)</option>
                       <option value="4/4">4/4 (4% Employee / 4% Employer)</option>
                     </select>
@@ -605,7 +605,7 @@ export default function CompaniesManager({ initialCompanies }: Props) {
                       className="w-full px-3 py-2 border rounded-lg"
                     >
                       <option value="5/3">5/3 (5% Employee / 3% Employer)</option>
-                      <option value="4/3">4/3 (4% Employee / 3% Employer)</option>
+                      <option value="3/4">3/4 (3% Employee / 4% Employer)</option>
                       <option value="5/1">5/1 (5% Employee / 1% Employer)</option>
                       <option value="4/4">4/4 (4% Employee / 4% Employer)</option>
                     </select>

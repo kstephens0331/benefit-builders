@@ -10,9 +10,9 @@ async function main() {
 
   // Plan models
   await db.from("plan_models").upsert([
-    { id: "4_3", name: "4/3", employee_cap_pct: 0.03, employer_cap_pct: 0.04 },
-    { id: "5_1", name: "5/1", employee_cap_pct: 0.01, employer_cap_pct: 0.05 },
-    { id: "5_3", name: "5/3", employee_cap_pct: 0.03, employer_cap_pct: 0.05 },
+    { id: "3_4", name: "3/4", employee_cap_pct: 0.03, employer_cap_pct: 0.04 },
+    { id: "5_1", name: "5/1", employee_cap_pct: 0.05, employer_cap_pct: 0.01 },
+    { id: "5_3", name: "5/3", employee_cap_pct: 0.05, employer_cap_pct: 0.03 },
     { id: "4_4", name: "4/4", employee_cap_pct: 0.04, employer_cap_pct: 0.04 }
   ]);
 
