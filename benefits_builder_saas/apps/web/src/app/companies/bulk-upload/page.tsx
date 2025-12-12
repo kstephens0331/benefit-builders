@@ -24,8 +24,22 @@ type UploadResult = {
   error?: string;
 };
 
+// Available billing models
+const BILLING_MODELS = [
+  { value: 'auto', label: 'Auto-detect from document' },
+  { value: '5/3', label: '5/3 - Employee 5%, Employer 3%' },
+  { value: '3/4', label: '3/4 - Employee 3%, Employer 4%' },
+  { value: '5/1', label: '5/1 - Employee 5%, Employer 1%' },
+  { value: '5/0', label: '5/0 - Employee 5%, Employer 0% (Schools)' },
+  { value: '4/4', label: '4/4 - Employee 4%, Employer 4%' },
+  { value: '6/0', label: '6/0 - Employee 6%, Employer 0%' },
+  { value: '1/5', label: '1/5 - Employee 1%, Employer 5%' },
+];
+
 export default function BulkUploadPage() {
   const [file, setFile] = useState<File | null>(null);
+  const [pdfUrl, setPdfUrl] = useState('');
+  const [selectedModel, setSelectedModel] = useState('auto');
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
 
@@ -33,19 +47,38 @@ export default function BulkUploadPage() {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
+      setPdfUrl(''); // Clear URL when file is selected
       setResult(null);
     }
   };
 
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPdfUrl(e.target.value);
+    if (e.target.value) {
+      setFile(null); // Clear file when URL is entered
+    }
+    setResult(null);
+  };
+
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file && !pdfUrl) return;
 
     setUploading(true);
     setResult(null);
 
     try {
       const formData = new FormData();
-      formData.append('file', file);
+
+      if (file) {
+        formData.append('file', file);
+      }
+
+      if (pdfUrl) {
+        formData.append('url', pdfUrl);
+      }
+
+      // Always include the selected model
+      formData.append('model', selectedModel);
 
       const response = await fetch('/api/bulk-upload', {
         method: 'POST',
@@ -80,18 +113,32 @@ export default function BulkUploadPage() {
       <div className="p-6 bg-blue-50 rounded-lg border border-blue-200">
         <h2 className="font-semibold text-blue-900 mb-3">How to Use Bulk Upload</h2>
         <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
-          <li>Prepare your Excel file (.xlsx) or CSV with employee census data</li>
-          <li>Include company information (company name, state, pay frequency, billing model)</li>
-          <li>Include employee information (name, DOB, filing status, dependents, gross pay, state)</li>
-          <li>Include benefit elections (HSA, FSA, Dental, Vision, etc.) with amounts per pay period</li>
-          <li>Upload the file below - AI will automatically parse and structure the data</li>
+          <li>Prepare your file (Excel, CSV, or PDF) with employee census data</li>
+          <li>Select the billing model or let AI auto-detect it from the document</li>
+          <li>Upload the file or enter a URL to a PDF document</li>
+          <li>AI will automatically parse and structure the data regardless of format</li>
         </ol>
 
         <div className="mt-4 p-4 bg-white rounded border border-blue-300">
-          <h3 className="font-semibold text-sm mb-2">Expected Columns (flexible naming):</h3>
+          <h3 className="font-semibold text-sm mb-2">Supported Formats:</h3>
+          <div className="grid grid-cols-3 gap-4 text-xs mb-3">
+            <div className="p-2 bg-green-50 rounded">
+              <strong>Excel (.xlsx, .xls)</strong>
+              <p className="text-slate-600 mt-1">Structured spreadsheets</p>
+            </div>
+            <div className="p-2 bg-green-50 rounded">
+              <strong>CSV (.csv)</strong>
+              <p className="text-slate-600 mt-1">Comma-separated data</p>
+            </div>
+            <div className="p-2 bg-purple-50 rounded">
+              <strong>PDF (.pdf)</strong>
+              <p className="text-slate-600 mt-1">Payroll reports, census docs</p>
+            </div>
+          </div>
+          <h3 className="font-semibold text-sm mb-2">Expected Data (flexible naming):</h3>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
             <div>
-              <strong>Company:</strong> Company Name, State, Pay Frequency, Billing Model
+              <strong>Company:</strong> Company Name, State, Pay Frequency
             </div>
             <div>
               <strong>Employee:</strong> First Name, Last Name, DOB, Filing Status, Dependents
@@ -110,37 +157,90 @@ export default function BulkUploadPage() {
       <div className="p-6 bg-white rounded-lg shadow">
         <h2 className="font-semibold mb-4">Upload Census File</h2>
 
-        <div className="space-y-4">
-          {/* File Input */}
+        <div className="space-y-6">
+          {/* Model Selection */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              Select Excel or CSV File
+              Billing Model
             </label>
-            <input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={handleFileChange}
-              className="block w-full text-sm text-slate-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-lg file:border-0
-                file:text-sm file:font-semibold
-                file:bg-blue-50 file:text-blue-700
-                hover:file:bg-blue-100"
-            />
-            {file && (
-              <p className="mt-2 text-sm text-slate-600">
-                Selected: <strong>{file.name}</strong> ({(file.size / 1024).toFixed(1)} KB)
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="block w-full px-4 py-2 border border-slate-300 rounded-lg
+                focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                text-sm bg-white"
+            >
+              {BILLING_MODELS.map((model) => (
+                <option key={model.value} value={model.value}>
+                  {model.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Select the billing model or let AI detect it from the document
+            </p>
+          </div>
+
+          {/* File Upload OR URL Input */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* File Input */}
+            <div className={`p-4 rounded-lg border-2 ${file ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
+              <label className="block text-sm font-medium mb-2">
+                Upload File
+              </label>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv,.pdf"
+                onChange={handleFileChange}
+                className="block w-full text-sm text-slate-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-lg file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100"
+              />
+              {file && (
+                <p className="mt-2 text-sm text-blue-700">
+                  Selected: <strong>{file.name}</strong> ({(file.size / 1024).toFixed(1)} KB)
+                </p>
+              )}
+              <p className="mt-2 text-xs text-slate-500">
+                Accepts Excel, CSV, or PDF files
               </p>
-            )}
+            </div>
+
+            {/* URL Input */}
+            <div className={`p-4 rounded-lg border-2 ${pdfUrl ? 'border-purple-500 bg-purple-50' : 'border-slate-200'}`}>
+              <label className="block text-sm font-medium mb-2">
+                Or Enter PDF URL
+              </label>
+              <input
+                type="url"
+                value={pdfUrl}
+                onChange={handleUrlChange}
+                placeholder="https://example.com/census-report.pdf"
+                className="block w-full px-4 py-2 border border-slate-300 rounded-lg
+                  focus:ring-2 focus:ring-purple-500 focus:border-purple-500
+                  text-sm"
+              />
+              {pdfUrl && (
+                <p className="mt-2 text-sm text-purple-700">
+                  URL entered - will fetch PDF from web
+                </p>
+              )}
+              <p className="mt-2 text-xs text-slate-500">
+                Enter a direct link to a PDF document
+              </p>
+            </div>
           </div>
 
           {/* Upload Button */}
           <button
             onClick={handleUpload}
-            disabled={!file || uploading}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg
+            disabled={(!file && !pdfUrl) || uploading}
+            className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg
               hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed
-              font-semibold transition-colors"
+              font-semibold transition-colors text-lg"
           >
             {uploading ? 'Processing with AI...' : 'Upload and Process'}
           </button>

@@ -4,6 +4,8 @@ import { createServiceClient } from '@/lib/supabase';
 import Anthropic from '@anthropic-ai/sdk';
 import * as XLSX from 'xlsx';
 import { sendWelcomeEmail } from '@/lib/email';
+// @ts-ignore - pdf-parse doesn't have proper types
+import pdfParse from 'pdf-parse';
 
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY!;
 
@@ -11,21 +13,69 @@ if (!anthropicApiKey) {
   console.warn('ANTHROPIC_API_KEY not set - AI parsing will not work');
 }
 
+// Valid billing models
+const VALID_MODELS = ['5/3', '3/4', '5/1', '5/0', '4/4', '6/0', '1/5'];
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const file = formData.get('file') as File | null;
+    const pdfUrl = formData.get('url') as string | null;
+    const selectedModel = formData.get('model') as string | null;
 
-    if (!file) {
+    // Validate we have either a file or URL
+    if (!file && !pdfUrl) {
       return NextResponse.json(
-        { ok: false, error: 'No file uploaded' },
+        { ok: false, error: 'No file uploaded and no URL provided' },
         { status: 400 }
       );
     }
 
-    // Read the Excel file
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    let buffer: Buffer;
+    let fileName: string;
+    let fileType: string;
+
+    // Handle URL-based PDF fetch
+    if (pdfUrl) {
+      console.log('Fetching PDF from URL:', pdfUrl);
+      try {
+        const response = await fetch(pdfUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+        fileName = pdfUrl.split('/').pop() || 'downloaded.pdf';
+        fileType = 'application/pdf';
+        console.log('PDF fetched successfully, size:', buffer.length);
+      } catch (fetchError: any) {
+        return NextResponse.json(
+          { ok: false, error: `Failed to fetch PDF from URL: ${fetchError.message}` },
+          { status: 400 }
+        );
+      }
+    } else if (file) {
+      // Handle file upload
+      const bytes = await file.arrayBuffer();
+      buffer = Buffer.from(bytes);
+      fileName = file.name;
+      fileType = file.type;
+    } else {
+      return NextResponse.json(
+        { ok: false, error: 'No file or URL provided' },
+        { status: 400 }
+      );
+    }
+
+    // Detect if this is a PDF
+    const isPDF = fileType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+
+    if (isPDF) {
+      // Handle PDF file
+      return await processPDF(buffer, selectedModel);
+    }
+
+    // Handle Excel/CSV file (existing logic)
 
     // Parse Excel to JSON
     const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -196,7 +246,7 @@ export async function POST(request: NextRequest) {
       contactName: extractedContactName,
       payFrequency: extractedPayFrequency,
       sheetName: sheetName,  // Sheet name sometimes contains company name
-    });
+    }, selectedModel);
 
     if (!structuredData) {
       return NextResponse.json(
@@ -208,6 +258,13 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    // Apply user-selected model if provided (overrides AI detection)
+    if (selectedModel && selectedModel !== 'auto' && VALID_MODELS.includes(selectedModel)) {
+      structuredData.company = structuredData.company || {};
+      structuredData.company.model = selectedModel;
+      console.log('Using user-selected model:', selectedModel);
     }
 
     // Log structured data for debugging
@@ -224,6 +281,7 @@ export async function POST(request: NextRequest) {
         columns_found: Object.keys(rawData[0] || {}),
         employees_parsed: structuredData.employees?.length || 0,
         company_name_extracted: extractedCompanyName || '(none)',
+        model_used: structuredData.company?.model || '5/3',
       },
       ...result,
     });
@@ -248,6 +306,200 @@ function isValidStateCode(code: string): boolean {
   return validStates.includes(code);
 }
 
+// Process PDF files using pdf-parse and Claude AI
+async function processPDF(buffer: Buffer, selectedModel: string | null): Promise<NextResponse> {
+  try {
+    // Extract text from PDF
+    console.log('Extracting text from PDF...');
+    const pdfData = await pdfParse(buffer);
+    const pdfText = pdfData.text;
+
+    console.log('PDF text extracted, length:', pdfText.length);
+    console.log('PDF text preview (first 1000 chars):', pdfText.substring(0, 1000));
+
+    if (!pdfText || pdfText.trim().length === 0) {
+      return NextResponse.json(
+        { ok: false, error: 'Could not extract text from PDF. The PDF may be image-based or corrupted.' },
+        { status: 400 }
+      );
+    }
+
+    // Use Claude AI to parse the PDF text
+    const structuredData = await parsePDFWithClaude(pdfText, selectedModel);
+
+    if (!structuredData) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: anthropicApiKey
+            ? 'Failed to parse PDF with AI'
+            : 'ANTHROPIC_API_KEY not configured. AI-powered PDF parsing unavailable.'
+        },
+        { status: 500 }
+      );
+    }
+
+    // Apply user-selected model if provided (overrides AI detection)
+    if (selectedModel && selectedModel !== 'auto' && VALID_MODELS.includes(selectedModel)) {
+      structuredData.company = structuredData.company || {};
+      structuredData.company.model = selectedModel;
+      console.log('Using user-selected model for PDF:', selectedModel);
+    }
+
+    // Log structured data for debugging
+    console.log('PDF structured data:', JSON.stringify(structuredData, null, 2));
+
+    // Process the structured data
+    const result = await processStructuredData(structuredData);
+
+    return NextResponse.json({
+      ok: true,
+      message: 'PDF processed successfully',
+      debug_info: {
+        pdf_text_length: pdfText.length,
+        employees_parsed: structuredData.employees?.length || 0,
+        model_used: structuredData.company?.model || '5/3',
+      },
+      ...result,
+    });
+  } catch (error: any) {
+    console.error('PDF processing error:', error);
+    return NextResponse.json(
+      { ok: false, error: `PDF processing failed: ${error.message}` },
+      { status: 500 }
+    );
+  }
+}
+
+// Parse PDF text using Claude AI
+async function parsePDFWithClaude(pdfText: string, selectedModel: string | null): Promise<any> {
+  if (!anthropicApiKey) {
+    throw new Error('ANTHROPIC_API_KEY not configured');
+  }
+
+  try {
+    const anthropic = new Anthropic({
+      apiKey: anthropicApiKey,
+    });
+
+    const prompt = `You are a data extraction specialist for a benefits administration system.
+Analyze this employee census/payroll data extracted from a PDF and extract the following information in strict JSON format.
+
+IMPORTANT: The data may come from various payroll systems and formats. Look for patterns and extract as much data as possible.
+
+BILLING MODEL DETECTION:
+- Look for patterns like "5/3", "3/4", "5/1", "4/4", "5/0", "6/0", "1/5"
+- "5% employee / 3% employer" means model "5/3"
+- "3% employee / 4% employer" means model "3/4"
+- Schools often use "5/0" (5% employee, 0% employer)
+- Default to "5/3" if not found
+
+COMPANY INFORMATION:
+- Company name (look for headers, titles, or company identifiers)
+- State (2-letter code)
+- Pay frequency (weekly, biweekly, semimonthly, or monthly) - look for pay period indicators
+- Billing model (one of: 5/3, 3/4, 5/1, 5/0, 4/4, 6/0, 1/5)
+
+EMPLOYEE INFORMATION (array):
+For each employee found:
+- First name
+- Last name
+- Date of birth (YYYY-MM-DD format if available)
+- Filing status (single, married, or head) - look for W-4 status, marital status
+- Number of dependents (integer)
+- Gross pay per paycheck (number) - look for wages, salary, gross pay columns
+- Tobacco use (boolean, default false if not found)
+- State (2-letter code, can be different from company)
+
+BENEFIT ELECTIONS (array per employee):
+For each benefit found:
+- Plan code (HSA, FSA_HEALTH, FSA_DEPENDENT_CARE, DENTAL, VISION, LIFE, STD, LTD, etc.)
+- Per-pay amount (number)
+- Reduces FIT (boolean, default true for most pre-tax benefits)
+- Reduces FICA (boolean, default true for most pre-tax benefits)
+
+PDF TEXT CONTENT:
+${pdfText.substring(0, 50000)}
+
+${selectedModel && selectedModel !== 'auto' ? `USER SELECTED MODEL: ${selectedModel} - Use this model unless you find a different one explicitly stated in the document.` : ''}
+
+Return ONLY valid JSON in this exact structure (no additional text):
+{
+  "company": {
+    "name": "Company Name",
+    "state": "TX",
+    "pay_frequency": "biweekly",
+    "model": "5/3"
+  },
+  "employees": [
+    {
+      "first_name": "John",
+      "last_name": "Doe",
+      "dob": "1985-03-15",
+      "filing_status": "married",
+      "dependents": 2,
+      "gross_pay": 3500.00,
+      "tobacco_use": false,
+      "state": "TX",
+      "benefits": [
+        {
+          "plan_code": "HSA",
+          "per_pay_amount": 200.00,
+          "reduces_fit": true,
+          "reduces_fica": true
+        }
+      ]
+    }
+  ]
+}`;
+
+    // Use Claude Haiku for fast, cost-effective parsing
+    const message = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 8192,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    });
+
+    // Extract text from Claude's response
+    const textContent = message.content.find((block) => block.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text content in Claude response');
+    }
+
+    const text = textContent.text;
+    console.log('Claude PDF parsing response length:', text.length);
+
+    // Extract JSON from response (handle markdown code blocks)
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) ||
+                      text.match(/```\s*([\s\S]*?)\s*```/) ||
+                      text.match(/\{[\s\S]*\}/);
+
+    if (!jsonMatch) {
+      console.error('No valid JSON found in Claude response:', text.substring(0, 500));
+      throw new Error('No valid JSON found in AI response');
+    }
+
+    const jsonText = jsonMatch[1] || jsonMatch[0];
+    const parsed = JSON.parse(jsonText);
+
+    console.log('Successfully parsed PDF data:', {
+      company: parsed.company?.name,
+      model: parsed.company?.model,
+      employees: parsed.employees?.length
+    });
+
+    return parsed;
+  } catch (error) {
+    console.error('Claude PDF parsing error:', error);
+    throw error;
+  }
+}
+
 interface ExtractedCompanyInfo {
   companyName: string;
   address: string;
@@ -259,10 +511,10 @@ interface ExtractedCompanyInfo {
   sheetName: string;
 }
 
-async function parseWithClaude(rawData: any[], extractedInfo?: ExtractedCompanyInfo): Promise<any> {
+async function parseWithClaude(rawData: any[], extractedInfo?: ExtractedCompanyInfo, selectedModel?: string | null): Promise<any> {
   if (!anthropicApiKey) {
     // Fallback to manual parsing if no API key
-    return manualParse(rawData, extractedInfo);
+    return manualParse(rawData, extractedInfo, selectedModel);
   }
 
   try {
@@ -363,17 +615,18 @@ Return ONLY valid JSON in this exact structure:
   } catch (error) {
     console.error('Claude parsing error:', error);
     // Fallback to manual parsing
-    return manualParse(rawData, extractedInfo);
+    return manualParse(rawData, extractedInfo, selectedModel);
   }
 }
 
-function manualParse(rawData: any[], extractedInfo?: ExtractedCompanyInfo): any {
+function manualParse(rawData: any[], extractedInfo?: ExtractedCompanyInfo, selectedModel?: string | null): any {
   // Basic manual parsing logic
   // This is a fallback when AI is not available
 
   console.log('Manual parse - raw data sample:', JSON.stringify(rawData[0], null, 2));
   console.log('Manual parse - available columns:', Object.keys(rawData[0] || {}));
   console.log('Manual parse - extracted company info:', extractedInfo);
+  console.log('Manual parse - selected model:', selectedModel);
 
   // Use extracted company info (from specific cells) or fall back to row data
   const companyName = extractedInfo?.companyName || rawData[0]?.['Company Name'] || rawData[0]?.company || 'Imported Company';
@@ -383,6 +636,11 @@ function manualParse(rawData: any[], extractedInfo?: ExtractedCompanyInfo): any 
   const zip = extractedInfo?.zip || '';
   const contactName = extractedInfo?.contactName || '';
   const payFrequency = extractedInfo?.payFrequency || 'biweekly';
+
+  // Use selected model if valid, otherwise default to 5/3
+  const model = (selectedModel && selectedModel !== 'auto' && VALID_MODELS.includes(selectedModel))
+    ? selectedModel
+    : '5/3';
 
   const employees = rawData.map((row: any, index: number) => {
     // Try to find first name from various possible column names
@@ -437,7 +695,7 @@ function manualParse(rawData: any[], extractedInfo?: ExtractedCompanyInfo): any 
       zip: zip,
       contact_name: contactName,
       pay_frequency: payFrequency,
-      model: '5/3', // default
+      model: model,
     },
     employees: filteredEmployees,
   };

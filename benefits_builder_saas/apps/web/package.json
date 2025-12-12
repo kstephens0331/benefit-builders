@@ -31,6 +31,7 @@
     "node-quickbooks": "^2.0.46",
     "nodemailer": "^7.0.10",
     "pdf-lib": "1.17.1",
+    "pdf-parse": "^1.1.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "resend": "^6.5.2",
