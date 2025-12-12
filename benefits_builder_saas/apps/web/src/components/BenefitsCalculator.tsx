@@ -435,18 +435,18 @@ export default function BenefitsCalculator({
         </div>
       </div>
 
-      {/* Savings Summary */}
+      {/* Savings Summary - Monthly Values */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Employee Allowable Benefit Amount */}
         <div className="p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg">
           <h3 className="text-sm font-medium opacity-90 mb-2">Allowable Benefit Amount</h3>
-          <div className="text-4xl font-bold mb-2">${employeeNetIncrease.toFixed(2)}</div>
-          <div className="text-sm opacity-90">per paycheck</div>
+          <div className="text-4xl font-bold mb-2">${(employeeNetIncrease * payPeriodsPerYear / 12).toFixed(2)}</div>
+          <div className="text-sm opacity-90">per month</div>
           <div className="mt-4 pt-4 border-t border-blue-400 text-sm">
             <div className="flex justify-between">
               <span>Tax Savings:</span>
               <span className="font-semibold">
-                ${employeeTaxSavings.toFixed(2)}
+                ${(employeeTaxSavings * payPeriodsPerYear / 12).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between text-xs opacity-75 mt-1">
@@ -461,17 +461,17 @@ export default function BenefitsCalculator({
             Employer FICA Savings
           </h3>
           <div className="text-4xl font-bold mb-2">
-            ${employerFICASavings.toFixed(2)}
+            ${(employerFICASavings * payPeriodsPerYear / 12).toFixed(2)}
           </div>
-          <div className="text-sm opacity-90">per paycheck</div>
+          <div className="text-sm opacity-90">per month</div>
           <div className="mt-4 pt-4 border-t border-purple-400 text-sm">
             <div className="flex justify-between">
               <span>Before BB:</span>
-              <span className="font-semibold">${employerFICASavings.toFixed(2)}</span>
+              <span className="font-semibold">${(employerFICASavings * payPeriodsPerYear / 12).toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold mt-2">
               <span>After BB:</span>
-              <span>${employerNetSavings.toFixed(2)}</span>
+              <span>${(employerNetSavings * payPeriodsPerYear / 12).toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -481,16 +481,16 @@ export default function BenefitsCalculator({
           <h3 className="text-sm font-medium opacity-90 mb-2">
             Benefits Builder Fees
           </h3>
-          <div className="text-4xl font-bold mb-2">${bbTotalFees.toFixed(2)}</div>
-          <div className="text-sm opacity-90">per paycheck</div>
+          <div className="text-4xl font-bold mb-2">${(bbTotalFees * payPeriodsPerYear / 12).toFixed(2)}</div>
+          <div className="text-sm opacity-90">per month</div>
           <div className="mt-4 pt-4 border-t border-amber-400 text-sm">
             <div className="flex justify-between">
               <span>Employee ({employeeRate}%):</span>
-              <span className="font-semibold">${employeeFee.toFixed(2)}</span>
+              <span className="font-semibold">${(employeeFee * payPeriodsPerYear / 12).toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span>Employer ({employerRate}%):</span>
-              <span className="font-semibold">${employerFee.toFixed(2)}</span>
+              <span className="font-semibold">${(employerFee * payPeriodsPerYear / 12).toFixed(2)}</span>
             </div>
           </div>
         </div>
