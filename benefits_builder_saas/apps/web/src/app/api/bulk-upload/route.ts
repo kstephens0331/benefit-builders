@@ -4,8 +4,14 @@ import { createServiceClient } from '@/lib/supabase';
 import Anthropic from '@anthropic-ai/sdk';
 import * as XLSX from 'xlsx';
 import { sendWelcomeEmail } from '@/lib/email';
-// @ts-ignore - pdf-parse doesn't have proper types
-import pdfParse from 'pdf-parse';
+
+// Dynamic import for pdf-parse to avoid Next.js initialization issues
+async function parsePDFBuffer(buffer: Buffer): Promise<{ text: string }> {
+  // pdf-parse has issues with Next.js - use dynamic import
+  // @ts-ignore - pdf-parse doesn't have proper types
+  const pdfParse = (await import('pdf-parse')).default;
+  return await pdfParse(buffer);
+}
 
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY!;
 
@@ -311,7 +317,7 @@ async function processPDF(buffer: Buffer, selectedModel: string | null): Promise
   try {
     // Extract text from PDF
     console.log('Extracting text from PDF...');
-    const pdfData = await pdfParse(buffer);
+    const pdfData = await parsePDFBuffer(buffer);
     const pdfText = pdfData.text;
 
     console.log('PDF text extracted, length:', pdfText.length);
