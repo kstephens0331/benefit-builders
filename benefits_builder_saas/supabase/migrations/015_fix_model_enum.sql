@@ -1,34 +1,16 @@
--- Fix: Add 3/4 to company_model_type enum (renamed from 4/3)
--- PostgreSQL enums can have values added but not removed/renamed easily
+-- Fix: Convert model column from enum to text with check constraint
+-- This allows easier management of model values
 
--- Add the new 3/4 value to the enum
-DO $$
-BEGIN
-  -- Check if the enum type exists
-  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'company_model_type') THEN
-    -- Add 3/4 if it doesn't exist
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_enum
-      WHERE enumtypid = 'company_model_type'::regtype
-      AND enumlabel = '3/4'
-    ) THEN
-      ALTER TYPE company_model_type ADD VALUE '3/4';
-    END IF;
-  END IF;
-END $$;
+-- Step 1: Drop the enum type constraint by converting to text
+ALTER TABLE companies ALTER COLUMN model TYPE text;
 
--- Update any existing companies with 4/3 to 3/4
--- First, temporarily change column to text to allow the update
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'company_model_type') THEN
-    -- Change column type to text temporarily
-    ALTER TABLE companies ALTER COLUMN model TYPE text;
+-- Step 2: Update any 4/3 values to 3/4
+UPDATE companies SET model = '3/4' WHERE model = '4/3';
 
-    -- Update 4/3 to 3/4
-    UPDATE companies SET model = '3/4' WHERE model = '4/3';
+-- Step 3: Add a check constraint for valid model values
+ALTER TABLE companies DROP CONSTRAINT IF EXISTS companies_model_check;
+ALTER TABLE companies ADD CONSTRAINT companies_model_check
+  CHECK (model IN ('5/3', '3/4', '5/1', '5/0', '4/4', '6/0', '1/5'));
 
-    -- Change back to enum (this will validate values)
-    ALTER TABLE companies ALTER COLUMN model TYPE company_model_type USING model::company_model_type;
-  END IF;
-END $$;
+-- Step 4: Drop the old enum type if it exists
+DROP TYPE IF EXISTS company_model_type;
