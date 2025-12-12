@@ -4,26 +4,63 @@
 export type CompanyTier = 'state_school' | '2025' | 'pre_2025' | 'original_6pct';
 export type FilingStatus = 'single' | 'married' | 'head';
 
+// Custom Section 125 amounts for 3/4 model
+export type CustomSection125Amounts = {
+  sec125_single_0?: number;      // Single, 0 dependents
+  sec125_married_0?: number;     // Married, 0 dependents
+  sec125_single_deps?: number;   // Single, with dependents
+  sec125_married_deps?: number;  // Married, with dependents
+};
+
 /**
- * Calculate the monthly Section 125 benefit amount based on company tier and employee details
+ * Calculate the monthly Section 125 benefit amount based on company settings and employee details
  *
- * IMPORTANT: This returns the TARGET monthly amount based on tier rules.
+ * IMPORTANT: This returns the TARGET monthly amount.
  * The actual deduction per paycheck MUST be capped to prevent exceeding gross pay.
  * Use calculateSafeSection125Deduction() to get the actual safe deduction amount.
  *
- * @param tier - The company's pricing tier
+ * @param tier - The company's pricing tier (used as fallback)
  * @param filingStatus - Employee's filing status (single, married, head)
  * @param dependents - Number of dependents
+ * @param customAmounts - Optional custom amounts from company settings (takes precedence)
  * @returns TARGET monthly Section 125 amount in dollars (before safety caps)
  */
 export function calculateSection125Amount(
   tier: CompanyTier,
   filingStatus: FilingStatus,
-  dependents: number
+  dependents: number,
+  customAmounts?: CustomSection125Amounts
 ): number {
   // Normalize filing status
   const status = filingStatus === 'head' ? 'single' : filingStatus;
 
+  // If custom amounts are provided, use them (works for any model)
+  if (customAmounts) {
+    const hasCustomAmounts =
+      customAmounts.sec125_single_0 !== undefined ||
+      customAmounts.sec125_married_0 !== undefined ||
+      customAmounts.sec125_single_deps !== undefined ||
+      customAmounts.sec125_married_deps !== undefined;
+
+    if (hasCustomAmounts) {
+      if (status === 'single' && dependents === 0) {
+        return customAmounts.sec125_single_0 ?? 800;
+      }
+      if (status === 'single' && dependents >= 1) {
+        return customAmounts.sec125_single_deps ?? 1200;
+      }
+      if (status === 'married' && dependents === 0) {
+        return customAmounts.sec125_married_0 ?? 1200;
+      }
+      if (status === 'married' && dependents >= 1) {
+        return customAmounts.sec125_married_deps ?? 1700;
+      }
+      // Fallback for unknown status
+      return customAmounts.sec125_single_0 ?? 800;
+    }
+  }
+
+  // Fallback to tier-based defaults if no custom amounts
   switch (tier) {
     case 'state_school':
       // All employees get $1,300/month
@@ -178,6 +215,7 @@ export function monthlyToPerPay(monthlyAmount: number, payPeriod: string): numbe
  * @param grossPayPerPaycheck - Employee's gross pay per paycheck
  * @param payPeriod - Pay period code (w, b, s, m)
  * @param maxPercentOfGross - Maximum % of gross pay that can be deducted (default 50%)
+ * @param customAmounts - Optional custom amounts from company settings
  * @returns Safe per-paycheck deduction amount that won't exceed gross pay
  */
 export function calculateSafeSection125Deduction(
@@ -186,10 +224,11 @@ export function calculateSafeSection125Deduction(
   dependents: number,
   grossPayPerPaycheck: number,
   payPeriod: string,
-  maxPercentOfGross: number = 50
+  maxPercentOfGross: number = 50,
+  customAmounts?: CustomSection125Amounts
 ): number {
-  // Get the target monthly amount based on tier rules
-  const targetMonthlyAmount = calculateSection125Amount(tier, filingStatus, dependents);
+  // Get the target monthly amount based on company settings or tier rules
+  const targetMonthlyAmount = calculateSection125Amount(tier, filingStatus, dependents, customAmounts);
 
   // Convert to per-paycheck amount
   const targetPerPaycheck = monthlyToPerPay(targetMonthlyAmount, payPeriod);
@@ -234,6 +273,7 @@ export function perPayToMonthly(perPaycheckAmount: number, payPeriod: string): n
  * @param grossPayPerPaycheck - Employee's gross pay per paycheck
  * @param payPeriod - Pay period code
  * @param maxPercentOfGross - Maximum % of gross pay that can be deducted (default 50%)
+ * @param customAmounts - Optional custom amounts from company settings
  * @returns { isSufficient, targetAmount, safeAmount, shortfall } - Details about coverage
  */
 export function checkSection125Affordability(
@@ -242,7 +282,8 @@ export function checkSection125Affordability(
   dependents: number,
   grossPayPerPaycheck: number,
   payPeriod: string,
-  maxPercentOfGross: number = 50
+  maxPercentOfGross: number = 50,
+  customAmounts?: CustomSection125Amounts
 ): {
   isSufficient: boolean;
   targetPerPaycheck: number;
@@ -254,7 +295,7 @@ export function checkSection125Affordability(
   percentOfGross: number;
   grossMonthly: number;
 } {
-  const targetMonthlyAmount = calculateSection125Amount(tier, filingStatus, dependents);
+  const targetMonthlyAmount = calculateSection125Amount(tier, filingStatus, dependents, customAmounts);
   const targetPerPaycheck = monthlyToPerPay(targetMonthlyAmount, payPeriod);
 
   // Calculate monthly gross pay from per-paycheck amount

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { calcFICA, calcFITFromTable, calcSITFlat } from "@/lib/tax";
-import { calculateSection125Amount, calculateSafeSection125Deduction, checkSection125Affordability, monthlyToPerPay, type CompanyTier, type FilingStatus } from "@/lib/section125";
+import { calculateSection125Amount, calculateSafeSection125Deduction, checkSection125Affordability, monthlyToPerPay, type CompanyTier, type FilingStatus, type CustomSection125Amounts } from "@/lib/section125";
 
 // Calculate state income tax based on method
 // IMPORTANT: For bracket states, brackets are ANNUAL amounts
@@ -73,6 +73,11 @@ type Props = {
     tier: CompanyTier;
     safety_cap_percent: number;
     state?: string;
+    // Custom Section 125 amounts (used for any model when set)
+    sec125_single_0?: number;
+    sec125_married_0?: number;
+    sec125_single_deps?: number;
+    sec125_married_deps?: number;
   };
   fedRates: {
     ss_rate: number;
@@ -103,6 +108,19 @@ export default function BenefitsCalculator({
   const grossPay = Number(employee.gross_pay) || 0;
   const safetyCapPercent = Number(company.safety_cap_percent) || 50;
 
+  // Build custom amounts object from company settings
+  const customAmounts: CustomSection125Amounts | undefined = (
+    company.sec125_single_0 !== undefined ||
+    company.sec125_married_0 !== undefined ||
+    company.sec125_single_deps !== undefined ||
+    company.sec125_married_deps !== undefined
+  ) ? {
+    sec125_single_0: company.sec125_single_0,
+    sec125_married_0: company.sec125_married_0,
+    sec125_single_deps: company.sec125_single_deps,
+    sec125_married_deps: company.sec125_married_deps,
+  } : undefined;
+
   // Check affordability and get safe deduction amount
   const affordability = checkSection125Affordability(
     company.tier,
@@ -110,7 +128,8 @@ export default function BenefitsCalculator({
     employee.dependents,
     grossPay,
     employee.pay_period,
-    safetyCapPercent // Max % of gross pay (configurable per company)
+    safetyCapPercent, // Max % of gross pay (configurable per company)
+    customAmounts // Custom amounts from company settings
   );
 
   // Use SAFE deduction amount that won't exceed gross pay

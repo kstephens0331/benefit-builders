@@ -50,10 +50,10 @@ export default async function EmployeePage({
     );
   }
 
-  // Fetch company data for model rates and tier
+  // Fetch company data for model rates and tier (including custom sec125 amounts)
   const { data: company, error: companyError } = await db
     .from("companies")
-    .select("id, name, state, model, employer_rate, employee_rate, pay_frequency, tier, safety_cap_percent, contact_name, contact_phone")
+    .select("id, name, state, model, employer_rate, employee_rate, pay_frequency, tier, safety_cap_percent, contact_name, contact_phone, sec125_single_0, sec125_married_0, sec125_single_deps, sec125_married_deps")
     .eq("id", companyId)
     .single();
 
@@ -386,6 +386,11 @@ export default async function EmployeePage({
           tier: (company?.tier as any) || "2025",
           safety_cap_percent: Number(emp?.safety_cap_percent ?? company?.safety_cap_percent) || 50,
           state: company?.state,
+          // Custom Section 125 amounts from company settings
+          sec125_single_0: company?.sec125_single_0 ? Number(company.sec125_single_0) : undefined,
+          sec125_married_0: company?.sec125_married_0 ? Number(company.sec125_married_0) : undefined,
+          sec125_single_deps: company?.sec125_single_deps ? Number(company.sec125_single_deps) : undefined,
+          sec125_married_deps: company?.sec125_married_deps ? Number(company.sec125_married_deps) : undefined,
         }}
         fedRates={{
           ss_rate: Number(fedRates?.ss_rate) || 0.062,

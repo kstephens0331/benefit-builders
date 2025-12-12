@@ -6,6 +6,7 @@ import {
   perPayToMonthly,
   type CompanyTier,
   type FilingStatus,
+  type CustomSection125Amounts,
 } from "@/lib/section125";
 
 type Params = { params: Promise<{ id: string }> };
@@ -35,10 +36,10 @@ export default async function CompanyDeductionsPage({ params }: Params) {
   const { id: companyId } = await params;
   const db = createServiceClient();
 
-  // Fetch company data with tier
+  // Fetch company data with tier and custom sec125 amounts
   const { data: company, error: cErr } = await db
     .from("companies")
-    .select("id, name, state, model, status, employer_rate, employee_rate, pay_frequency, tier, safety_cap_percent")
+    .select("id, name, state, model, status, employer_rate, employee_rate, pay_frequency, tier, safety_cap_percent, sec125_single_0, sec125_married_0, sec125_single_deps, sec125_married_deps")
     .eq("id", companyId)
     .single();
 
@@ -75,6 +76,19 @@ export default async function CompanyDeductionsPage({ params }: Params) {
   const tier: CompanyTier = (company.tier as CompanyTier) || "2025";
   const companySafetyCapPercent = Number(company.safety_cap_percent) || 50;
 
+  // Build custom Section 125 amounts from company settings (for any model)
+  const customAmounts: CustomSection125Amounts | undefined = (
+    company.sec125_single_0 !== null ||
+    company.sec125_married_0 !== null ||
+    company.sec125_single_deps !== null ||
+    company.sec125_married_deps !== null
+  ) ? {
+    sec125_single_0: company.sec125_single_0 ? Number(company.sec125_single_0) : undefined,
+    sec125_married_0: company.sec125_married_0 ? Number(company.sec125_married_0) : undefined,
+    sec125_single_deps: company.sec125_single_deps ? Number(company.sec125_single_deps) : undefined,
+    sec125_married_deps: company.sec125_married_deps ? Number(company.sec125_married_deps) : undefined,
+  } : undefined;
+
   // Calculate Section 125 for each employee
   type EmployeeWithCalcs = {
     id: string;
@@ -101,7 +115,8 @@ export default async function CompanyDeductionsPage({ params }: Params) {
       dependents,
       gross,
       payPeriod,
-      safetyCapPercent
+      safetyCapPercent,
+      customAmounts // Custom amounts from company settings
     );
 
     const employer_fica_savings = section125PerPay * ficaRate;
