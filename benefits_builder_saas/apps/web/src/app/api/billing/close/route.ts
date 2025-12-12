@@ -162,7 +162,8 @@ export async function POST(req: Request) {
     if (base_fee_cents > 0) subtotal += await addLine("base_fee", "Base Fee", 1, base_fee_cents);
     if (per_employee_active_cents > 0) subtotal += await addLine("per_employee_active", "Active employees", employees_active, per_employee_active_cents);
     if (maintenance_cents > 0) subtotal += await addLine("maintenance", "Maintenance", 1, maintenance_cents);
-    if (employerFeeCents > 0) subtotal += await addLine("employer_fee", `Employer Section 125 Fee (${(employerRate * 100).toFixed(1)}% of $${totalPretaxMonthly.toFixed(2)})`, 1, employerFeeCents);
+    if (employerFeeCents > 0) subtotal += await addLine("employer_fee", `Employer Fee (${(employerRate * 100).toFixed(1)}%)`, 1, employerFeeCents);
+    if (employeeFeeCents > 0) subtotal += await addLine("employee_fee", `Employee Fee (${(employeeRate * 100).toFixed(1)}%)`, 1, employeeFeeCents);
 
     // Calculate profit-sharing credit (if applicable)
     const profitShare = computeProfitShare(
