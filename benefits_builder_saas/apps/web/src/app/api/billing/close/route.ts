@@ -21,11 +21,25 @@ export async function POST(req: Request) {
     );
   }
 
-  const { period } = validation.data;
+  const { period, company_id } = validation.data;
 
-  const { data: companies, error: cErr } = await db
-    .from("companies").select("id,name,status,model,state,pay_frequency,contact_email").eq("status","active");
+  // Build query - filter by single company if provided, otherwise all active companies
+  let query = db.from("companies").select("id,name,status,model,state,pay_frequency,contact_email");
+
+  if (company_id) {
+    // Single company invoice generation
+    query = query.eq("id", company_id);
+  } else {
+    // All active companies (month close)
+    query = query.eq("status", "active");
+  }
+
+  const { data: companies, error: cErr } = await query;
   if (cErr) return NextResponse.json({ ok:false, error:cErr.message }, { status: 500 });
+
+  if (!companies || companies.length === 0) {
+    return NextResponse.json({ ok: false, error: company_id ? "Company not found" : "No active companies found" }, { status: 404 });
+  }
 
   const [year] = period.split("-").map(Number);
 
@@ -60,7 +74,7 @@ export async function POST(req: Request) {
     const profit_share_mode = (bs?.profit_share_mode ?? "none") as "none" | "percent_er_savings" | "percent_bb_profit";
     const profit_share_percent = Number(bs?.profit_share_percent ?? 0);
 
-    // invoice
+    // invoice - find existing or create new
     let invoiceId: string;
     {
       const { data: inv, error: iErr } = await db
@@ -69,6 +83,9 @@ export async function POST(req: Request) {
 
       if (inv?.id) {
         invoiceId = inv.id;
+        // Clear existing invoice lines to allow re-generation
+        const { error: delErr } = await db.from("invoice_lines").delete().eq("invoice_id", invoiceId);
+        if (delErr) return NextResponse.json({ ok:false, error: delErr.message }, { status: 500 });
       } else {
         const { data: newInv, error: nErr } = await db
           .from("invoices").insert({

@@ -75,7 +75,8 @@ export const OptimizerPreviewSchema = z.object({
 // ============================================================================
 
 export const BillingCloseSchema = z.object({
-  period: periodValidator
+  period: periodValidator,
+  company_id: uuidValidator.optional() // Optional: generate invoice for single company
 });
 
 // ============================================================================
