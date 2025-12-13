@@ -330,24 +330,37 @@ function isValidStateCode(code: string): boolean {
 
 // Process PDF files using pdf-parse and Claude AI
 async function processPDF(buffer: Buffer, selectedModel: string | null): Promise<NextResponse> {
+  let structuredData: any = null;
+  let parseMethod = 'unknown';
+
   try {
-    // Extract text from PDF
-    console.log('Extracting text from PDF...');
-    const pdfData = await parsePDFBuffer(buffer);
-    const pdfText = pdfData.text;
+    // Try pdf-parse first (faster, works locally)
+    try {
+      console.log('Attempting pdf-parse extraction...');
+      const pdfData = await parsePDFBuffer(buffer);
+      const pdfText = pdfData.text;
 
-    console.log('PDF text extracted, length:', pdfText.length);
-    console.log('PDF text preview (first 1000 chars):', pdfText.substring(0, 1000));
+      console.log('PDF text extracted, length:', pdfText.length);
 
-    if (!pdfText || pdfText.trim().length === 0) {
-      return NextResponse.json(
-        { ok: false, error: 'Could not extract text from PDF. The PDF may be image-based or corrupted.' },
-        { status: 400 }
-      );
+      if (pdfText && pdfText.trim().length > 100) {
+        // Use Claude AI to parse the extracted text
+        structuredData = await parsePDFWithClaude(pdfText, selectedModel);
+        parseMethod = 'pdf-parse';
+        console.log('Successfully parsed with pdf-parse');
+      } else {
+        console.log('pdf-parse returned insufficient text, falling back to Claude vision');
+      }
+    } catch (pdfParseError: any) {
+      console.log('pdf-parse failed, falling back to Claude vision:', pdfParseError.message);
     }
 
-    // Use Claude AI to parse the PDF text
-    const structuredData = await parsePDFWithClaude(pdfText, selectedModel);
+    // Fallback: Use Claude's native PDF vision (works on Vercel/serverless)
+    if (!structuredData) {
+      console.log('Using Claude native PDF vision...');
+      structuredData = await parsePDFWithClaudeVision(buffer, selectedModel);
+      parseMethod = 'claude-vision';
+      console.log('Successfully parsed with Claude vision');
+    }
 
     if (!structuredData) {
       return NextResponse.json(
@@ -378,7 +391,7 @@ async function processPDF(buffer: Buffer, selectedModel: string | null): Promise
       ok: true,
       message: 'PDF processed successfully',
       debug_info: {
-        pdf_text_length: pdfText.length,
+        parse_method: parseMethod,
         employees_parsed: structuredData.employees?.length || 0,
         model_used: structuredData.company?.model || '5/3',
       },
@@ -390,6 +403,141 @@ async function processPDF(buffer: Buffer, selectedModel: string | null): Promise
       { ok: false, error: `PDF processing failed: ${error.message}` },
       { status: 500 }
     );
+  }
+}
+
+// Parse PDF using Claude's native document vision (works on serverless)
+async function parsePDFWithClaudeVision(buffer: Buffer, selectedModel: string | null): Promise<any> {
+  if (!anthropicApiKey) {
+    throw new Error('ANTHROPIC_API_KEY not configured');
+  }
+
+  try {
+    const anthropic = new Anthropic({
+      apiKey: anthropicApiKey,
+    });
+
+    // Convert buffer to base64
+    const base64PDF = buffer.toString('base64');
+
+    const prompt = `You are a data extraction specialist for a benefits administration system.
+Analyze this employee census/payroll PDF document and extract the following information in strict JSON format.
+
+IMPORTANT: The data may come from various payroll systems and formats. Look for patterns and extract as much data as possible.
+
+BILLING MODEL DETECTION:
+- Look for patterns like "5/3", "3/4", "5/1", "4/4", "5/0", "6/0", "1/5"
+- "5% employee / 3% employer" means model "5/3"
+- "3% employee / 4% employer" means model "3/4"
+- Schools often use "5/0" (5% employee, 0% employer)
+- Default to "5/3" if not found
+
+COMPANY INFORMATION:
+- Company name (look for headers, titles, or company identifiers)
+- State (2-letter code)
+- Pay frequency (weekly, biweekly, semimonthly, or monthly) - look for pay period indicators
+- Billing model (one of: 5/3, 3/4, 5/1, 5/0, 4/4, 6/0, 1/5)
+
+EMPLOYEE INFORMATION (array):
+For each employee found:
+- First name
+- Last name
+- Date of birth (YYYY-MM-DD format if available)
+- Filing status (single, married, or head) - look for W-4 status, marital status
+- Number of dependents (integer)
+- Gross pay per paycheck (number) - look for wages, salary, gross pay columns
+- Tobacco use (boolean, default false if not found)
+- State (2-letter code, can be different from company)
+
+BENEFIT ELECTIONS (array per employee):
+For each benefit found:
+- Plan code (HSA, FSA_HEALTH, FSA_DEPENDENT_CARE, DENTAL, VISION, LIFE, STD, LTD, etc.)
+- Per-pay amount (number)
+- Reduces FIT (boolean, default true for most pre-tax benefits)
+- Reduces FICA (boolean, default true for most pre-tax benefits)
+
+${selectedModel && selectedModel !== 'auto' ? `USER SELECTED MODEL: ${selectedModel} - Use this model unless you find a different one explicitly stated in the document.` : ''}
+
+Return ONLY valid JSON in this exact structure (no additional text):
+{
+  "company": {
+    "name": "Company Name",
+    "state": "TX",
+    "pay_frequency": "biweekly",
+    "model": "5/3"
+  },
+  "employees": [
+    {
+      "first_name": "John",
+      "last_name": "Doe",
+      "dob": "1985-03-15",
+      "filing_status": "married",
+      "dependents": 2,
+      "gross_pay": 3500.00,
+      "tobacco_use": false,
+      "state": "TX",
+      "benefits": []
+    }
+  ]
+}`;
+
+    // Use Claude with native PDF support
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8192,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: {
+                type: 'base64',
+                media_type: 'application/pdf',
+                data: base64PDF,
+              },
+            },
+            {
+              type: 'text',
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    });
+
+    // Extract text from Claude's response
+    const textContent = message.content.find((block) => block.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text content in Claude response');
+    }
+
+    const text = textContent.text;
+    console.log('Claude vision response length:', text.length);
+
+    // Extract JSON from response (handle markdown code blocks)
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) ||
+                      text.match(/```\s*([\s\S]*?)\s*```/) ||
+                      text.match(/\{[\s\S]*\}/);
+
+    if (!jsonMatch) {
+      console.error('No valid JSON found in Claude vision response:', text.substring(0, 500));
+      throw new Error('No valid JSON found in AI response');
+    }
+
+    const jsonText = jsonMatch[1] || jsonMatch[0];
+    const parsed = JSON.parse(jsonText);
+
+    console.log('Successfully parsed PDF with Claude vision:', {
+      company: parsed.company?.name,
+      model: parsed.company?.model,
+      employees: parsed.employees?.length
+    });
+
+    return parsed;
+  } catch (error) {
+    console.error('Claude vision PDF parsing error:', error);
+    throw error;
   }
 }
 
