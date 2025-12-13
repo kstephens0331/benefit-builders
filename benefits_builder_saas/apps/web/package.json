@@ -10,6 +10,7 @@
     "lint": "next lint",
     "seed": "tsx scripts/seed.ts",
     "seed:test": "tsx scripts/seed-test-census.ts",
+    "seed:tax": "tsx scripts/seed-tax-data.ts",
     "test:alpha": "tsx scripts/alpha-test.ts",
     "migrate": "tsx scripts/run-migrations.ts",
     "test": "jest",
