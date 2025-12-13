@@ -85,8 +85,6 @@ export async function POST(request: Request) {
       status: 'closed',
       closed_by: userId,
       closed_at: new Date().toISOString(),
-      approved_by: userId, // Can add separate approval flow later
-      approved_at: new Date().toISOString(),
       transactions_locked: true,
       notes
     };
