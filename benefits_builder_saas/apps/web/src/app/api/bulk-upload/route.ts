@@ -481,10 +481,11 @@ Return ONLY valid JSON in this exact structure (no additional text):
   ]
 }`;
 
-    // Use Claude with native PDF support
-    const message = await anthropic.messages.create({
+    // Use Claude with native PDF support (requires beta header)
+    const message = await anthropic.beta.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 8192,
+      betas: ['pdfs-2024-09-25'],
       messages: [
         {
           role: 'user',
