@@ -4,6 +4,43 @@ import { useState } from "react";
 import { calcFICA, calcFITFromTable, calcSITFlat } from "@/lib/tax";
 import { calculateSection125Amount, calculateSafeSection125Deduction, checkSection125Affordability, monthlyToPerPay, type CompanyTier, type FilingStatus, type CustomSection125Amounts } from "@/lib/section125";
 
+// Calculate FEDERAL income tax using IRS Percentage Method
+// IMPORTANT: Federal brackets are ANNUAL amounts from IRS Pub 15-T
+// We need to convert per-pay to annual, calculate tax, then convert back
+function calcFederalTax(
+  perPayGross: number,
+  periodsPerYear: number,
+  benefitAmount: number,
+  standardDeductionAnnual: number,
+  dependentAllowanceAnnual: number,
+  brackets: Array<{ over: number; baseTax: number; pct: number }>
+): number {
+  if (!brackets || brackets.length === 0) {
+    // Fallback to 12% flat rate if no brackets available
+    const taxable = Math.max(0, perPayGross - benefitAmount - (standardDeductionAnnual / periodsPerYear));
+    return +(taxable * 0.12).toFixed(2);
+  }
+
+  // Step 1: Calculate ANNUAL wages (per-pay gross × pay periods)
+  const annualGross = (perPayGross - benefitAmount) * periodsPerYear;
+
+  // Step 2: Subtract standard deduction and dependent allowances
+  const annualTaxable = Math.max(0, annualGross - standardDeductionAnnual - dependentAllowanceAnnual);
+
+  // Step 3: Find the bracket and calculate annual tax
+  let row = brackets[0];
+  for (const r of brackets) {
+    if (annualTaxable >= r.over) row = r;
+    else break;
+  }
+  const overAmt = Math.max(0, annualTaxable - row.over);
+  const annualTax = Number(row.baseTax || 0) + overAmt * Number(row.pct || 0);
+
+  // Step 4: Convert annual tax back to per-pay
+  const perPayTax = annualTax / periodsPerYear;
+  return +perPayTax.toFixed(2);
+}
+
 // Calculate state income tax based on method
 // IMPORTANT: For bracket states, brackets are ANNUAL amounts
 // We need to convert per-pay to annual, calculate tax, then convert back
@@ -160,36 +197,39 @@ export default function BenefitsCalculator({
       ? 24
       : 12;
   const standardDeductionPerPay = standardDeductionAnnual / payPeriodsPerYear;
-  const dependentAllowancePerPay = (employee.dependents || 0) * (2000 / payPeriodsPerYear);
+  const dependentAllowanceAnnual = (employee.dependents || 0) * 2000;
+  const dependentAllowancePerPay = dependentAllowanceAnnual / payPeriodsPerYear;
 
   // Use the automatically calculated Section 125 amount
   const benefitAmount = section125PerPaycheck;
 
-  // BEFORE (no benefits)
+  // BEFORE (no benefits) - using IRS Percentage Method with ANNUAL brackets
   const beforeFICA = calcFICA(grossPay, 0, ssRate, medRate);
-  const beforeFITTaxable = Math.max(
-    0,
-    grossPay - standardDeductionPerPay - dependentAllowancePerPay
+  // Federal tax: uses annual brackets, converts per-pay to annual, calculates, converts back
+  const beforeFIT = calcFederalTax(
+    grossPay,
+    payPeriodsPerYear,
+    0, // No benefit deduction for "before"
+    standardDeductionAnnual,
+    dependentAllowanceAnnual,
+    fedWithholding
   );
-  const beforeFIT =
-    fedWithholding && fedWithholding.length > 0
-      ? calcFITFromTable(beforeFITTaxable, fedWithholding)
-      : beforeFITTaxable * 0.12;
   // State tax: pass gross pay (before fed deductions) since state uses its own deductions
   const beforeSIT = calcStateTax(grossPay, payPeriodsPerYear, stateWithholding);
   const beforeTotalTax = beforeFICA.fica + beforeFIT + beforeSIT;
   const beforeNetPay = grossPay - beforeTotalTax;
 
-  // AFTER (with benefits)
+  // AFTER (with benefits) - using IRS Percentage Method with ANNUAL brackets
   const afterFICA = calcFICA(grossPay, benefitAmount, ssRate, medRate);
-  const afterFITTaxable = Math.max(
-    0,
-    grossPay - benefitAmount - standardDeductionPerPay - dependentAllowancePerPay
+  // Federal tax: Section 125 reduces taxable income BEFORE calculating tax
+  const afterFIT = calcFederalTax(
+    grossPay,
+    payPeriodsPerYear,
+    benefitAmount, // Section 125 deduction
+    standardDeductionAnnual,
+    dependentAllowanceAnnual,
+    fedWithholding
   );
-  const afterFIT =
-    fedWithholding && fedWithholding.length > 0
-      ? calcFITFromTable(afterFITTaxable, fedWithholding)
-      : afterFITTaxable * 0.12;
   // State tax: pass gross pay minus Section 125 benefit (pre-tax deduction)
   const afterSIT = calcStateTax(grossPay - benefitAmount, payPeriodsPerYear, stateWithholding);
   const afterTotalTax = afterFICA.fica + afterFIT + afterSIT;
