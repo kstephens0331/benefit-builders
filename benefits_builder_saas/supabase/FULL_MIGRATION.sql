@@ -1,8 +1,16 @@
--- Migration 009: Add Month-End Closing tables
--- This enables monthly closing process with automated reports
+-- FULL MIGRATION: Run this in Supabase SQL Editor
+-- This recreates the month_end_closings table with the correct schema
+
+-- Drop existing tables if they exist (in correct order due to foreign keys)
+DROP TABLE IF EXISTS month_end_company_details CASCADE;
+DROP TABLE IF EXISTS month_end_closings CASCADE;
+
+-- Drop old trigger/function if they exist
+DROP TRIGGER IF EXISTS closing_updated_at_trigger ON month_end_closings;
+DROP FUNCTION IF EXISTS update_closing_updated_at();
 
 -- Month-end closing records
-CREATE TABLE IF NOT EXISTS month_end_closings (
+CREATE TABLE month_end_closings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   year integer NOT NULL, -- e.g., 2025
   month integer NOT NULL CHECK (month >= 1 AND month <= 12), -- 1-12
@@ -51,7 +59,7 @@ CREATE TABLE IF NOT EXISTS month_end_closings (
 );
 
 -- Company-specific month-end details
-CREATE TABLE IF NOT EXISTS month_end_company_details (
+CREATE TABLE month_end_company_details (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   closing_id uuid REFERENCES month_end_closings(id) ON DELETE CASCADE,
   company_id uuid REFERENCES companies(id) ON DELETE CASCADE,
@@ -83,12 +91,12 @@ CREATE TABLE IF NOT EXISTS month_end_company_details (
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_closings_year_month ON month_end_closings(year DESC, month DESC);
-CREATE INDEX IF NOT EXISTS idx_closings_status ON month_end_closings(status);
-CREATE INDEX IF NOT EXISTS idx_closings_date ON month_end_closings(closing_date DESC);
-CREATE INDEX IF NOT EXISTS idx_company_details_closing ON month_end_company_details(closing_id);
-CREATE INDEX IF NOT EXISTS idx_company_details_company ON month_end_company_details(company_id);
-CREATE INDEX IF NOT EXISTS idx_company_details_email ON month_end_company_details(email_sent);
+CREATE INDEX idx_closings_year_month ON month_end_closings(year DESC, month DESC);
+CREATE INDEX idx_closings_status ON month_end_closings(status);
+CREATE INDEX idx_closings_date ON month_end_closings(closing_date DESC);
+CREATE INDEX idx_company_details_closing ON month_end_company_details(closing_id);
+CREATE INDEX idx_company_details_company ON month_end_company_details(company_id);
+CREATE INDEX idx_company_details_email ON month_end_company_details(email_sent);
 
 -- Updated_at trigger for closings
 CREATE OR REPLACE FUNCTION update_closing_updated_at()
@@ -104,10 +112,38 @@ CREATE TRIGGER closing_updated_at_trigger
   FOR EACH ROW
   EXECUTE FUNCTION update_closing_updated_at();
 
+-- Enable RLS
+ALTER TABLE month_end_closings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE month_end_company_details ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for service role access
+CREATE POLICY "Service role can do everything on month_end_closings"
+  ON month_end_closings FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+CREATE POLICY "Service role can do everything on month_end_company_details"
+  ON month_end_company_details FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- Allow authenticated users to view closings
+CREATE POLICY "Authenticated users can view closings"
+  ON month_end_closings FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Authenticated users can view company details"
+  ON month_end_company_details FOR SELECT
+  TO authenticated
+  USING (true);
+
 -- Comments
 COMMENT ON TABLE month_end_closings IS 'Monthly closing records with aggregated metrics and report storage';
 COMMENT ON TABLE month_end_company_details IS 'Per-company breakdown for each month-end closing';
-COMMENT ON COLUMN month_end_closings.closing_date IS 'Last day of the month being closed (e.g., 2025-01-31)';
-COMMENT ON COLUMN month_end_closings.month_year IS 'Human-readable period (e.g., "January 2025")';
-COMMENT ON COLUMN month_end_closings.report_pdf_data IS 'Actual PDF binary data stored in database';
-COMMENT ON COLUMN month_end_company_details.enrollment_rate IS 'Percentage of employees enrolled in benefits';
+COMMENT ON COLUMN month_end_closings.year IS 'Year of the closing period (e.g., 2025)';
+COMMENT ON COLUMN month_end_closings.month IS 'Month of the closing period (1-12)';
+COMMENT ON COLUMN month_end_closings.validation_report IS 'JSON containing full validation results';
+COMMENT ON COLUMN month_end_closings.transactions_locked IS 'Whether transactions for this period are locked';
