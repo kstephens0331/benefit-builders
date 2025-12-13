@@ -25,7 +25,13 @@
       "Bash(pnpm run build:*)",
       "Bash(nul)",
       "Bash(node fix-params.js:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(del nul)",
+      "Bash(npm view:*)",
+      "Bash(git diff:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(pnpm add:*)"
     ],
     "deny": [],
     "ask": []

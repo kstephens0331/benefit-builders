@@ -450,17 +450,17 @@ ${selectedModel && selectedModel !== 'auto' ? `USER SELECTED MODEL: ${selectedMo
 Return ONLY valid JSON (no markdown, no explanation):
 {"company":{"name":"...","state":"TX","pay_frequency":"weekly","model":"5/3"},"employees":[{"first_name":"...","last_name":"...","dob":"1990-01-01","filing_status":"single","dependents":0,"gross_pay":1000.00,"tobacco_use":false,"state":"TX","benefits":[]}]}`;
 
-    // Use fetch to call Claude API directly with PDF beta header
+    // Use fetch to call Claude API directly for PDF processing
+    // PDF support is now GA - no beta header required
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'pdfs-2024-09-25',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 16384,
         messages: [
           {
