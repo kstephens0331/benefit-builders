@@ -5,12 +5,28 @@ import Anthropic from '@anthropic-ai/sdk';
 import * as XLSX from 'xlsx';
 import { sendWelcomeEmail } from '@/lib/email';
 
-// Dynamic import for pdf-parse to avoid Next.js initialization issues
+// Dynamic import for pdf-parse to avoid Next.js/Vercel initialization issues
 async function parsePDFBuffer(buffer: Buffer): Promise<{ text: string }> {
-  // pdf-parse has issues with Next.js - use dynamic import
+  // pdf-parse has issues in serverless environments - it tries to load a test PDF
+  // We need to dynamically import and pass a custom render function to avoid this
   // @ts-ignore - pdf-parse doesn't have proper types
   const pdfParse = (await import('pdf-parse')).default;
-  return await pdfParse(buffer);
+
+  // Pass options to prevent pdf-parse from trying to load its test file
+  const options = {
+    // Custom page render to extract text
+    pagerender: function(pageData: any) {
+      return pageData.getTextContent().then(function(textContent: any) {
+        let text = '';
+        for (let item of textContent.items) {
+          text += item.str + ' ';
+        }
+        return text;
+      });
+    }
+  };
+
+  return await pdfParse(buffer, options);
 }
 
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY!;
