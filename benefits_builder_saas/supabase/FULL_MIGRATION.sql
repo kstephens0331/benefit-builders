@@ -1,13 +1,12 @@
 -- FULL MIGRATION: Run this in Supabase SQL Editor
 -- This recreates the month_end_closings table with the correct schema
 
+-- Drop old function first (this automatically drops the trigger)
+DROP FUNCTION IF EXISTS update_closing_updated_at() CASCADE;
+
 -- Drop existing tables if they exist (in correct order due to foreign keys)
 DROP TABLE IF EXISTS month_end_company_details CASCADE;
 DROP TABLE IF EXISTS month_end_closings CASCADE;
-
--- Drop old trigger/function if they exist
-DROP TRIGGER IF EXISTS closing_updated_at_trigger ON month_end_closings;
-DROP FUNCTION IF EXISTS update_closing_updated_at();
 
 -- Month-end closing records
 CREATE TABLE month_end_closings (

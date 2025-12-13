@@ -31,7 +31,12 @@
       "Bash(git diff:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(node -e:*)",
+      "Bash(pnpm seed:tax:*)",
+      "Bash(npx tsx:*)",
+      "Bash(node --loader tsx:*)",
+      "Bash(pnpm exec tsx:*)"
     ],
     "deny": [],
     "ask": []

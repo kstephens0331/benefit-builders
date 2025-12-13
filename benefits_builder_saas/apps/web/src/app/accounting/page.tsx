@@ -96,29 +96,34 @@ export default async function AccountingPage() {
     .eq("month", currentMonth - 1) // Check last month
     .single();
 
-  // Calculate summary stats
+  // Calculate summary stats (with safe fallbacks for missing tables)
+  const arArray = arData || [];
+  const apArray = apData || [];
+  const alertsArray = alerts || [];
+  const creditsArray = credits || [];
+
   const arSummary = {
-    total: arData?.reduce((sum, ar) => sum + parseFloat(ar.amount_due as any), 0) || 0,
-    overdue: arData?.filter(ar => ar.status === 'overdue').reduce((sum, ar) => sum + parseFloat(ar.amount_due as any), 0) || 0,
-    count: arData?.filter(ar => ar.status !== 'paid').length || 0,
+    total: arArray.reduce((sum, ar) => sum + parseFloat(ar.amount_due as any || 0), 0),
+    overdue: arArray.filter(ar => ar.status === 'overdue').reduce((sum, ar) => sum + parseFloat(ar.amount_due as any || 0), 0),
+    count: arArray.filter(ar => ar.status !== 'paid').length,
   };
 
   const apSummary = {
-    total: apData?.reduce((sum, ap) => sum + parseFloat(ap.amount_due as any), 0) || 0,
-    overdue: apData?.filter(ap => ap.status === 'overdue').reduce((sum, ap) => sum + parseFloat(ap.amount_due as any), 0) || 0,
-    count: apData?.filter(ap => ap.status !== 'paid').length || 0,
+    total: apArray.reduce((sum, ap) => sum + parseFloat(ap.amount_due as any || 0), 0),
+    overdue: apArray.filter(ap => ap.status === 'overdue').reduce((sum, ap) => sum + parseFloat(ap.amount_due as any || 0), 0),
+    count: apArray.filter(ap => ap.status !== 'paid').length,
   };
 
   // Count alerts by severity
   const alertsSummary = {
-    critical: alerts?.filter(a => a.severity === 'critical').length || 0,
-    warning: alerts?.filter(a => a.severity === 'warning').length || 0,
-    info: alerts?.filter(a => a.severity === 'info').length || 0,
-    total: alerts?.length || 0,
+    critical: alertsArray.filter(a => a.severity === 'critical').length,
+    warning: alertsArray.filter(a => a.severity === 'warning').length,
+    info: alertsArray.filter(a => a.severity === 'info').length,
+    total: alertsArray.length,
   };
 
   // Calculate total available credits
-  const totalCredits = credits?.reduce((sum, c) => sum + c.amount, 0) || 0;
+  const totalCredits = creditsArray.reduce((sum, c) => sum + (c.amount || 0), 0);
 
   return (
     <AccountingDashboard
