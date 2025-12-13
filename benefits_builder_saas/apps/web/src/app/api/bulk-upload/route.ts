@@ -413,108 +413,94 @@ async function parsePDFWithClaudeVision(buffer: Buffer, selectedModel: string | 
   }
 
   try {
-    const anthropic = new Anthropic({
-      apiKey: anthropicApiKey,
-    });
-
     // Convert buffer to base64
     const base64PDF = buffer.toString('base64');
 
     const prompt = `You are a data extraction specialist for a benefits administration system.
 Analyze this employee census/payroll PDF document and extract the following information in strict JSON format.
 
-IMPORTANT: The data may come from various payroll systems and formats. Look for patterns and extract as much data as possible.
+IMPORTANT:
+- The data may come from various payroll systems and formats
+- Some PDFs have data split across pages (e.g., names on page 1, marital status on page 2) - correlate them by row order
+- Look for patterns and extract as much data as possible
+- Pay close attention to column headers
 
 BILLING MODEL DETECTION:
 - Look for patterns like "5/3", "3/4", "5/1", "4/4", "5/0", "6/0", "1/5"
-- "5% employee / 3% employer" means model "5/3"
-- "3% employee / 4% employer" means model "3/4"
-- Schools often use "5/0" (5% employee, 0% employer)
 - Default to "5/3" if not found
 
 COMPANY INFORMATION:
-- Company name (look for headers, titles, or company identifiers)
-- State (2-letter code)
-- Pay frequency (weekly, biweekly, semimonthly, or monthly) - look for pay period indicators
+- Company name (look for headers, titles, filename hints, or company identifiers)
+- State (2-letter code, default "TX" if not found)
+- Pay frequency: W=weekly, B=biweekly, S=semimonthly, M=monthly
 - Billing model (one of: 5/3, 3/4, 5/1, 5/0, 4/4, 6/0, 1/5)
 
 EMPLOYEE INFORMATION (array):
-For each employee found:
-- First name
-- Last name
-- Date of birth (YYYY-MM-DD format if available)
-- Filing status (single, married, or head) - look for W-4 status, marital status
-- Number of dependents (integer)
-- Gross pay per paycheck (number) - look for wages, salary, gross pay columns
-- Tobacco use (boolean, default false if not found)
-- State (2-letter code, can be different from company)
+For each employee:
+- first_name, last_name
+- dob (YYYY-MM-DD format)
+- filing_status: S/Single=single, HOH=head, MFJ/M/Married=married, E=single
+- dependents (integer, 0 if blank)
+- gross_pay (TOTAL COMPENSATION column)
+- tobacco_use (false if not found)
+- state (2-letter code)
 
-BENEFIT ELECTIONS (array per employee):
-For each benefit found:
-- Plan code (HSA, FSA_HEALTH, FSA_DEPENDENT_CARE, DENTAL, VISION, LIFE, STD, LTD, etc.)
-- Per-pay amount (number)
-- Reduces FIT (boolean, default true for most pre-tax benefits)
-- Reduces FICA (boolean, default true for most pre-tax benefits)
+${selectedModel && selectedModel !== 'auto' ? `USER SELECTED MODEL: ${selectedModel}` : ''}
 
-${selectedModel && selectedModel !== 'auto' ? `USER SELECTED MODEL: ${selectedModel} - Use this model unless you find a different one explicitly stated in the document.` : ''}
+Return ONLY valid JSON (no markdown, no explanation):
+{"company":{"name":"...","state":"TX","pay_frequency":"weekly","model":"5/3"},"employees":[{"first_name":"...","last_name":"...","dob":"1990-01-01","filing_status":"single","dependents":0,"gross_pay":1000.00,"tobacco_use":false,"state":"TX","benefits":[]}]}`;
 
-Return ONLY valid JSON in this exact structure (no additional text):
-{
-  "company": {
-    "name": "Company Name",
-    "state": "TX",
-    "pay_frequency": "biweekly",
-    "model": "5/3"
-  },
-  "employees": [
-    {
-      "first_name": "John",
-      "last_name": "Doe",
-      "dob": "1985-03-15",
-      "filing_status": "married",
-      "dependents": 2,
-      "gross_pay": 3500.00,
-      "tobacco_use": false,
-      "state": "TX",
-      "benefits": []
-    }
-  ]
-}`;
-
-    // Use Claude with native PDF support (requires beta header)
-    const message = await anthropic.beta.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 8192,
-      betas: ['pdfs-2024-09-25'],
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: base64PDF,
+    // Use fetch to call Claude API directly with PDF beta header
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'pdfs-2024-09-25',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 16384,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'document',
+                source: {
+                  type: 'base64',
+                  media_type: 'application/pdf',
+                  data: base64PDF,
+                },
               },
-            },
-            {
-              type: 'text',
-              text: prompt,
-            },
-          ],
-        },
-      ],
+              {
+                type: 'text',
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Claude API error:', response.status, errorText);
+      throw new Error(`Claude API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+
     // Extract text from Claude's response
-    const textContent = message.content.find((block) => block.type === 'text');
+    const textContent = result.content?.find((block: any) => block.type === 'text');
     if (!textContent || textContent.type !== 'text') {
       throw new Error('No text content in Claude response');
     }
 
     const text = textContent.text;
     console.log('Claude vision response length:', text.length);
+    console.log('Claude vision response preview:', text.substring(0, 500));
 
     // Extract JSON from response (handle markdown code blocks)
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) ||
