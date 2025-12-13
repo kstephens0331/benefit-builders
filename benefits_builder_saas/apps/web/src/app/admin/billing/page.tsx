@@ -2,7 +2,7 @@
 
 export const metadata = {
   title: "Billing Dashboard — Benefits Builder",
-  description: "Run monthly close and export billing reports.",
+  description: "Generate invoices for all clients and export billing reports.",
 };
 
 export default async function BillingPage() {
@@ -11,12 +11,12 @@ export default async function BillingPage() {
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Billing Dashboard</h1>
-          <p className="text-slate-600">Select a month, run close, preview totals, and export JSON/PDF.</p>
+          <p className="text-slate-600">Generate invoices for all clients, preview totals, and export reports.</p>
         </div>
       </header>
 
       <section className="p-5 bg-white rounded-2xl shadow space-y-4">
-        <h2 className="font-semibold">Monthly Close & Reports</h2>
+        <h2 className="font-semibold">Invoice Generation & Reports</h2>
         <BillingPanel />
       </section>
     </main>

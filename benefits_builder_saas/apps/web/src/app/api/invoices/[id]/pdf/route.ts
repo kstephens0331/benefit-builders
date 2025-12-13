@@ -4,6 +4,15 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { readFileSync } from "fs";
 import { join } from "path";
 
+// Benefit Builder company info (static)
+const BENEFIT_BUILDER = {
+  name: "Benefit Builder",
+  address: "206A S Loop 336 W Box 322",
+  cityStateZip: "Conroe, TX 77304-3300",
+  email: "billdawson.bb@gmail.com",
+  phone: "+1 (972) 741-5663",
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -39,12 +48,11 @@ export async function GET(
       );
     }
 
-    // Fetch invoice lines (only ER and EE fees)
+    // Fetch invoice lines
     const { data: lines } = await db
       .from("invoice_lines")
       .select("*")
       .eq("invoice_id", id)
-      .in("kind", ["employer_fee", "employee_fee"])
       .order("kind");
 
     // Generate PDF
@@ -66,321 +74,465 @@ export async function GET(
       console.warn("Logo not found, skipping...");
     }
 
-    let yPosition = height - 50;
     const company = Array.isArray(invoice.companies) ? invoice.companies[0] : invoice.companies;
+    const leftMargin = 40;
+    const rightMargin = width - 40;
+    let y = height - 40;
+
+    // Colors
+    const bluePrimary = rgb(0.1, 0.4, 0.7);
+    const blueLight = rgb(0.9, 0.95, 1);
+    const grayText = rgb(0.3, 0.3, 0.3);
+    const greenText = rgb(0.1, 0.6, 0.1);
 
     // ===== HEADER SECTION =====
-    // Draw logo (top left)
+    // "INVOICE" title (top left, blue)
+    page.drawText("INVOICE", {
+      x: leftMargin,
+      y: y,
+      size: 24,
+      font: helveticaBold,
+      color: bluePrimary,
+    });
+
+    // Logo (top right)
     if (logoImage) {
-      const logoDims = logoImage.scale(0.25);
+      const logoDims = logoImage.scale(0.2);
       page.drawImage(logoImage, {
-        x: 40,
-        y: yPosition - logoDims.height,
+        x: rightMargin - logoDims.width,
+        y: y - logoDims.height + 30,
         width: logoDims.width,
         height: logoDims.height,
       });
     }
 
-    // Company Name & Info (centered)
-    const companyName = company.name || "Company";
-    const companyNameWidth = helveticaBold.widthOfTextAtSize(companyName, 18);
-    page.drawText(companyName, {
-      x: (width - companyNameWidth) / 2,
-      y: yPosition,
-      size: 18,
+    y -= 20;
+
+    // Benefit Builder company info (below INVOICE title)
+    page.drawText(BENEFIT_BUILDER.name, {
+      x: leftMargin,
+      y: y,
+      size: 10,
       font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
+      color: grayText,
+    });
+    y -= 14;
+    page.drawText(BENEFIT_BUILDER.address, {
+      x: leftMargin,
+      y: y,
+      size: 9,
+      font: helvetica,
+      color: grayText,
+    });
+    y -= 12;
+    page.drawText(BENEFIT_BUILDER.cityStateZip, {
+      x: leftMargin,
+      y: y,
+      size: 9,
+      font: helvetica,
+      color: grayText,
     });
 
-    yPosition -= 20;
+    // Email and phone (to the right of address)
+    page.drawText(BENEFIT_BUILDER.email, {
+      x: leftMargin + 180,
+      y: y + 26,
+      size: 9,
+      font: helvetica,
+      color: grayText,
+    });
+    page.drawText(BENEFIT_BUILDER.phone, {
+      x: leftMargin + 180,
+      y: y + 14,
+      size: 9,
+      font: helvetica,
+      color: grayText,
+    });
 
-    // Company Address (centered)
-    const addressParts = [];
-    if (company.address) addressParts.push(company.address);
-    if (company.city && company.state && company.zip) {
-      addressParts.push(`${company.city}, ${company.state} ${company.zip}`);
-    } else if (company.city && company.state) {
-      addressParts.push(`${company.city}, ${company.state}`);
-    } else if (company.state) {
-      addressParts.push(company.state);
-    }
+    y -= 30;
 
-    for (const line of addressParts) {
-      const lineWidth = helvetica.widthOfTextAtSize(line, 11);
-      page.drawText(line, {
-        x: (width - lineWidth) / 2,
-        y: yPosition,
-        size: 11,
-        font: helvetica,
-        color: rgb(0.3, 0.3, 0.3),
-      });
-      yPosition -= 15;
-    }
+    // ===== BILL TO / SHIP TO SECTION (light blue box) =====
+    const boxY = y;
+    const boxHeight = 90;
+    page.drawRectangle({
+      x: leftMargin,
+      y: boxY - boxHeight,
+      width: rightMargin - leftMargin,
+      height: boxHeight,
+      color: blueLight,
+    });
 
-    // Phone number (centered)
-    if (company.contact_phone) {
-      const phoneWidth = helvetica.widthOfTextAtSize(company.contact_phone, 11);
-      page.drawText(company.contact_phone, {
-        x: (width - phoneWidth) / 2,
-        y: yPosition,
-        size: 11,
-        font: helvetica,
-        color: rgb(0.3, 0.3, 0.3),
-      });
-      yPosition -= 15;
-    }
+    y -= 20;
+    const colWidth = (rightMargin - leftMargin) / 2;
 
-    yPosition -= 30;
-
-    // ===== INVOICE TITLE & DETAILS =====
-    // Invoice title (centered)
-    const invoiceTitle = "INVOICE";
-    const invoiceTitleWidth = helveticaBold.widthOfTextAtSize(invoiceTitle, 24);
-    page.drawText(invoiceTitle, {
-      x: (width - invoiceTitleWidth) / 2,
-      y: yPosition,
-      size: 24,
+    // Bill To
+    page.drawText("Bill to", {
+      x: leftMargin + 15,
+      y: y,
+      size: 10,
       font: helveticaBold,
-      color: rgb(0.2, 0.4, 0.7),
+      color: grayText,
     });
-
-    yPosition -= 35;
-
-    // Invoice metadata (centered)
-    const invoiceNum = `Invoice #: ${invoice.id.substring(0, 8).toUpperCase()}`;
-    const invoiceNumWidth = helvetica.widthOfTextAtSize(invoiceNum, 10);
-    page.drawText(invoiceNum, {
-      x: (width - invoiceNumWidth) / 2,
-      y: yPosition,
-      size: 10,
+    y -= 14;
+    page.drawText(company?.contact_name || company?.name || "Customer", {
+      x: leftMargin + 15,
+      y: y,
+      size: 9,
       font: helvetica,
+      color: grayText,
     });
-
-    yPosition -= 15;
-
-    const periodText = `Period: ${invoice.period}`;
-    const periodWidth = helvetica.widthOfTextAtSize(periodText, 10);
-    page.drawText(periodText, {
-      x: (width - periodWidth) / 2,
-      y: yPosition,
-      size: 10,
+    y -= 12;
+    page.drawText(company?.name || "", {
+      x: leftMargin + 15,
+      y: y,
+      size: 9,
       font: helvetica,
+      color: grayText,
     });
+    y -= 12;
+    if (company?.address) {
+      page.drawText(company.address, {
+        x: leftMargin + 15,
+        y: y,
+        size: 9,
+        font: helvetica,
+        color: grayText,
+      });
+      y -= 12;
+    }
+    const cityStateZip = [company?.city, company?.state, company?.zip].filter(Boolean).join(", ");
+    if (cityStateZip) {
+      page.drawText(cityStateZip, {
+        x: leftMargin + 15,
+        y: y,
+        size: 9,
+        font: helvetica,
+        color: grayText,
+      });
+    }
 
-    yPosition -= 15;
-
-    const issueDate = new Date(invoice.issued_at).toLocaleDateString();
-    const issueDateText = `Issue Date: ${issueDate}`;
-    const issueDateWidth = helvetica.widthOfTextAtSize(issueDateText, 10);
-    page.drawText(issueDateText, {
-      x: (width - issueDateWidth) / 2,
-      y: yPosition,
+    // Ship To (same as Bill To for services)
+    let shipY = boxY - 20;
+    page.drawText("Ship to", {
+      x: leftMargin + colWidth + 15,
+      y: shipY,
       size: 10,
+      font: helveticaBold,
+      color: grayText,
+    });
+    shipY -= 14;
+    page.drawText(company?.contact_name || company?.name || "Customer", {
+      x: leftMargin + colWidth + 15,
+      y: shipY,
+      size: 9,
       font: helvetica,
+      color: grayText,
+    });
+    shipY -= 12;
+    page.drawText(company?.name || "", {
+      x: leftMargin + colWidth + 15,
+      y: shipY,
+      size: 9,
+      font: helvetica,
+      color: grayText,
+    });
+    shipY -= 12;
+    if (company?.address) {
+      page.drawText(company.address, {
+        x: leftMargin + colWidth + 15,
+        y: shipY,
+        size: 9,
+        font: helvetica,
+        color: grayText,
+      });
+      shipY -= 12;
+    }
+    if (cityStateZip) {
+      page.drawText(cityStateZip, {
+        x: leftMargin + colWidth + 15,
+        y: shipY,
+        size: 9,
+        font: helvetica,
+        color: grayText,
+      });
+    }
+
+    y = boxY - boxHeight - 30;
+
+    // ===== INVOICE DETAILS SECTION =====
+    page.drawText("Invoice details", {
+      x: leftMargin,
+      y: y,
+      size: 11,
+      font: helveticaBold,
+      color: grayText,
+    });
+    y -= 16;
+
+    // Generate invoice number from ID or invoice_number field
+    const invoiceNumber = invoice.invoice_number || invoice.id.substring(0, 8).toUpperCase();
+    page.drawText(`Invoice no.: ${invoiceNumber}`, {
+      x: leftMargin,
+      y: y,
+      size: 9,
+      font: helvetica,
+      color: grayText,
+    });
+    y -= 12;
+
+    page.drawText("Terms: Net 30", {
+      x: leftMargin,
+      y: y,
+      size: 9,
+      font: helvetica,
+      color: grayText,
+    });
+    y -= 12;
+
+    const invoiceDate = invoice.invoice_date || invoice.issued_at;
+    const formattedInvoiceDate = invoiceDate
+      ? new Date(invoiceDate).toLocaleDateString("en-US")
+      : new Date().toLocaleDateString("en-US");
+    page.drawText(`Invoice date: ${formattedInvoiceDate}`, {
+      x: leftMargin,
+      y: y,
+      size: 9,
+      font: helvetica,
+      color: grayText,
+    });
+    y -= 12;
+
+    // Due date (30 days from invoice date)
+    const dueDate = invoice.due_date
+      ? new Date(invoice.due_date)
+      : new Date(new Date(invoiceDate || Date.now()).getTime() + 30 * 24 * 60 * 60 * 1000);
+    page.drawText(`Due date: ${dueDate.toLocaleDateString("en-US")}`, {
+      x: leftMargin,
+      y: y,
+      size: 9,
+      font: helvetica,
+      color: grayText,
     });
 
-    yPosition -= 40;
+    y -= 40;
 
     // ===== LINE ITEMS TABLE =====
+    const tableX = leftMargin;
+    const tableWidth = rightMargin - leftMargin;
+    const colWidths = {
+      num: 30,
+      product: 120,
+      description: 180,
+      qty: 50,
+      rate: 70,
+      amount: 70,
+    };
+
     // Table header
-    const tableX = 100;
-    const tableWidth = width - 200;
-
-    page.drawRectangle({
-      x: tableX,
-      y: yPosition - 5,
-      width: tableWidth,
-      height: 25,
-      color: rgb(0.2, 0.4, 0.7),
+    page.drawLine({
+      start: { x: tableX, y: y + 5 },
+      end: { x: tableX + tableWidth, y: y + 5 },
+      thickness: 1,
+      color: rgb(0.8, 0.8, 0.8),
     });
 
-    page.drawText("Description", {
-      x: tableX + 15,
-      y: yPosition + 5,
-      size: 11,
-      font: helveticaBold,
-      color: rgb(1, 1, 1),
+    y -= 5;
+    let x = tableX;
+    page.drawText("#", { x: x + 5, y: y, size: 9, font: helveticaBold, color: grayText });
+    x += colWidths.num;
+    page.drawText("Product or service", { x, y, size: 9, font: helveticaBold, color: grayText });
+    x += colWidths.product;
+    page.drawText("Description", { x, y, size: 9, font: helveticaBold, color: grayText });
+    x += colWidths.description;
+    page.drawText("Qty", { x, y, size: 9, font: helveticaBold, color: grayText });
+    x += colWidths.qty;
+    page.drawText("Rate", { x, y, size: 9, font: helveticaBold, color: grayText });
+    x += colWidths.rate;
+    page.drawText("Amount", { x, y, size: 9, font: helveticaBold, color: grayText });
+
+    y -= 15;
+    page.drawLine({
+      start: { x: tableX, y: y + 5 },
+      end: { x: tableX + tableWidth, y: y + 5 },
+      thickness: 1,
+      color: rgb(0.9, 0.9, 0.9),
     });
 
-    page.drawText("Amount", {
-      x: tableX + tableWidth - 80,
-      y: yPosition + 5,
-      size: 11,
-      font: helveticaBold,
-      color: rgb(1, 1, 1),
-    });
-
-    yPosition -= 30;
-
-    // Line items (ER fee and EE fee)
+    // Line items
     let subtotal = 0;
-    if (lines && lines.length > 0) {
-      for (const line of lines) {
-        // Alternate row colors
-        const isEven = lines.indexOf(line) % 2 === 0;
-        if (isEven) {
-          page.drawRectangle({
-            x: tableX,
-            y: yPosition - 8,
-            width: tableWidth,
-            height: 25,
-            color: rgb(0.96, 0.96, 0.96),
-          });
-        }
+    const lineItems = lines || [];
 
-        page.drawText(line.description, {
-          x: tableX + 15,
-          y: yPosition,
-          size: 11,
-          font: helvetica,
-        });
+    if (lineItems.length > 0) {
+      lineItems.forEach((line: any, index: number) => {
+        y -= 5;
+        x = tableX;
 
-        const amount = (line.amount_cents / 100).toFixed(2);
-        page.drawText(`$${amount}`, {
-          x: tableX + tableWidth - 80,
-          y: yPosition,
-          size: 11,
-          font: helvetica,
-        });
+        page.drawText(`${index + 1}.`, { x: x + 5, y, size: 9, font: helvetica, color: grayText });
+        x += colWidths.num;
+
+        // Product name (e.g., "Monthly Fee")
+        const productName = line.kind === "employer_fee" ? "Employer Fee" :
+                           line.kind === "employee_fee" ? "Employee Fee" :
+                           line.kind === "admin_fee" ? "Admin Fee" :
+                           "Monthly Fee";
+        page.drawText(productName, { x, y, size: 9, font: helveticaBold, color: grayText });
+        x += colWidths.product;
+
+        // Description
+        const desc = line.description || invoice.period || "";
+        page.drawText(desc.substring(0, 30), { x, y, size: 9, font: helvetica, color: grayText });
+        x += colWidths.description;
+
+        // Qty
+        const qty = line.quantity || 1;
+        page.drawText(String(qty), { x, y, size: 9, font: helvetica, color: grayText });
+        x += colWidths.qty;
+
+        // Rate
+        const rate = (line.amount_cents / 100) / qty;
+        page.drawText(`$${rate.toFixed(2)}`, { x, y, size: 9, font: helvetica, color: grayText });
+        x += colWidths.rate;
+
+        // Amount
+        const amount = line.amount_cents / 100;
+        page.drawText(`$${amount.toFixed(2)}`, { x, y, size: 9, font: helvetica, color: grayText });
 
         subtotal += line.amount_cents;
-        yPosition -= 25;
-      }
-    } else {
-      // No lines - show message
-      page.drawText("No fees for this period", {
-        x: tableX + 15,
-        y: yPosition,
-        size: 11,
-        font: helvetica,
-        color: rgb(0.5, 0.5, 0.5),
+        y -= 20;
       });
-      yPosition -= 25;
+    } else {
+      // Single line item from invoice total
+      y -= 5;
+      x = tableX;
+      page.drawText("1.", { x: x + 5, y, size: 9, font: helvetica, color: grayText });
+      x += colWidths.num;
+      page.drawText("Monthly Fee", { x, y, size: 9, font: helveticaBold, color: grayText });
+      x += colWidths.product;
+      page.drawText(invoice.period || "", { x, y, size: 9, font: helvetica, color: grayText });
+      x += colWidths.description;
+      page.drawText("1", { x, y, size: 9, font: helvetica, color: grayText });
+      x += colWidths.qty;
+      const total = (invoice.total_cents || 0) / 100;
+      page.drawText(`$${total.toFixed(2)}`, { x, y, size: 9, font: helvetica, color: grayText });
+      x += colWidths.rate;
+      page.drawText(`$${total.toFixed(2)}`, { x, y, size: 9, font: helvetica, color: grayText });
+      subtotal = invoice.total_cents || 0;
+      y -= 20;
     }
 
-    yPosition -= 20;
+    // Line under items
+    page.drawLine({
+      start: { x: tableX, y: y + 10 },
+      end: { x: tableX + tableWidth, y: y + 10 },
+      thickness: 1,
+      color: rgb(0.9, 0.9, 0.9),
+    });
+
+    y -= 20;
 
     // ===== TOTALS SECTION =====
-    // Divider line
-    page.drawLine({
-      start: { x: tableX + tableWidth - 150, y: yPosition + 10 },
-      end: { x: tableX + tableWidth, y: yPosition + 10 },
-      thickness: 1,
-      color: rgb(0.7, 0.7, 0.7),
-    });
+    const totalsX = tableX + tableWidth - 200;
 
-    yPosition -= 5;
-
-    // Subtotal
-    const subtotalAmount = (invoice.subtotal_cents / 100).toFixed(2);
-    page.drawText("Subtotal:", {
-      x: tableX + tableWidth - 150,
-      y: yPosition,
+    // Ways to pay section (left side)
+    page.drawText("Ways to pay", {
+      x: leftMargin,
+      y: y + 10,
       size: 10,
-      font: helvetica,
-    });
-    page.drawText(`$${subtotalAmount}`, {
-      x: tableX + tableWidth - 80,
-      y: yPosition,
-      size: 10,
-      font: helvetica,
-    });
-
-    yPosition -= 18;
-
-    // Tax (if any)
-    if (invoice.tax_cents > 0) {
-      const taxAmount = (invoice.tax_cents / 100).toFixed(2);
-      page.drawText("Tax:", {
-        x: tableX + tableWidth - 150,
-        y: yPosition,
-        size: 10,
-        font: helvetica,
-      });
-      page.drawText(`$${taxAmount}`, {
-        x: tableX + tableWidth - 80,
-        y: yPosition,
-        size: 10,
-        font: helvetica,
-      });
-      yPosition -= 18;
-    }
-
-    // Total line
-    page.drawLine({
-      start: { x: tableX + tableWidth - 150, y: yPosition + 10 },
-      end: { x: tableX + tableWidth, y: yPosition + 10 },
-      thickness: 2,
-      color: rgb(0.2, 0.4, 0.7),
-    });
-
-    yPosition -= 5;
-
-    // Total
-    const totalAmount = (invoice.total_cents / 100).toFixed(2);
-    page.drawText("TOTAL DUE:", {
-      x: tableX + tableWidth - 150,
-      y: yPosition,
-      size: 12,
       font: helveticaBold,
+      color: grayText,
     });
-    page.drawText(`$${totalAmount}`, {
-      x: tableX + tableWidth - 80,
-      y: yPosition,
-      size: 12,
-      font: helveticaBold,
-      color: rgb(0, 0.5, 0),
-    });
-
-    // ===== FOOTER =====
-    yPosition = 100;
-
-    // Status badge
-    const statusText = `Status: ${invoice.status.toUpperCase()}`;
-    const statusWidth = helveticaBold.widthOfTextAtSize(statusText, 12);
-    const statusColor = invoice.status === 'paid' ? rgb(0, 0.6, 0) :
-                        invoice.status === 'sent' ? rgb(0.8, 0.5, 0) :
-                        rgb(0.8, 0, 0);
-    page.drawText(statusText, {
-      x: (width - statusWidth) / 2,
-      y: yPosition,
-      size: 12,
-      font: helveticaBold,
-      color: statusColor,
-    });
-
-    yPosition -= 25;
-
-    // Thank you message
-    const thankYou = "Thank you for your business!";
-    const thankYouWidth = helvetica.widthOfTextAtSize(thankYou, 10);
-    page.drawText(thankYou, {
-      x: (width - thankYouWidth) / 2,
-      y: yPosition,
-      size: 10,
-      font: helvetica,
-      color: rgb(0.4, 0.4, 0.4),
-    });
-
-    yPosition -= 15;
-
-    const contact = "Questions? Contact support@benefitsbuilder.com";
-    const contactWidth = helvetica.widthOfTextAtSize(contact, 9);
-    page.drawText(contact, {
-      x: (width - contactWidth) / 2,
-      y: yPosition,
-      size: 9,
+    // Payment method icons would go here (text placeholder)
+    page.drawText("VISA  MC  DISCOVER  AMEX  BANK  PayPal  Venmo", {
+      x: leftMargin,
+      y: y - 5,
+      size: 7,
       font: helvetica,
       color: rgb(0.5, 0.5, 0.5),
     });
 
+    // Total (right side)
+    const totalAmount = (invoice.total_cents || subtotal) / 100;
+    page.drawText("Total", {
+      x: totalsX,
+      y: y + 10,
+      size: 10,
+      font: helvetica,
+      color: grayText,
+    });
+    page.drawText(`$${totalAmount.toFixed(2)}`, {
+      x: totalsX + 100,
+      y: y + 10,
+      size: 14,
+      font: helveticaBold,
+      color: grayText,
+    });
+
+    y -= 25;
+
+    // Payment (if any)
+    const amountPaid = (invoice.amount_paid_cents || 0) / 100;
+    if (amountPaid > 0) {
+      page.drawText("Payment", {
+        x: totalsX,
+        y: y,
+        size: 10,
+        font: helvetica,
+        color: grayText,
+      });
+      page.drawText(`-$${amountPaid.toFixed(2)}`, {
+        x: totalsX + 100,
+        y: y,
+        size: 10,
+        font: helvetica,
+        color: grayText,
+      });
+      y -= 20;
+    }
+
+    // Balance due line
+    page.drawLine({
+      start: { x: totalsX, y: y + 5 },
+      end: { x: totalsX + 160, y: y + 5 },
+      thickness: 1,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+
+    const balanceDue = totalAmount - amountPaid;
+    page.drawText("Balance due", {
+      x: totalsX,
+      y: y - 10,
+      size: 10,
+      font: helveticaBold,
+      color: grayText,
+    });
+    page.drawText(`$${balanceDue.toFixed(2)}`, {
+      x: totalsX + 100,
+      y: y - 10,
+      size: 14,
+      font: helveticaBold,
+      color: balanceDue === 0 ? greenText : grayText,
+    });
+
+    // "Paid in Full" stamp if balance is 0
+    if (balanceDue === 0 || invoice.payment_status === "paid") {
+      y -= 40;
+      page.drawText("Paid in Full", {
+        x: totalsX + 50,
+        y: y,
+        size: 16,
+        font: helveticaBold,
+        color: greenText,
+      });
+    }
+
     // Save PDF
     const pdfBytes = await pdfDoc.save();
 
+    const fileName = `Invoice-${invoiceNumber}.pdf`;
     return new NextResponse(pdfBytes, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="invoice-${invoice.period}-${company.name.replace(/\s+/g, '-')}.pdf"`,
+        "Content-Disposition": `inline; filename="${fileName}"`,
       },
     });
   } catch (error: any) {

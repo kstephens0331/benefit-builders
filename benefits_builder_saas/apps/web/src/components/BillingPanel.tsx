@@ -73,7 +73,8 @@ export default function BillingPanel() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data?.ok) throw new Error(data?.error || `Failed (${res.status})`);
-        setMessage(`Close completed for ${period}.`);
+        const count = data?.results?.length || 0;
+        setMessage(`Generated ${count} invoices for ${period}.`);
         await fetchTable();
       } catch (e: any) {
         setMessage(`Close failed: ${e?.message || e}`);
@@ -106,8 +107,8 @@ export default function BillingPanel() {
           />
         </div>
 
-        <button onClick={runClose} disabled={isPending} className="px-4 py-2 rounded-xl bg-slate-900 text-white disabled:opacity-50">
-          {isPending ? "Running Close…" : "Run Close"}
+        <button onClick={runClose} disabled={isPending} className="px-4 py-2 rounded-xl bg-green-600 text-white disabled:opacity-50 hover:bg-green-700">
+          {isPending ? "Generating…" : "Generate All Invoices"}
         </button>
 
         <a href={jsonHref} target="_blank" className="px-4 py-2 rounded-xl border border-slate-300 text-slate-800 hover:bg-slate-50">
@@ -170,7 +171,7 @@ export default function BillingPanel() {
       </div>
 
       <p className="text-xs text-slate-500">
-        Model fees (5/3, 3/4, 5/1, 4/4) are applied to monthly pre-tax totals. "Run Close" updates invoices for the selected period.
+        "Generate All Invoices" creates/updates invoices for all active companies for the selected period. Model fees (5/3, 3/4, 5/1, 4/4) are applied to monthly pre-tax totals.
       </p>
     </div>
   );
