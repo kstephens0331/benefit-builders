@@ -936,13 +936,45 @@ function parseBenefits(row: any): any[] {
   return benefits;
 }
 
+// Normalize pay frequency to database format
+function normalizePayFrequency(freq: string | null | undefined): string {
+  if (!freq) return 'biweekly';
+  const f = freq.toString().toLowerCase().trim();
+  if (f === 'w' || f === 'weekly') return 'weekly';
+  if (f === 'b' || f === 'biweekly' || f === 'bi-weekly') return 'biweekly';
+  if (f === 's' || f === 'semimonthly' || f === 'semi-monthly') return 'semimonthly';
+  if (f === 'm' || f === 'monthly') return 'monthly';
+  return 'biweekly'; // default
+}
+
+// Normalize filing status to database format
+function normalizeFilingStatus(status: string | null | undefined): string {
+  if (!status) return 'single';
+  const s = status.toString().toLowerCase().trim();
+  if (s === 's' || s === 'single' || s === 'e') return 'single';
+  if (s === 'm' || s === 'married' || s === 'mfj') return 'married';
+  if (s === 'hoh' || s === 'head' || s === 'head of household') return 'head';
+  return 'single'; // default
+}
+
+// Convert pay frequency to pay period code for employees
+function payFrequencyToCode(freq: string): string {
+  switch (freq) {
+    case 'weekly': return 'w';
+    case 'biweekly': return 'b';
+    case 'semimonthly': return 's';
+    case 'monthly': return 'm';
+    default: return 'b';
+  }
+}
+
 async function processStructuredData(data: any) {
   const supabase = createServiceClient();
 
   // Validate and provide defaults for required fields
   const companyName = data.company?.name || 'Imported Company';
   const companyState = data.company?.state || 'TX';
-  const payFrequency = data.company?.pay_frequency || 'biweekly';
+  const payFrequency = normalizePayFrequency(data.company?.pay_frequency);
   // Model is required - use default if not provided
   const billingModel = data.company?.model || '5/3';
   // Optional address fields
@@ -986,9 +1018,15 @@ async function processStructuredData(data: any) {
   const employeesCreated = [];
   const employeesFailed = [];
 
+  // Get pay period code for employees from company pay frequency
+  const employeePayPeriod = payFrequencyToCode(payFrequency);
+
   // Create employees and their benefits
   for (const empData of data.employees) {
     try {
+      // Normalize filing status
+      const filingStatus = normalizeFilingStatus(empData.filing_status);
+
       const { data: employee, error: empError } = await supabase
         .from('employees')
         .insert({
@@ -996,10 +1034,11 @@ async function processStructuredData(data: any) {
           first_name: empData.first_name,
           last_name: empData.last_name,
           dob: empData.dob || null,
-          filing_status: empData.filing_status,
-          dependents: empData.dependents,
+          filing_status: filingStatus,
+          dependents: empData.dependents || 0,
           gross_pay: empData.gross_pay,
-          tobacco_use: empData.tobacco_use,
+          tobacco_use: empData.tobacco_use || false,
+          pay_period: employeePayPeriod,
           active: true,
           consent_status: 'pending',
         })

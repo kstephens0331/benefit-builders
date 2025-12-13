@@ -109,16 +109,17 @@ export default function BenefitsCalculator({
   const safetyCapPercent = Number(company.safety_cap_percent) || 50;
 
   // Build custom amounts object from company settings
+  // Only create customAmounts if at least one field has an actual value (not null/undefined)
   const customAmounts: CustomSection125Amounts | undefined = (
-    company.sec125_single_0 !== undefined ||
-    company.sec125_married_0 !== undefined ||
-    company.sec125_single_deps !== undefined ||
-    company.sec125_married_deps !== undefined
+    company.sec125_single_0 != null ||
+    company.sec125_married_0 != null ||
+    company.sec125_single_deps != null ||
+    company.sec125_married_deps != null
   ) ? {
-    sec125_single_0: company.sec125_single_0,
-    sec125_married_0: company.sec125_married_0,
-    sec125_single_deps: company.sec125_single_deps,
-    sec125_married_deps: company.sec125_married_deps,
+    sec125_single_0: company.sec125_single_0 ?? undefined,
+    sec125_married_0: company.sec125_married_0 ?? undefined,
+    sec125_single_deps: company.sec125_single_deps ?? undefined,
+    sec125_married_deps: company.sec125_married_deps ?? undefined,
   } : undefined;
 
   // Check affordability and get safe deduction amount
