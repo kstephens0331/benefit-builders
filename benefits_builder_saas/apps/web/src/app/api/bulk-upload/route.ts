@@ -417,38 +417,47 @@ async function parsePDFWithClaudeVision(buffer: Buffer, selectedModel: string | 
     const base64PDF = buffer.toString('base64');
 
     const prompt = `You are a data extraction specialist for a benefits administration system.
-Analyze this employee census/payroll PDF document and extract the following information in strict JSON format.
+Analyze this employee census/payroll PDF document and extract ALL information in strict JSON format.
 
-IMPORTANT:
-- The data may come from various payroll systems and formats
-- Some PDFs have data split across pages (e.g., names on page 1, marital status on page 2) - correlate them by row order
-- Look for patterns and extract as much data as possible
-- Pay close attention to column headers
+CRITICAL INSTRUCTIONS:
+1. COMPANY NAME: Look carefully at the TOP of the document for the company name. It may appear as:
+   - A title/header at the top of the first page
+   - Text like "COMPANY NAME", "Company:", or just prominently displayed
+   - Part of a report title like "SAGE CREEK CENSUS" means company is "Sage Creek"
+   - NEVER return "unknown" - always extract the actual company name from the document
 
-BILLING MODEL DETECTION:
-- Look for patterns like "5/3", "3/4", "5/1", "4/4", "5/0", "6/0", "1/5"
-- Default to "5/3" if not found
+2. STATE: Determine the state from:
+   - Company address if shown
+   - Employee addresses or state columns
+   - Default to "TX" only if no state information is found anywhere
 
-COMPANY INFORMATION:
-- Company name (look for headers, titles, filename hints, or company identifiers)
-- State (2-letter code, default "TX" if not found)
-- Pay frequency: W=weekly, B=biweekly, S=semimonthly, M=monthly
-- Billing model (one of: 5/3, 3/4, 5/1, 5/0, 4/4, 6/0, 1/5)
+3. PAY FREQUENCY: Look for:
+   - "W" or "Weekly" = weekly
+   - "B" or "Bi-Weekly" or "Biweekly" = biweekly
+   - "S" or "Semi-Monthly" = semimonthly
+   - "M" or "Monthly" = monthly
+   - Check the "Pay Period" column for W/M indicators per employee
 
-EMPLOYEE INFORMATION (array):
-For each employee:
-- first_name, last_name
-- dob (YYYY-MM-DD format)
-- filing_status: S/Single=single, HOH=head, MFJ/M/Married=married, E=single
-- dependents (integer, 0 if blank)
-- gross_pay (TOTAL COMPENSATION column)
-- tobacco_use (false if not found)
-- state (2-letter code)
+4. DATA SPLIT ACROSS PAGES: Some PDFs have:
+   - Pages 1,3,5: Names, DOB, Gross Pay
+   - Pages 2,4,6: Marital Status, Dependents
+   - Correlate by row order (1st employee on page 1 matches 1st on page 2)
 
-${selectedModel && selectedModel !== 'auto' ? `USER SELECTED MODEL: ${selectedModel}` : ''}
+EMPLOYEE DATA - Extract for EACH employee:
+- first_name, last_name (from LAST NAME, FIRST NAME columns)
+- dob: DATE OF BIRTH in YYYY-MM-DD format
+- gross_pay: TOTAL COMPENSATION or GROSS PAY amount (the paycheck amount)
+- filing_status: S/Single/E=single, HOH=head, MFJ/M/Married=married
+- dependents: Number from Dependents column (0 if blank)
+- tobacco_use: false unless explicitly marked
+- state: 2-letter code from employee's state column or default to company state
 
-Return ONLY valid JSON (no markdown, no explanation):
-{"company":{"name":"...","state":"TX","pay_frequency":"weekly","model":"5/3"},"employees":[{"first_name":"...","last_name":"...","dob":"1990-01-01","filing_status":"single","dependents":0,"gross_pay":1000.00,"tobacco_use":false,"state":"TX","benefits":[]}]}`;
+BILLING MODEL: Look for "5/3", "3/4", "5/1", "5/0", "4/4", "6/0", "1/5". Default "5/3".
+
+${selectedModel && selectedModel !== 'auto' ? `USER SELECTED MODEL: ${selectedModel} - Use this model.` : ''}
+
+Return ONLY valid JSON (no markdown, no code blocks, no explanation):
+{"company":{"name":"Actual Company Name Here","state":"TX","pay_frequency":"weekly","model":"5/3"},"employees":[{"first_name":"John","last_name":"Doe","dob":"1990-01-15","filing_status":"single","dependents":0,"gross_pay":1500.00,"tobacco_use":false,"state":"TX","benefits":[]}]}`;
 
     // Use fetch to call Claude API directly for PDF processing
     // PDF support is now GA - no beta header required
