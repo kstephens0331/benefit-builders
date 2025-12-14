@@ -368,7 +368,7 @@ export async function getAllCustomersFromQB(
 }
 
 /**
- * Get all invoices from QuickBooks
+ * Get all invoices from QuickBooks using direct API call
  */
 export async function getAllInvoicesFromQB(
   tokens: QBTokens,
@@ -377,45 +377,43 @@ export async function getAllInvoicesFromQB(
 ): Promise<{ success: boolean; invoices?: any[]; error?: string }> {
   try {
     const validTokens = await ensureValidToken(tokens);
-    const qbo = getQBClient(validTokens);
 
-    return new Promise((resolve) => {
-      let query = "SELECT * FROM Invoice";
+    let query = "SELECT * FROM Invoice";
+    if (startDate && endDate) {
+      query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+    }
+    query += " MAXRESULTS 1000";
 
-      if (startDate && endDate) {
-        query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+    const baseUrl = QB_ENVIRONMENT === "sandbox"
+      ? "https://sandbox-quickbooks.api.intuit.com"
+      : "https://quickbooks.api.intuit.com";
+
+    const response = await fetch(
+      `${baseUrl}/v3/company/${validTokens.realmId}/query?query=${encodeURIComponent(query)}`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${validTokens.accessToken}`,
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
       }
+    );
 
-      query += " MAXRESULTS 1000";
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `API error: ${response.status} - ${errorText}` };
+    }
 
-      qbo.reportBalanceSheet(
-        { start_date: startDate, end_date: endDate },
-        (err: any, result: any) => {
-          if (err) {
-            // Fallback to direct query
-            // @ts-ignore
-            qbo.query(query, (queryErr: any, queryResult: any) => {
-              if (queryErr) {
-                resolve({ success: false, error: queryErr.message });
-                return;
-              }
-
-              resolve({ success: true, invoices: queryResult.QueryResponse?.Invoice || [] });
-            });
-            return;
-          }
-
-          resolve({ success: true, invoices: result.QueryResponse?.Invoice || [] });
-        }
-      );
-    });
+    const result = await response.json();
+    return { success: true, invoices: result.QueryResponse?.Invoice || [] };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
 /**
- * Get all payments from QuickBooks
+ * Get all payments from QuickBooks using direct API call
  */
 export async function getAllPaymentsFromQB(
   tokens: QBTokens,
@@ -424,34 +422,43 @@ export async function getAllPaymentsFromQB(
 ): Promise<{ success: boolean; payments?: any[]; error?: string }> {
   try {
     const validTokens = await ensureValidToken(tokens);
-    const qbo = getQBClient(validTokens);
 
-    return new Promise((resolve) => {
-      let query = "SELECT * FROM Payment";
+    let query = "SELECT * FROM Payment";
+    if (startDate && endDate) {
+      query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+    }
+    query += " MAXRESULTS 1000";
 
-      if (startDate && endDate) {
-        query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+    const baseUrl = QB_ENVIRONMENT === "sandbox"
+      ? "https://sandbox-quickbooks.api.intuit.com"
+      : "https://quickbooks.api.intuit.com";
+
+    const response = await fetch(
+      `${baseUrl}/v3/company/${validTokens.realmId}/query?query=${encodeURIComponent(query)}`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${validTokens.accessToken}`,
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
       }
+    );
 
-      query += " MAXRESULTS 1000";
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `API error: ${response.status} - ${errorText}` };
+    }
 
-      // @ts-ignore
-      qbo.query(query, (err: any, result: any) => {
-        if (err) {
-          resolve({ success: false, error: err.message });
-          return;
-        }
-
-        resolve({ success: true, payments: result.QueryResponse?.Payment || [] });
-      });
-    });
+    const result = await response.json();
+    return { success: true, payments: result.QueryResponse?.Payment || [] };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
 /**
- * Search customers in QuickBooks by name
+ * Search customers in QuickBooks by name using direct API call
  */
 export async function searchCustomersInQB(
   tokens: QBTokens,
@@ -459,21 +466,32 @@ export async function searchCustomersInQB(
 ): Promise<{ success: boolean; customers?: any[]; error?: string }> {
   try {
     const validTokens = await ensureValidToken(tokens);
-    const qbo = getQBClient(validTokens);
 
-    return new Promise((resolve) => {
-      const query = `SELECT * FROM Customer WHERE DisplayName LIKE '%${searchTerm}%' MAXRESULTS 100`;
+    const query = `SELECT * FROM Customer WHERE DisplayName LIKE '%${searchTerm}%' MAXRESULTS 100`;
 
-      // @ts-ignore
-      qbo.query(query, (err: any, result: any) => {
-        if (err) {
-          resolve({ success: false, error: err.message });
-          return;
-        }
+    const baseUrl = QB_ENVIRONMENT === "sandbox"
+      ? "https://sandbox-quickbooks.api.intuit.com"
+      : "https://quickbooks.api.intuit.com";
 
-        resolve({ success: true, customers: result.QueryResponse?.Customer || [] });
-      });
-    });
+    const response = await fetch(
+      `${baseUrl}/v3/company/${validTokens.realmId}/query?query=${encodeURIComponent(query)}`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${validTokens.accessToken}`,
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `API error: ${response.status} - ${errorText}` };
+    }
+
+    const result = await response.json();
+    return { success: true, customers: result.QueryResponse?.Customer || [] };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -714,27 +732,36 @@ export async function getAllBillsFromQB(
 ): Promise<{ success: boolean; bills?: any[]; error?: string }> {
   try {
     const validTokens = await ensureValidToken(tokens);
-    const qbo = getQBClient(validTokens);
 
-    return new Promise((resolve) => {
-      let query = "SELECT * FROM Bill";
+    let query = "SELECT * FROM Bill";
+    if (startDate && endDate) {
+      query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+    }
+    query += " MAXRESULTS 1000";
 
-      if (startDate && endDate) {
-        query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+    const baseUrl = QB_ENVIRONMENT === "sandbox"
+      ? "https://sandbox-quickbooks.api.intuit.com"
+      : "https://quickbooks.api.intuit.com";
+
+    const response = await fetch(
+      `${baseUrl}/v3/company/${validTokens.realmId}/query?query=${encodeURIComponent(query)}`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${validTokens.accessToken}`,
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
       }
+    );
 
-      query += " MAXRESULTS 1000";
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `API error: ${response.status} - ${errorText}` };
+    }
 
-      // @ts-ignore
-      qbo.query(query, (err: any, result: any) => {
-        if (err) {
-          resolve({ success: false, error: err.message });
-          return;
-        }
-
-        resolve({ success: true, bills: result.QueryResponse?.Bill || [] });
-      });
-    });
+    const result = await response.json();
+    return { success: true, bills: result.QueryResponse?.Bill || [] };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -969,7 +996,7 @@ export async function createEstimateInQB(
 }
 
 /**
- * Get all estimates from QuickBooks
+ * Get all estimates from QuickBooks using direct API call
  */
 export async function getAllEstimatesFromQB(
   tokens: QBTokens,
@@ -978,27 +1005,36 @@ export async function getAllEstimatesFromQB(
 ): Promise<{ success: boolean; estimates?: any[]; error?: string }> {
   try {
     const validTokens = await ensureValidToken(tokens);
-    const qbo = getQBClient(validTokens);
 
-    return new Promise((resolve) => {
-      let query = "SELECT * FROM Estimate";
+    let query = "SELECT * FROM Estimate";
+    if (startDate && endDate) {
+      query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+    }
+    query += " MAXRESULTS 1000";
 
-      if (startDate && endDate) {
-        query += ` WHERE TxnDate >= '${startDate}' AND TxnDate <= '${endDate}'`;
+    const baseUrl = QB_ENVIRONMENT === "sandbox"
+      ? "https://sandbox-quickbooks.api.intuit.com"
+      : "https://quickbooks.api.intuit.com";
+
+    const response = await fetch(
+      `${baseUrl}/v3/company/${validTokens.realmId}/query?query=${encodeURIComponent(query)}`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${validTokens.accessToken}`,
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
       }
+    );
 
-      query += " MAXRESULTS 1000";
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `API error: ${response.status} - ${errorText}` };
+    }
 
-      // @ts-ignore
-      qbo.query(query, (err: any, result: any) => {
-        if (err) {
-          resolve({ success: false, error: err.message });
-          return;
-        }
-
-        resolve({ success: true, estimates: result.QueryResponse?.Estimate || [] });
-      });
-    });
+    const result = await response.json();
+    return { success: true, estimates: result.QueryResponse?.Estimate || [] };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
