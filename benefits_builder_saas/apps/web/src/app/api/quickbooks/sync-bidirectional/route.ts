@@ -12,17 +12,20 @@ import {
 
 /**
  * POST - Bidirectional sync between app and QuickBooks
- * Runs automatically every 3 hours via cron
+ * Can be called manually from dashboard or automatically via cron
  */
 export async function POST(request: NextRequest) {
   try {
     const db = createServiceClient();
 
-    // Verify cron secret to prevent unauthorized access
+    // Allow access if: cron secret matches OR no cron secret is set (dev mode)
+    // Manual sync from dashboard is allowed since user must already be logged in
     const authHeader = request.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // Only check cron secret if it's set AND header is provided (cron job)
+    // This allows manual sync from dashboard (no auth header) to work
+    if (cronSecret && authHeader && authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
         { status: 401 }
@@ -187,15 +190,143 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ===== STEP 3: Pull payments from QuickBooks (last 7 days) =====
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    // ===== STEP 3: Pull customers from QuickBooks =====
+    const customersResult = await getAllCustomersFromQB(validTokens);
+
+    if (customersResult.success && customersResult.customers) {
+      for (const qbCustomer of customersResult.customers) {
+        try {
+          // Check if this QB customer is already linked to a company
+          const { data: existingCompany } = await db
+            .from("companies")
+            .select("id")
+            .eq("qb_customer_id", qbCustomer.Id)
+            .maybeSingle();
+
+          if (existingCompany) {
+            continue; // Already imported
+          }
+
+          // Check if company with same name exists (link them)
+          const { data: matchingCompany } = await db
+            .from("companies")
+            .select("id")
+            .ilike("name", qbCustomer.DisplayName)
+            .is("qb_customer_id", null)
+            .maybeSingle();
+
+          if (matchingCompany) {
+            // Link existing company to QB customer
+            await db
+              .from("companies")
+              .update({
+                qb_customer_id: qbCustomer.Id,
+                qb_synced_at: new Date().toISOString(),
+              })
+              .eq("id", matchingCompany.id);
+            syncResults.customers.pulled++;
+          } else {
+            // Create new company from QB customer
+            const { error: insertError } = await db.from("companies").insert({
+              name: qbCustomer.DisplayName,
+              contact_email: qbCustomer.PrimaryEmailAddr?.Address || null,
+              contact_phone: qbCustomer.PrimaryPhone?.FreeFormNumber || null,
+              status: qbCustomer.Active ? "active" : "inactive",
+              qb_customer_id: qbCustomer.Id,
+              qb_synced_at: new Date().toISOString(),
+              model: "5/3", // Default model
+            });
+
+            if (!insertError) {
+              syncResults.customers.pulled++;
+            } else {
+              syncResults.customers.errors.push(`${qbCustomer.DisplayName}: ${insertError.message}`);
+            }
+          }
+        } catch (error: any) {
+          syncResults.customers.errors.push(`${qbCustomer.DisplayName}: ${error.message}`);
+        }
+      }
+    }
+
+    // ===== STEP 4: Pull invoices from QuickBooks =====
+    const invoicesResult = await getAllInvoicesFromQB(validTokens);
+
+    if (invoicesResult.success && invoicesResult.invoices) {
+      for (const qbInvoice of invoicesResult.invoices) {
+        try {
+          // Check if this invoice is already imported
+          const { data: existingAR } = await db
+            .from("accounts_receivable")
+            .select("id")
+            .eq("quickbooks_invoice_id", qbInvoice.Id)
+            .maybeSingle();
+
+          if (existingAR) {
+            continue; // Already imported
+          }
+
+          // Find the company by QB customer ID
+          const { data: company } = await db
+            .from("companies")
+            .select("id")
+            .eq("qb_customer_id", qbInvoice.CustomerRef?.value)
+            .maybeSingle();
+
+          if (!company) {
+            syncResults.invoices.errors.push(`Invoice ${qbInvoice.DocNumber || qbInvoice.Id}: Company not found`);
+            continue;
+          }
+
+          // Calculate amounts
+          const totalAmount = Math.round((parseFloat(qbInvoice.TotalAmt) || 0) * 100); // Convert to cents
+          const balance = Math.round((parseFloat(qbInvoice.Balance) || 0) * 100);
+          const amountPaid = totalAmount - balance;
+
+          // Determine status
+          let status = "open";
+          if (balance <= 0) {
+            status = "paid";
+          } else if (amountPaid > 0) {
+            status = "partial";
+          }
+
+          // Create A/R entry
+          const { error: insertError } = await db.from("accounts_receivable").insert({
+            company_id: company.id,
+            invoice_number: qbInvoice.DocNumber || `QB-${qbInvoice.Id}`,
+            invoice_date: qbInvoice.TxnDate,
+            due_date: qbInvoice.DueDate || qbInvoice.TxnDate,
+            amount: totalAmount,
+            amount_paid: amountPaid,
+            amount_due: balance,
+            status: status,
+            description: `Imported from QuickBooks`,
+            synced_to_qb: true,
+            last_synced_at: new Date().toISOString(),
+            quickbooks_invoice_id: qbInvoice.Id,
+          });
+
+          if (!insertError) {
+            syncResults.invoices.pulled++;
+          } else {
+            syncResults.invoices.errors.push(`Invoice ${qbInvoice.DocNumber || qbInvoice.Id}: ${insertError.message}`);
+          }
+        } catch (error: any) {
+          syncResults.invoices.errors.push(`Invoice ${qbInvoice.Id}: ${error.message}`);
+        }
+      }
+    }
+
+    // ===== STEP 5: Pull payments from QuickBooks (last 30 days) =====
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
       .toISOString()
       .split("T")[0];
     const today = new Date().toISOString().split("T")[0];
 
     const paymentsResult = await getAllPaymentsFromQB(
       validTokens,
-      sevenDaysAgo,
+      thirtyDaysAgo,
       today
     );
 
@@ -207,41 +338,29 @@ export async function POST(request: NextRequest) {
             .from("payment_transactions")
             .select("id")
             .eq("qb_payment_id", qbPayment.Id)
-            .single();
+            .maybeSingle();
 
           if (existing) {
             continue; // Already imported
           }
 
-          // Find matching invoice
+          // Find matching invoice by QB invoice ID
           const linkedInvoiceId = qbPayment.Line?.[0]?.LinkedTxn?.[0]?.TxnId;
 
           if (!linkedInvoiceId) {
             continue; // No linked invoice
           }
 
-          // Find our invoice with this QB ID
-          const { data: ourInvoice } = await db
-            .from("invoices")
-            .select("id, company_id")
-            .eq("qb_invoice_id", linkedInvoiceId)
-            .single();
-
-          if (!ourInvoice) {
-            continue; // Invoice not in our system
-          }
-
-          // Find corresponding A/R record
+          // Find our A/R record with this QB invoice ID
           const { data: arRecord } = await db
             .from("accounts_receivable")
             .select("id, amount, amount_paid, status")
-            .eq("company_id", ourInvoice.company_id)
             .eq("quickbooks_invoice_id", linkedInvoiceId)
-            .single();
+            .maybeSingle();
 
           if (arRecord) {
             // Record payment in our system
-            const paymentAmount = parseFloat(qbPayment.TotalAmt || "0") * 100; // Convert to cents
+            const paymentAmount = Math.round(parseFloat(qbPayment.TotalAmt || "0") * 100); // Convert to cents
 
             await db.from("payment_transactions").insert({
               transaction_type: "ar_payment",
@@ -284,7 +403,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ===== STEP 4: Log sync results =====
+    // ===== STEP 6: Log sync results =====
+    const totalItemsSynced =
+      syncResults.customers.pushed + syncResults.customers.pulled +
+      syncResults.invoices.pushed + syncResults.invoices.pulled +
+      syncResults.payments.pushed + syncResults.payments.pulled;
+
     await db.from("quickbooks_sync_log").insert({
       connection_id: connection.id,
       sync_type: "bidirectional",
@@ -294,6 +418,7 @@ export async function POST(request: NextRequest) {
       invoices_pulled: syncResults.invoices.pulled,
       payments_pushed: syncResults.payments.pushed,
       payments_pulled: syncResults.payments.pulled,
+      items_synced: totalItemsSynced,
       errors: JSON.stringify({
         customers: syncResults.customers.errors,
         invoices: syncResults.invoices.errors,

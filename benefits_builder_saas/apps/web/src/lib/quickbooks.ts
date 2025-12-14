@@ -340,28 +340,39 @@ export async function getQBCompanyInfo(
 }
 
 /**
- * Get all customers from QuickBooks
+ * Get all customers from QuickBooks using direct API call
  */
 export async function getAllCustomersFromQB(
   tokens: QBTokens
 ): Promise<{ success: boolean; customers?: any[]; error?: string }> {
   try {
     const validTokens = await ensureValidToken(tokens);
-    const qbo = getQBClient(validTokens);
 
-    return new Promise((resolve) => {
-      qbo.findCustomers(
-        { fetchAll: true },
-        (err: any, result: any) => {
-          if (err) {
-            resolve({ success: false, error: err.message });
-            return;
-          }
+    const query = "SELECT * FROM Customer MAXRESULTS 1000";
 
-          resolve({ success: true, customers: result.QueryResponse?.Customer || [] });
-        }
-      );
-    });
+    const baseUrl = QB_ENVIRONMENT === "sandbox"
+      ? "https://sandbox-quickbooks.api.intuit.com"
+      : "https://quickbooks.api.intuit.com";
+
+    const response = await fetch(
+      `${baseUrl}/v3/company/${validTokens.realmId}/query?query=${encodeURIComponent(query)}`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${validTokens.accessToken}`,
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `API error: ${response.status} - ${errorText}` };
+    }
+
+    const result = await response.json();
+    return { success: true, customers: result.QueryResponse?.Customer || [] };
   } catch (error: any) {
     return { success: false, error: error.message };
   }

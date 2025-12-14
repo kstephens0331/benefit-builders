@@ -24,10 +24,11 @@ interface QBConnection {
 interface QBSyncLog {
   id: string;
   sync_type: string;
-  status: string;
+  status?: string;
   synced_at: string;
   items_synced?: number;
   error_message?: string;
+  errors?: string; // JSON string of errors from sync
 }
 
 interface AccountingDashboardProps {
@@ -491,11 +492,28 @@ export default function AccountingDashboard({
                 <div className="mt-3">
                   <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Recent Syncs</h4>
                   <div className="space-y-1">
-                    {qbSyncLogs.slice(0, 3).map((log) => (
+                    {qbSyncLogs.slice(0, 3).map((log) => {
+                      // Determine success by checking if errors field is empty or has no actual errors
+                      let isSuccess = false;
+                      try {
+                        if (log.errors) {
+                          const errorsObj = typeof log.errors === 'string' ? JSON.parse(log.errors) : log.errors;
+                          // Success if all error arrays are empty
+                          const hasErrors = Object.values(errorsObj).some((arr: any) => Array.isArray(arr) && arr.length > 0);
+                          isSuccess = !hasErrors;
+                        } else {
+                          // No errors field means success
+                          isSuccess = true;
+                        }
+                      } catch {
+                        isSuccess = false;
+                      }
+
+                      return (
                       <div key={log.id} className="flex items-center justify-between text-xs">
                         <div className="flex items-center space-x-2">
-                          <span className={log.status === 'success' ? 'text-green-600' : 'text-red-600'}>
-                            {log.status === 'success' ? '✓' : '✗'}
+                          <span className={isSuccess ? 'text-green-600' : 'text-red-600'}>
+                            {isSuccess ? '✓' : '✗'}
                           </span>
                           <span className="text-gray-700">{log.sync_type}</span>
                           {log.items_synced && (
@@ -511,7 +529,8 @@ export default function AccountingDashboard({
                           })}
                         </span>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 </div>
               )}
