@@ -1,9 +1,9 @@
 // src/app/api/billing/generate-invoices/route.ts
 // This route ONLY generates invoices - it does NOT do month-end close
+// Invoicing is INDEPENDENT of employee_benefits - uses company-level billing settings
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { computeProfitShare } from "@/lib/fees";
-import { calcFICA } from "@/lib/tax";
 import { getModelRates } from "@/lib/models";
 import { BillingCloseSchema, validateRequestBody } from "@/lib/validation";
 import { sendBillingNotification } from "@/lib/email";
@@ -42,15 +42,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: company_id ? "Company not found" : "No active companies found" }, { status: 404 });
   }
 
-  const [year] = period.split("-").map(Number);
-
-  // Get federal tax rates for FICA calculations
-  const { data: fed } = await db
-    .from("tax_federal_params")
-    .select("ss_rate, med_rate")
-    .eq("tax_year", year)
-    .single();
-
   const results: any[] = [];
 
   for (const c of (companies ?? [] as Company[])) {
@@ -68,7 +59,7 @@ export async function POST(req: Request) {
 
     const { data: bs } = await db
       .from("company_billing_settings")
-      .select("base_fee_cents, per_employee_active_cents, maintenance_cents, tax_rate_percent, profit_share_mode, profit_share_percent")
+      .select("base_fee_cents, per_employee_active_cents, maintenance_cents, tax_rate_percent, profit_share_mode, profit_share_percent, monthly_pretax_volume")
       .eq("company_id", c.id).maybeSingle();
     const base_fee_cents = bs?.base_fee_cents ?? 0;
     const per_employee_active_cents = bs?.per_employee_active_cents ?? 0;
@@ -76,6 +67,7 @@ export async function POST(req: Request) {
     const tax_rate_percent = Number(bs?.tax_rate_percent ?? 0);
     const profit_share_mode = (bs?.profit_share_mode ?? "none") as "none" | "percent_er_savings" | "percent_bb_profit";
     const profit_share_percent = Number(bs?.profit_share_percent ?? 0);
+    const monthly_pretax_volume = Number(bs?.monthly_pretax_volume ?? 0);
 
     // invoice - find existing or create new
     let invoiceId: string;
@@ -110,70 +102,11 @@ export async function POST(req: Request) {
       return amount;
     }
 
-    // Calculate Section 125 fees and FICA savings
-    // Only include employees who are active AND have elected into benefits
-    const { data: emps } = await db
-      .from("employees")
-      .select("id, gross_pay")
-      .eq("company_id", c.id)
-      .eq("active", true)
-      .eq("consent_status", "elect");
-
-    if (!emps || emps.length === 0) continue; // Skip companies with no enrolled employees
-
-    // PERFORMANCE FIX: Fetch all benefits for all employees in ONE query (eliminates N+1 problem)
-    const employeeIds = emps.map(e => e.id);
-    const { data: allBenefits } = await db
-      .from("employee_benefits")
-      .select("employee_id, per_pay_amount, reduces_fica")
-      .in("employee_id", employeeIds);
-
-    // Group benefits by employee_id for O(1) lookup
-    const benefitsByEmployee = new Map<string, Array<{ per_pay_amount: number; reduces_fica: boolean }>>();
-    for (const benefit of allBenefits || []) {
-      if (!benefitsByEmployee.has(benefit.employee_id)) {
-        benefitsByEmployee.set(benefit.employee_id, []);
-      }
-      benefitsByEmployee.get(benefit.employee_id)!.push({
-        per_pay_amount: Number(benefit.per_pay_amount || 0),
-        reduces_fica: !!benefit.reduces_fica
-      });
-    }
-
-    let totalPretaxMonthly = 0;
-    let totalEmployerFicaSavingsMonthly = 0;
-
-    const payPeriodMap: Record<string, number> = {
-      weekly: 52,
-      biweekly: 26,
-      semimonthly: 24,
-      monthly: 12
-    };
-    const periodsPerYear = payPeriodMap[c.pay_frequency] || 26;
-    const periodsPerMonth = periodsPerYear / 12;
-
-    for (const emp of emps) {
-      const benefits = benefitsByEmployee.get(emp.id) || [];
-
-      const perPayPretax = benefits.reduce((sum, b) => sum + b.per_pay_amount, 0);
-      const perPayPretaxFica = benefits.filter(b => b.reduces_fica).reduce((sum, b) => sum + b.per_pay_amount, 0);
-
-      totalPretaxMonthly += perPayPretax * periodsPerMonth;
-
-      // Calculate employer FICA savings
-      const grossPay = Number(emp.gross_pay || 0);
-      if (grossPay > 0 && perPayPretaxFica > 0) {
-        const ficaBefore = calcFICA(grossPay, 0, Number(fed?.ss_rate || 0.062), Number(fed?.med_rate || 0.0145));
-        const ficaAfter = calcFICA(grossPay, perPayPretaxFica, Number(fed?.ss_rate || 0.062), Number(fed?.med_rate || 0.0145));
-        const ficaSavedPerPay = ficaBefore.fica - ficaAfter.fica;
-        totalEmployerFicaSavingsMonthly += ficaSavedPerPay * periodsPerMonth;
-      }
-    }
-
-    // Calculate model-based fees (BB profit)
+    // Calculate model-based fees using company-level monthly_pretax_volume
+    // This is INDEPENDENT of employee_benefits table
     const [employeeRate, employerRate] = getModelRates(c.model);
-    const employeeFeeMonthly = totalPretaxMonthly * employeeRate;
-    const employerFeeMonthly = totalPretaxMonthly * employerRate;
+    const employeeFeeMonthly = monthly_pretax_volume * employeeRate;
+    const employerFeeMonthly = monthly_pretax_volume * employerRate;
     const bbProfitMonthly = employeeFeeMonthly + employerFeeMonthly;
 
     // Convert to cents for invoice lines
@@ -188,10 +121,11 @@ export async function POST(req: Request) {
     if (employeeFeeCents > 0) subtotal += await addLine("employee_fee", `Employee Fee (${(employeeRate * 100).toFixed(1)}%)`, 1, employeeFeeCents);
 
     // Calculate profit-sharing credit (if applicable)
+    // Note: employer FICA savings not calculated here - use 0 for now
     const profitShare = computeProfitShare(
       profit_share_mode,
       profit_share_percent,
-      totalEmployerFicaSavingsMonthly,
+      0, // Employer FICA savings - calculated separately in reports
       bbProfitMonthly
     );
 
@@ -208,15 +142,14 @@ export async function POST(req: Request) {
       .eq("id", invoiceId);
     if (uErr) return NextResponse.json({ ok:false, error:uErr.message }, { status: 500 });
 
-    // Send billing notification email (optional - can be disabled)
+    // Send billing notification email (optional)
     if (c.contact_email) {
-      const netSavings = totalEmployerFicaSavingsMonthly - (total_cents / 100);
       await sendBillingNotification(c.name, c.contact_email, period, {
         subtotal: subtotal / 100,
         tax: tax_cents / 100,
         total: total_cents / 100,
-        employerSavings: totalEmployerFicaSavingsMonthly,
-        netSavings
+        employerSavings: 0, // Calculated separately in reports
+        netSavings: 0
       }).catch((err) => {
         console.error(`Failed to send billing email to ${c.contact_email}:`, err);
         // Don't fail the billing process if email fails
@@ -228,8 +161,7 @@ export async function POST(req: Request) {
       company_name: c.name,
       employees_active,
       model: c.model,
-      total_pretax_monthly: totalPretaxMonthly,
-      employer_fica_savings_monthly: totalEmployerFicaSavingsMonthly,
+      monthly_pretax_volume,
       bb_profit_monthly: bbProfitMonthly,
       employee_fee_cents: employeeFeeCents,
       employer_fee_cents: employerFeeCents,
