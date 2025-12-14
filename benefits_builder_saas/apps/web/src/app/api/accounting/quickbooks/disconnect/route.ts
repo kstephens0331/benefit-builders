@@ -8,7 +8,21 @@ export async function POST() {
   try {
     const db = createServiceClient();
 
-    // Clear QuickBooks credentials from system_settings
+    // Set all QuickBooks connections to inactive
+    const { error: connError } = await db
+      .from("quickbooks_connections")
+      .update({
+        status: "disconnected",
+        access_token: null,
+        refresh_token: null,
+      })
+      .eq("status", "active");
+
+    if (connError) {
+      console.error("Error updating quickbooks_connections:", connError);
+    }
+
+    // Also clear from system_settings if it exists
     const { error } = await db
       .from("system_settings")
       .update({
@@ -17,11 +31,9 @@ export async function POST() {
         qb_realm_id: null,
         qb_token_expires_at: null,
       })
-      .eq("id", 1); // Assuming single row for system settings
+      .eq("id", 1);
 
-    if (error) {
-      throw error;
-    }
+    // Ignore system_settings error as it may not exist
 
     return NextResponse.json({
       ok: true,

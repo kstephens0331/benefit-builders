@@ -71,6 +71,29 @@ export default function AccountingDashboard({
   const [showManager, setShowManager] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+
+  const handleDisconnect = async () => {
+    if (!confirm('Are you sure you want to disconnect QuickBooks? You will need to reconnect to sync data.')) {
+      return;
+    }
+    setIsDisconnecting(true);
+    try {
+      const res = await fetch('/api/accounting/quickbooks/disconnect', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.ok) {
+        window.location.reload();
+      } else {
+        alert(`Failed to disconnect: ${data.error}`);
+      }
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
 
   const handleManualSync = async () => {
     setIsSyncing(true);
@@ -558,13 +581,22 @@ export default function AccountingDashboard({
               )}
 
               <div className="pt-2 space-y-2">
-                <button
-                  onClick={handleManualSync}
-                  disabled={isSyncing}
-                  className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSyncing ? 'Syncing...' : 'Sync Now'}
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleManualSync}
+                    disabled={isSyncing}
+                    className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSyncing ? 'Syncing...' : 'Sync Now'}
+                  </button>
+                  <button
+                    onClick={handleDisconnect}
+                    disabled={isDisconnecting || isSyncing}
+                    className="text-sm bg-gray-100 text-red-600 border border-red-300 px-3 py-1 rounded hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+                  </button>
+                </div>
                 {syncMessage && (
                   <p className={`text-xs ${syncMessage.includes('failed') || syncMessage.includes('error') ? 'text-red-600' : 'text-green-600'}`}>
                     {syncMessage}
