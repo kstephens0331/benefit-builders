@@ -8,7 +8,12 @@ import { validateSession } from "./lib/auth";
 const SESSION_COOKIE_NAME = "bb_session";
 
 // Routes that don't require authentication
-const PUBLIC_ROUTES = ["/login", "/api/auth/login", "/api/auth/logout"];
+const PUBLIC_ROUTES = [
+  "/login",
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/quickbooks/callback",  // QuickBooks OAuth callback
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
