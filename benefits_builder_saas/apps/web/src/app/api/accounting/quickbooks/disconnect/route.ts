@@ -26,13 +26,12 @@ export async function POST() {
       }, { status: 404 });
     }
 
-    // Set the connection to disconnected
+    // Set the connection to disconnected (keep tokens but mark inactive)
+    // Note: access_token has NOT NULL constraint so we can't clear it
     const { data: updateData, error: connError } = await db
       .from("quickbooks_connections")
       .update({
         status: "disconnected",
-        access_token: null,
-        refresh_token: null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", activeConnection.id)

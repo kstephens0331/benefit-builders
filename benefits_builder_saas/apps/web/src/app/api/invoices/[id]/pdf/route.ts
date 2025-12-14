@@ -21,7 +21,7 @@ function formatCurrency(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-// Helper to draw page header (compact version)
+// Helper to draw page header (compact version with proper logo spacing)
 async function drawPageHeader(
   page: PDFPage,
   helveticaBold: PDFFont,
@@ -35,35 +35,35 @@ async function drawPageHeader(
   const { width, height } = page.getSize();
   const leftMargin = 40;
   const rightMargin = width - 40;
-  let y = height - 30; // Reduced top margin
+  let y = height - 30;
 
   const bluePrimary = rgb(0.1, 0.4, 0.7);
   const grayText = rgb(0.3, 0.3, 0.3);
+
+  // Calculate logo dimensions first to know how much space we need
+  let logoHeight = 0;
+  let logoWidth = 0;
+  if (logoImage) {
+    const logoDims = logoImage.scale(0.10); // Slightly smaller logo
+    logoHeight = logoDims.height;
+    logoWidth = logoDims.width;
+  }
 
   // "INVOICE" title (top left, blue)
   page.drawText("INVOICE", {
     x: leftMargin,
     y: y,
-    size: 20, // Smaller title
+    size: 20,
     font: helveticaBold,
     color: bluePrimary,
   });
 
-  // Page number (top right, next to logo)
-  page.drawText(`Page ${pageNumber} of ${totalPages}`, {
-    x: rightMargin - 70,
-    y: y - 35,
-    size: 8,
-    font: helvetica,
-    color: grayText,
-  });
-
-  // Logo (top right, smaller)
+  // Logo (top right) - positioned so it doesn't overlap with text below
   if (logoImage) {
-    const logoDims = logoImage.scale(0.12); // Smaller logo
+    const logoDims = logoImage.scale(0.10);
     page.drawImage(logoImage, {
       x: rightMargin - logoDims.width,
-      y: y - logoDims.height + 15,
+      y: y - logoDims.height + 20, // Position from top
       width: logoDims.width,
       height: logoDims.height,
     });
@@ -71,7 +71,7 @@ async function drawPageHeader(
 
   y -= 16;
 
-  // Benefit Builder company info (single line format)
+  // Benefit Builder company info (left side, stays clear of logo)
   page.drawText(`${BENEFIT_BUILDER.name}  •  ${BENEFIT_BUILDER.address}, ${BENEFIT_BUILDER.cityStateZip}`, {
     x: leftMargin,
     y: y,
@@ -88,16 +88,12 @@ async function drawPageHeader(
     color: grayText,
   });
 
-  y -= 12;
+  // Move Y down past the logo before placing invoice details
+  // The logo area extends from top-right, so we need to clear it
+  const logoBottomY = height - 30 - logoHeight + 20;
+  y = Math.min(y - 12, logoBottomY - 5); // Ensure we're below the logo
 
-  // Invoice details (compact for all pages)
-  const invoiceNumber = invoice.invoice_number || invoice.id.substring(0, 8).toUpperCase();
-  const invoiceDate = invoice.invoice_date || invoice.issued_at;
-  const formattedInvoiceDate = invoiceDate
-    ? new Date(invoiceDate).toLocaleDateString("en-US")
-    : new Date().toLocaleDateString("en-US");
-
-  // Company name and invoice details in a row
+  // Bill To on left
   page.drawText(`Bill To: ${company?.name || "Customer"}`, {
     x: leftMargin,
     y: y,
@@ -106,10 +102,26 @@ async function drawPageHeader(
     color: grayText,
   });
 
+  // Invoice details on right (now safely below logo)
+  const invoiceNumber = invoice.invoice_number || invoice.id.substring(0, 8).toUpperCase();
+  const invoiceDate = invoice.invoice_date || invoice.issued_at;
+  const formattedInvoiceDate = invoiceDate
+    ? new Date(invoiceDate).toLocaleDateString("en-US")
+    : new Date().toLocaleDateString("en-US");
+
   page.drawText(`Invoice #: ${invoiceNumber}  |  Date: ${formattedInvoiceDate}  |  Period: ${invoice.period}`, {
-    x: rightMargin - 260,
+    x: rightMargin - 250,
     y: y,
     size: 8,
+    font: helvetica,
+    color: grayText,
+  });
+
+  // Page number (small, right aligned)
+  page.drawText(`Page ${pageNumber} of ${totalPages}`, {
+    x: rightMargin - 60,
+    y: y - 12,
+    size: 7,
     font: helvetica,
     color: grayText,
   });
@@ -124,7 +136,7 @@ async function drawPageHeader(
     color: rgb(0.8, 0.8, 0.8),
   });
 
-  return y - 8; // Reduced spacing after header
+  return y - 8;
 }
 
 // Helper to draw page footer
