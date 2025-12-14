@@ -30,12 +30,24 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Exchange authorization code for tokens
-    const tokens = await getQBTokensFromCode(code, realmId);
+    console.log("QuickBooks callback received:", { code: code?.substring(0, 20) + "...", realmId });
 
-    if (!tokens) {
+    // Exchange authorization code for tokens
+    let tokens;
+    try {
+      tokens = await getQBTokensFromCode(code, realmId);
+      console.log("Token exchange result:", { hasTokens: !!tokens, hasAccessToken: !!tokens?.accessToken });
+    } catch (tokenError: any) {
+      console.error("Token exchange error:", tokenError);
       return NextResponse.redirect(
-        new URL("/accounting?error=Failed+to+exchange+code+for+tokens", request.url)
+        new URL(`/accounting?error=${encodeURIComponent("Token exchange failed: " + tokenError.message)}`, request.url)
+      );
+    }
+
+    if (!tokens || !tokens.accessToken) {
+      console.error("No tokens returned from exchange");
+      return NextResponse.redirect(
+        new URL("/accounting?error=Failed+to+exchange+code+for+tokens+-+no+tokens+returned", request.url)
       );
     }
 
@@ -51,14 +63,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if connection already exists
-    const { data: existingConnection } = await db
+    console.log("Checking for existing connection with realm_id:", realmId);
+    const { data: existingConnection, error: checkError } = await db
       .from("quickbooks_connections")
       .select("id")
       .eq("realm_id", realmId)
       .maybeSingle();
 
+    if (checkError) {
+      console.error("Error checking existing connection:", checkError);
+    }
+
+    console.log("Existing connection:", existingConnection);
+
     if (existingConnection) {
       // Update existing connection
+      console.log("Updating existing connection:", existingConnection.id);
       const { error: updateError } = await db
         .from("quickbooks_connections")
         .update({
@@ -74,12 +94,14 @@ export async function GET(request: NextRequest) {
       if (updateError) {
         console.error("Failed to update QuickBooks connection:", updateError);
         return NextResponse.redirect(
-          new URL("/accounting?error=Failed+to+update+connection", request.url)
+          new URL(`/accounting?error=${encodeURIComponent("Failed to update connection: " + updateError.message)}`, request.url)
         );
       }
+      console.log("Connection updated successfully");
     } else {
       // Create new connection
-      const { error: insertError } = await db
+      console.log("Creating new connection for realm_id:", realmId);
+      const { data: insertData, error: insertError } = await db
         .from("quickbooks_connections")
         .insert({
           realm_id: realmId,
@@ -88,14 +110,16 @@ export async function GET(request: NextRequest) {
           token_expires_at: tokens.accessTokenExpiry,
           status: "active",
           last_sync_at: new Date().toISOString(),
-        });
+        })
+        .select();
 
       if (insertError) {
         console.error("Failed to save QuickBooks connection:", insertError);
         return NextResponse.redirect(
-          new URL("/accounting?error=Failed+to+save+connection", request.url)
+          new URL(`/accounting?error=${encodeURIComponent("Failed to save connection: " + insertError.message)}`, request.url)
         );
       }
+      console.log("Connection created successfully:", insertData);
     }
 
     // Redirect to accounting page with success message
