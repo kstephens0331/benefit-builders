@@ -49,12 +49,12 @@ export default async function AccountingPage() {
     .order("payment_date", { ascending: false })
     .limit(50);
 
-  // Fetch QuickBooks connection status
+  // Fetch QuickBooks connection status (use maybeSingle to avoid error when no connection)
   const { data: qbConnection } = await db
     .from("quickbooks_connections")
     .select("*")
     .eq("status", "active")
-    .single();
+    .maybeSingle();
 
   // Fetch recent QuickBooks sync logs
   const { data: qbSyncLogs } = await db
@@ -94,7 +94,7 @@ export default async function AccountingPage() {
     .select("*")
     .eq("year", currentYear)
     .eq("month", currentMonth - 1) // Check last month
-    .single();
+    .maybeSingle();
 
   // Calculate summary stats (with safe fallbacks for missing tables)
   const arArray = arData || [];
