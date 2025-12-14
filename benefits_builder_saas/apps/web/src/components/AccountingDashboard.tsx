@@ -80,8 +80,30 @@ export default function AccountingDashboard({
         method: 'POST',
       });
       const data = await res.json();
+      console.log('Sync response:', data); // Debug log
       if (data.ok) {
-        setSyncMessage(`Sync complete! Pushed: ${data.results?.customers?.pushed || 0} customers, ${data.results?.invoices?.pushed || 0} invoices. Pulled: ${data.results?.payments?.pulled || 0} payments.`);
+        const r = data.results;
+        const customersPulled = r?.customers?.pulled || 0;
+        const invoicesPulled = r?.invoices?.pulled || 0;
+        const paymentsPulled = r?.payments?.pulled || 0;
+        const customersPushed = r?.customers?.pushed || 0;
+        const invoicesPushed = r?.invoices?.pushed || 0;
+
+        // Check for errors
+        const customerErrors = r?.customers?.errors || [];
+        const invoiceErrors = r?.invoices?.errors || [];
+        const paymentErrors = r?.payments?.errors || [];
+        const totalErrors = customerErrors.length + invoiceErrors.length + paymentErrors.length;
+
+        let msg = `Sync complete! Pulled: ${customersPulled} customers, ${invoicesPulled} invoices, ${paymentsPulled} payments.`;
+        if (customersPushed > 0 || invoicesPushed > 0) {
+          msg += ` Pushed: ${customersPushed} customers, ${invoicesPushed} invoices.`;
+        }
+        if (totalErrors > 0) {
+          msg += ` (${totalErrors} errors - check console)`;
+          console.log('Sync errors:', { customerErrors, invoiceErrors, paymentErrors });
+        }
+        setSyncMessage(msg);
         // Refresh page after 2 seconds to show updated data
         setTimeout(() => window.location.reload(), 2000);
       } else {
