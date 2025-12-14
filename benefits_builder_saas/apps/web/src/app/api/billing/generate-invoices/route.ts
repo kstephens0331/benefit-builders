@@ -57,12 +57,14 @@ export async function POST(req: Request) {
     const [y,m] = period.split("-").map(Number);
     const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0,10);
 
-    // Count active employees (fallback method)
-    const { data: act, error: acErr } = await db
+    // Count enrolled employees (active AND elected into benefits)
+    const { count: enrolledCount, error: acErr } = await db
       .from("employees").select("id", { count: "exact", head: true })
-      .eq("company_id", c.id).eq("active", true);
+      .eq("company_id", c.id)
+      .eq("active", true)
+      .eq("consent_status", "elect");
     if (acErr) return NextResponse.json({ ok:false, error:acErr.message }, { status: 500 });
-    const employees_active = (act as any)?.length ?? 0;
+    const employees_active = enrolledCount ?? 0;
 
     const { data: bs } = await db
       .from("company_billing_settings")
@@ -109,13 +111,15 @@ export async function POST(req: Request) {
     }
 
     // Calculate Section 125 fees and FICA savings
+    // Only include employees who are active AND have elected into benefits
     const { data: emps } = await db
       .from("employees")
       .select("id, gross_pay")
       .eq("company_id", c.id)
-      .eq("active", true);
+      .eq("active", true)
+      .eq("consent_status", "elect");
 
-    if (!emps || emps.length === 0) continue; // Skip companies with no active employees
+    if (!emps || emps.length === 0) continue; // Skip companies with no enrolled employees
 
     // PERFORMANCE FIX: Fetch all benefits for all employees in ONE query (eliminates N+1 problem)
     const employeeIds = emps.map(e => e.id);
