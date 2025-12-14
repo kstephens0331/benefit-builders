@@ -36,7 +36,11 @@
       "Bash(pnpm seed:tax:*)",
       "Bash(npx tsx:*)",
       "Bash(node --loader tsx:*)",
-      "Bash(pnpm exec tsx:*)"
+      "Bash(pnpm exec tsx:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(nslookup:*)",
+      "Bash(git restore:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []
