@@ -8,24 +8,18 @@ import { getQBAuthUrl, getQBTokensFromCode } from "@/lib/quickbooks";
 
 export const runtime = "nodejs";
 
-// GET - Initiate OAuth flow
+// GET - Initiate OAuth flow by redirecting to QuickBooks
 export async function GET() {
   const user = await getCurrentUser();
 
   if (!user || user.role !== "admin") {
-    return NextResponse.json(
-      { ok: false, error: "Unauthorized - Admin only" },
-      { status: 403 }
-    );
+    return NextResponse.redirect(new URL("/accounting?error=Unauthorized+-+Admin+only", process.env.NEXT_PUBLIC_APP_URL || "https://web-dun-three-87.vercel.app"));
   }
 
   const authUrl = getQBAuthUrl();
 
-  return NextResponse.json({
-    ok: true,
-    auth_url: authUrl,
-    instructions: "Redirect user to this URL to authorize QuickBooks access"
-  });
+  // Redirect user to QuickBooks authorization page
+  return NextResponse.redirect(authUrl);
 }
 
 // POST - Exchange code for tokens (callback handler)

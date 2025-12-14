@@ -2,8 +2,8 @@
   "installCommand": "pnpm install --no-frozen-lockfile",
   "crons": [
     {
-      "path": "/api/quickbooks/sync-bidirectional",
-      "schedule": "0 */3 * * *"
+      "path": "/api/quickbooks/auto-sync",
+      "schedule": "*/45 * * * *"
     }
   ]
 }
