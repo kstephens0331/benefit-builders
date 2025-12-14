@@ -8,6 +8,11 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 export const metadata = {
   title: "Benefits Builder",
   description: "Pre-tax optimization & reporting",
+  icons: {
+    icon: "/benefit-builder-logo-trans.png",
+    shortcut: "/benefit-builder-logo-trans.png",
+    apple: "/benefit-builder-logo-trans.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
