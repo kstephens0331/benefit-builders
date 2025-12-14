@@ -21,7 +21,7 @@ function formatCurrency(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-// Helper to draw page header
+// Helper to draw page header (compact version)
 async function drawPageHeader(
   page: PDFPage,
   helveticaBold: PDFFont,
@@ -35,85 +35,60 @@ async function drawPageHeader(
   const { width, height } = page.getSize();
   const leftMargin = 40;
   const rightMargin = width - 40;
-  let y = height - 40;
+  let y = height - 30; // Reduced top margin
 
   const bluePrimary = rgb(0.1, 0.4, 0.7);
-  const blueLight = rgb(0.9, 0.95, 1);
   const grayText = rgb(0.3, 0.3, 0.3);
 
   // "INVOICE" title (top left, blue)
   page.drawText("INVOICE", {
     x: leftMargin,
     y: y,
-    size: 24,
+    size: 20, // Smaller title
     font: helveticaBold,
     color: bluePrimary,
   });
 
-  // Page number (top right)
+  // Page number (top right, next to logo)
   page.drawText(`Page ${pageNumber} of ${totalPages}`, {
-    x: rightMargin - 80,
-    y: y,
-    size: 10,
+    x: rightMargin - 70,
+    y: y - 35,
+    size: 8,
     font: helvetica,
     color: grayText,
   });
 
-  // Logo (top right)
+  // Logo (top right, smaller)
   if (logoImage) {
-    const logoDims = logoImage.scale(0.15);
+    const logoDims = logoImage.scale(0.12); // Smaller logo
     page.drawImage(logoImage, {
       x: rightMargin - logoDims.width,
-      y: y - logoDims.height + 20,
+      y: y - logoDims.height + 15,
       width: logoDims.width,
       height: logoDims.height,
     });
   }
 
-  y -= 20;
+  y -= 16;
 
-  // Benefit Builder company info (below INVOICE title)
-  page.drawText(BENEFIT_BUILDER.name, {
+  // Benefit Builder company info (single line format)
+  page.drawText(`${BENEFIT_BUILDER.name}  •  ${BENEFIT_BUILDER.address}, ${BENEFIT_BUILDER.cityStateZip}`, {
     x: leftMargin,
     y: y,
-    size: 10,
-    font: helveticaBold,
-    color: grayText,
-  });
-  y -= 14;
-  page.drawText(BENEFIT_BUILDER.address, {
-    x: leftMargin,
-    y: y,
-    size: 9,
+    size: 8,
     font: helvetica,
     color: grayText,
   });
+  y -= 10;
+  page.drawText(`${BENEFIT_BUILDER.email}  •  ${BENEFIT_BUILDER.phone}`, {
+    x: leftMargin,
+    y: y,
+    size: 8,
+    font: helvetica,
+    color: grayText,
+  });
+
   y -= 12;
-  page.drawText(BENEFIT_BUILDER.cityStateZip, {
-    x: leftMargin,
-    y: y,
-    size: 9,
-    font: helvetica,
-    color: grayText,
-  });
-
-  // Email and phone (to the right of address)
-  page.drawText(BENEFIT_BUILDER.email, {
-    x: leftMargin + 180,
-    y: y + 26,
-    size: 9,
-    font: helvetica,
-    color: grayText,
-  });
-  page.drawText(BENEFIT_BUILDER.phone, {
-    x: leftMargin + 180,
-    y: y + 14,
-    size: 9,
-    font: helvetica,
-    color: grayText,
-  });
-
-  y -= 25;
 
   // Invoice details (compact for all pages)
   const invoiceNumber = invoice.invoice_number || invoice.id.substring(0, 8).toUpperCase();
@@ -126,20 +101,20 @@ async function drawPageHeader(
   page.drawText(`Bill To: ${company?.name || "Customer"}`, {
     x: leftMargin,
     y: y,
-    size: 10,
+    size: 9,
     font: helveticaBold,
     color: grayText,
   });
 
   page.drawText(`Invoice #: ${invoiceNumber}  |  Date: ${formattedInvoiceDate}  |  Period: ${invoice.period}`, {
-    x: rightMargin - 280,
+    x: rightMargin - 260,
     y: y,
-    size: 9,
+    size: 8,
     font: helvetica,
     color: grayText,
   });
 
-  y -= 10;
+  y -= 8;
 
   // Divider line
   page.drawLine({
@@ -149,7 +124,7 @@ async function drawPageHeader(
     color: rgb(0.8, 0.8, 0.8),
   });
 
-  return y - 15;
+  return y - 8; // Reduced spacing after header
 }
 
 // Helper to draw page footer
@@ -263,9 +238,9 @@ export async function GET(
 
     let y = await drawPageHeader(page1, helveticaBold, helvetica, company, invoice, logoImage, 1, totalPages);
 
-    // Bill To / Ship To Section (light blue box)
+    // Bill To / Invoice Details Section (compact light blue box)
     const boxY = y;
-    const boxHeight = 80;
+    const boxHeight = 60; // Reduced from 80
     page1.drawRectangle({
       x: leftMargin,
       y: boxY - boxHeight,
@@ -274,116 +249,92 @@ export async function GET(
       color: blueLight,
     });
 
-    y -= 15;
+    y -= 10;
     const colWidth = (rightMargin - leftMargin) / 2;
 
-    // Bill To
+    // Bill To (left side)
     page1.drawText("Bill to", {
-      x: leftMargin + 15,
+      x: leftMargin + 10,
       y: y,
-      size: 10,
+      size: 9,
       font: helveticaBold,
       color: grayText,
     });
-    y -= 14;
+    y -= 11;
     page1.drawText(company?.contact_name || company?.name || "Customer", {
-      x: leftMargin + 15,
+      x: leftMargin + 10,
       y: y,
-      size: 9,
+      size: 8,
       font: helvetica,
       color: grayText,
     });
-    y -= 12;
-    page1.drawText(company?.name || "", {
-      x: leftMargin + 15,
-      y: y,
-      size: 9,
-      font: helvetica,
-      color: grayText,
-    });
-    y -= 12;
+    y -= 10;
     if (company?.address) {
       page1.drawText(company.address, {
-        x: leftMargin + 15,
+        x: leftMargin + 10,
         y: y,
-        size: 9,
+        size: 8,
         font: helvetica,
         color: grayText,
       });
-      y -= 12;
+      y -= 10;
     }
     const cityStateZip = [company?.city, company?.state, company?.zip].filter(Boolean).join(", ");
     if (cityStateZip) {
       page1.drawText(cityStateZip, {
-        x: leftMargin + 15,
+        x: leftMargin + 10,
         y: y,
-        size: 9,
+        size: 8,
         font: helvetica,
         color: grayText,
       });
     }
 
     // Invoice details on right side of box
-    let detailY = boxY - 15;
+    let detailY = boxY - 10;
     const invoiceNumber = invoice.invoice_number || invoice.id.substring(0, 8).toUpperCase();
     page1.drawText("Invoice Details", {
-      x: leftMargin + colWidth + 15,
+      x: leftMargin + colWidth + 10,
       y: detailY,
-      size: 10,
+      size: 9,
       font: helveticaBold,
       color: grayText,
     });
-    detailY -= 14;
-    page1.drawText(`Invoice No.: ${invoiceNumber}`, {
-      x: leftMargin + colWidth + 15,
+    detailY -= 11;
+    page1.drawText(`Invoice No.: ${invoiceNumber}   Terms: Net 30`, {
+      x: leftMargin + colWidth + 10,
       y: detailY,
-      size: 9,
+      size: 8,
       font: helvetica,
       color: grayText,
     });
-    detailY -= 12;
-    page1.drawText("Terms: Net 30", {
-      x: leftMargin + colWidth + 15,
-      y: detailY,
-      size: 9,
-      font: helvetica,
-      color: grayText,
-    });
-    detailY -= 12;
+    detailY -= 10;
     const invoiceDate = invoice.invoice_date || invoice.issued_at;
     const formattedInvoiceDate = invoiceDate
       ? new Date(invoiceDate).toLocaleDateString("en-US")
       : new Date().toLocaleDateString("en-US");
-    page1.drawText(`Invoice Date: ${formattedInvoiceDate}`, {
-      x: leftMargin + colWidth + 15,
-      y: detailY,
-      size: 9,
-      font: helvetica,
-      color: grayText,
-    });
-    detailY -= 12;
     const dueDate = invoice.due_date
       ? new Date(invoice.due_date)
       : new Date(new Date(invoiceDate || Date.now()).getTime() + 30 * 24 * 60 * 60 * 1000);
-    page1.drawText(`Due Date: ${dueDate.toLocaleDateString("en-US")}`, {
-      x: leftMargin + colWidth + 15,
+    page1.drawText(`Invoice Date: ${formattedInvoiceDate}   Due: ${dueDate.toLocaleDateString("en-US")}`, {
+      x: leftMargin + colWidth + 10,
       y: detailY,
-      size: 9,
+      size: 8,
       font: helvetica,
       color: grayText,
     });
 
-    y = boxY - boxHeight - 30;
+    y = boxY - boxHeight - 15; // Reduced gap after box
 
     // Summary Line Items Table
     page1.drawText("Summary", {
       x: leftMargin,
       y: y,
-      size: 12,
+      size: 11,
       font: helveticaBold,
       color: bluePrimary,
     });
-    y -= 20;
+    y -= 15; // Reduced from 20
 
     // Table header
     const tableX = leftMargin;
@@ -415,9 +366,9 @@ export async function GET(
     let subtotal = 0;
     if (summaryLines.length > 0) {
       summaryLines.forEach((line: any, index: number) => {
-        y -= 5;
+        y -= 3;
 
-        page1.drawText(`${index + 1}.`, { x: tableX + 5, y, size: 9, font: helvetica, color: grayText });
+        page1.drawText(`${index + 1}.`, { x: tableX + 5, y, size: 8, font: helvetica, color: grayText });
 
         // Description
         let desc = line.description || line.kind || "";
@@ -427,21 +378,21 @@ export async function GET(
             desc += ` (${employeeDetailLines.length} employees - see details)`;
           }
         }
-        page1.drawText(desc.substring(0, 50), { x: tableX + 30, y, size: 9, font: helvetica, color: grayText });
+        page1.drawText(desc.substring(0, 55), { x: tableX + 25, y, size: 8, font: helvetica, color: grayText });
 
         // Qty
         const qty = line.quantity || 1;
-        page1.drawText(String(qty), { x: tableX + 320, y, size: 9, font: helvetica, color: grayText });
+        page1.drawText(String(qty), { x: tableX + 320, y, size: 8, font: helvetica, color: grayText });
 
         // Rate
         const rate = (line.amount_cents / 100) / qty;
-        page1.drawText(formatCurrency(rate * 100), { x: tableX + 380, y, size: 9, font: helvetica, color: grayText });
+        page1.drawText(formatCurrency(rate * 100), { x: tableX + 380, y, size: 8, font: helvetica, color: grayText });
 
         // Amount
-        page1.drawText(formatCurrency(line.amount_cents), { x: tableX + 470, y, size: 9, font: helvetica, color: grayText });
+        page1.drawText(formatCurrency(line.amount_cents), { x: tableX + 470, y, size: 8, font: helvetica, color: grayText });
 
         subtotal += line.amount_cents;
-        y -= 20;
+        y -= 14; // Reduced from 20
       });
     } else {
       // Fallback if no lines
@@ -458,13 +409,13 @@ export async function GET(
 
     // Line under items
     page1.drawLine({
-      start: { x: tableX, y: y + 10 },
-      end: { x: tableX + tableWidth, y: y + 10 },
+      start: { x: tableX, y: y + 8 },
+      end: { x: tableX + tableWidth, y: y + 8 },
       thickness: 1,
       color: rgb(0.9, 0.9, 0.9),
     });
 
-    y -= 30;
+    y -= 20; // Reduced from 30
 
     // Totals section
     const totalsX = tableX + tableWidth - 200;
@@ -473,42 +424,42 @@ export async function GET(
     page1.drawText("Subtotal", {
       x: totalsX,
       y: y,
-      size: 10,
+      size: 9,
       font: helvetica,
       color: grayText,
     });
     page1.drawText(formatCurrency(invoice.subtotal_cents || subtotal), {
-      x: totalsX + 100,
+      x: totalsX + 90,
       y: y,
-      size: 10,
+      size: 9,
       font: helvetica,
       color: grayText,
     });
-    y -= 18;
+    y -= 14;
 
     // Tax
     if (invoice.tax_cents > 0) {
       page1.drawText("Tax", {
         x: totalsX,
         y: y,
-        size: 10,
+        size: 9,
         font: helvetica,
         color: grayText,
       });
       page1.drawText(formatCurrency(invoice.tax_cents), {
-        x: totalsX + 100,
+        x: totalsX + 90,
         y: y,
-        size: 10,
+        size: 9,
         font: helvetica,
         color: grayText,
       });
-      y -= 18;
+      y -= 14;
     }
 
     // Total line
     page1.drawLine({
-      start: { x: totalsX, y: y + 5 },
-      end: { x: totalsX + 160, y: y + 5 },
+      start: { x: totalsX, y: y + 4 },
+      end: { x: totalsX + 150, y: y + 4 },
       thickness: 1,
       color: rgb(0.8, 0.8, 0.8),
     });
@@ -516,26 +467,26 @@ export async function GET(
     const totalAmount = (invoice.total_cents || subtotal) / 100;
     page1.drawText("Total Due", {
       x: totalsX,
-      y: y - 10,
-      size: 12,
+      y: y - 8,
+      size: 11,
       font: helveticaBold,
       color: grayText,
     });
     page1.drawText(`$${totalAmount.toFixed(2)}`, {
-      x: totalsX + 100,
-      y: y - 10,
-      size: 14,
+      x: totalsX + 90,
+      y: y - 8,
+      size: 12,
       font: helveticaBold,
       color: bluePrimary,
     });
 
     // Note about employee details
     if (employeeDetailLines.length > 0) {
-      y -= 50;
+      y -= 35;
       page1.drawText(`Employee details on page${detailPages > 1 ? "s" : ""} 2${detailPages > 1 ? `-${totalPages}` : ""}`, {
         x: leftMargin,
         y: y,
-        size: 10,
+        size: 9,
         font: helvetica,
         color: grayText,
       });
