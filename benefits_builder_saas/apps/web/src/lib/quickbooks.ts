@@ -42,33 +42,45 @@ function getQBClient(tokens: QBTokens): any {
  * Refresh access token if expired
  */
 export async function refreshQBToken(tokens: QBTokens): Promise<QBTokens | null> {
-  return new Promise((resolve, reject) => {
-    QuickBooks.refreshAccessToken(
-      tokens.refreshToken,
-      QB_CLIENT_ID,
-      QB_CLIENT_SECRET,
-      (err: any, result: any) => {
-        if (err) {
-          console.error("QuickBooks token refresh error:", err);
-          reject(err);
-          return;
-        }
+  // QuickBooks OAuth 2.0 token endpoint
+  const tokenUrl = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
 
-        const expiresIn = result.expires_in || 3600;
-        const refreshExpiresIn = result.x_refresh_token_expires_in || 8726400;
+  // Create Basic auth header
+  const credentials = Buffer.from(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`).toString("base64");
 
-        const newTokens: QBTokens = {
-          realmId: tokens.realmId,
-          accessToken: result.access_token,
-          refreshToken: result.refresh_token,
-          accessTokenExpiry: new Date(Date.now() + expiresIn * 1000).toISOString(),
-          refreshTokenExpiry: new Date(Date.now() + refreshExpiresIn * 1000).toISOString()
-        };
-
-        resolve(newTokens);
-      }
-    );
+  const response = await fetch(tokenUrl, {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${credentials}`,
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: tokens.refreshToken,
+    }).toString(),
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("QuickBooks token refresh failed:", response.status, errorText);
+    throw new Error(`Token refresh failed: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+
+  const expiresIn = result.expires_in || 3600;
+  const refreshExpiresIn = result.x_refresh_token_expires_in || 8726400;
+
+  const newTokens: QBTokens = {
+    realmId: tokens.realmId,
+    accessToken: result.access_token,
+    refreshToken: result.refresh_token,
+    accessTokenExpiry: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    refreshTokenExpiry: new Date(Date.now() + refreshExpiresIn * 1000).toISOString()
+  };
+
+  return newTokens;
 }
 
 /**
@@ -496,34 +508,46 @@ export async function getQBTokensFromCode(
   authCode: string,
   realmId: string
 ): Promise<QBTokens | null> {
-  return new Promise((resolve, reject) => {
-    QuickBooks.createToken(
-      QB_CLIENT_ID,
-      QB_CLIENT_SECRET,
-      authCode,
-      QB_REDIRECT_URI,
-      (err: any, result: any) => {
-        if (err) {
-          console.error("QuickBooks token creation error:", err);
-          reject(err);
-          return;
-        }
+  // QuickBooks OAuth 2.0 token endpoint
+  const tokenUrl = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
 
-        const expiresIn = result.expires_in || 3600;
-        const refreshExpiresIn = result.x_refresh_token_expires_in || 8726400;
+  // Create Basic auth header
+  const credentials = Buffer.from(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`).toString("base64");
 
-        const tokens: QBTokens = {
-          realmId,
-          accessToken: result.access_token,
-          refreshToken: result.refresh_token,
-          accessTokenExpiry: new Date(Date.now() + expiresIn * 1000).toISOString(),
-          refreshTokenExpiry: new Date(Date.now() + refreshExpiresIn * 1000).toISOString()
-        };
-
-        resolve(tokens);
-      }
-    );
+  const response = await fetch(tokenUrl, {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${credentials}`,
+    },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code: authCode,
+      redirect_uri: QB_REDIRECT_URI,
+    }).toString(),
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("QuickBooks token exchange failed:", response.status, errorText);
+    throw new Error(`Token exchange failed: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+
+  const expiresIn = result.expires_in || 3600;
+  const refreshExpiresIn = result.x_refresh_token_expires_in || 8726400;
+
+  const tokens: QBTokens = {
+    realmId,
+    accessToken: result.access_token,
+    refreshToken: result.refresh_token,
+    accessTokenExpiry: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    refreshTokenExpiry: new Date(Date.now() + refreshExpiresIn * 1000).toISOString()
+  };
+
+  return tokens;
 }
 
 // =====================================================
