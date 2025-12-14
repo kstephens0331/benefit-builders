@@ -68,6 +68,30 @@ export default function AccountingDashboard({
   currentYear,
 }: AccountingDashboardProps) {
   const [showManager, setShowManager] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch('/api/quickbooks/sync-bidirectional', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setSyncMessage(`Sync complete! Pushed: ${data.results?.customers?.pushed || 0} customers, ${data.results?.invoices?.pushed || 0} invoices. Pulled: ${data.results?.payments?.pulled || 0} payments.`);
+        // Refresh page after 2 seconds to show updated data
+        setTimeout(() => window.location.reload(), 2000);
+      } else {
+        setSyncMessage(`Sync failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      setSyncMessage(`Sync error: ${error.message}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -492,13 +516,19 @@ export default function AccountingDashboard({
                 </div>
               )}
 
-              <div className="pt-2">
-                <Link
-                  href="/api/accounting/quickbooks/sync"
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              <div className="pt-2 space-y-2">
+                <button
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  View sync history →
-                </Link>
+                  {isSyncing ? 'Syncing...' : 'Sync Now'}
+                </button>
+                {syncMessage && (
+                  <p className={`text-xs ${syncMessage.includes('failed') || syncMessage.includes('error') ? 'text-red-600' : 'text-green-600'}`}>
+                    {syncMessage}
+                  </p>
+                )}
               </div>
             </div>
           )}
