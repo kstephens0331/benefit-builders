@@ -417,12 +417,12 @@ export default function AccountingDashboard({
               </div>
             </div>
             {!qbConnected && (
-              <Link
+              <a
                 href="/api/accounting/quickbooks/auth"
                 className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
               >
                 Connect QuickBooks
-              </Link>
+              </a>
             )}
           </div>
 
