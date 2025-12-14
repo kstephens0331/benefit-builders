@@ -79,18 +79,28 @@ export default function AccountingDashboard({
     }
     setIsDisconnecting(true);
     try {
+      console.log('Sending disconnect request...');
       const res = await fetch('/api/accounting/quickbooks/disconnect', {
         method: 'POST',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
       });
       const data = await res.json();
+      console.log('Disconnect response:', data);
       if (data.ok) {
-        window.location.reload();
+        alert('QuickBooks disconnected successfully! The page will reload.');
+        // Small delay to ensure server has processed
+        setTimeout(() => {
+          window.location.href = '/accounting?disconnected=true';
+        }, 500);
       } else {
-        alert(`Failed to disconnect: ${data.error}`);
+        alert(`Failed to disconnect: ${data.error || 'Unknown error'}`);
+        setIsDisconnecting(false);
       }
     } catch (error: any) {
+      console.error('Disconnect error:', error);
       alert(`Error: ${error.message}`);
-    } finally {
       setIsDisconnecting(false);
     }
   };
