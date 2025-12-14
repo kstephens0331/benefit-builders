@@ -204,6 +204,118 @@ export default function InvoiceManager({ invoices: initialInvoices, periods }: P
     }
   };
 
+  const handleDeleteInvoice = async (invoiceId: string, companyName: string) => {
+    if (!confirm(`Are you sure you want to delete the invoice for ${companyName}? This cannot be undone.`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch(`/api/invoices?id=${invoiceId}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to delete invoice");
+      }
+
+      setSuccess("Invoice deleted successfully");
+      // Remove from local state
+      setInvoices(invoices.filter((inv) => inv.id !== invoiceId));
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegenerateInvoice = async (companyId: string, period: string, companyName: string) => {
+    if (!confirm(`Regenerate invoice for ${companyName} (${period})? This will recalculate all line items.`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch("/api/billing/generate-invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          period,
+          company_id: companyId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to regenerate invoice");
+      }
+
+      setSuccess(`Invoice regenerated for ${companyName}`);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedInvoices.size === 0) {
+      setError("Please select at least one invoice");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedInvoices.size} invoice(s)? This cannot be undone.`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    let deleted = 0;
+    const errors: string[] = [];
+
+    for (const invoiceId of selectedInvoices) {
+      try {
+        const res = await fetch(`/api/invoices?id=${invoiceId}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (data.ok) {
+          deleted++;
+        } else {
+          errors.push(data.error);
+        }
+      } catch (err: any) {
+        errors.push(err.message);
+      }
+    }
+
+    if (deleted > 0) {
+      setSuccess(`Deleted ${deleted} invoice(s)`);
+      setInvoices(invoices.filter((inv) => !selectedInvoices.has(inv.id)));
+      setSelectedInvoices(new Set());
+    }
+
+    if (errors.length > 0) {
+      setError(`Some deletions failed: ${errors.join(", ")}`);
+    }
+
+    setIsLoading(false);
+    router.refresh();
+  };
+
   const totalAmount = filteredInvoices.reduce((sum, inv) => sum + inv.total_cents, 0);
   const openCount = filteredInvoices.filter((inv) => inv.status === "open").length;
   const sentCount = filteredInvoices.filter((inv) => inv.status === "sent").length;
@@ -301,6 +413,13 @@ export default function InvoiceManager({ invoices: initialInvoices, periods }: P
               Email Selected ({selectedInvoices.size})
             </button>
             <button
+              onClick={handleBatchDelete}
+              disabled={isLoading || selectedInvoices.size === 0}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Delete Selected ({selectedInvoices.size})
+            </button>
+            <button
               onClick={handleEmailAllForPeriod}
               disabled={isLoading || selectedPeriod === "all"}
               className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -368,32 +487,57 @@ export default function InvoiceManager({ invoices: initialInvoices, periods }: P
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex gap-2 justify-center flex-wrap">
+                      <div className="flex gap-1 justify-center flex-wrap">
                         <a
                           href={`/api/invoices/${invoice.id}/pdf`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-3 py-1 bg-slate-600 text-white rounded hover:bg-slate-700 text-sm"
+                          className="px-2 py-1 bg-slate-600 text-white rounded hover:bg-slate-700 text-xs"
                         >
-                          View PDF
+                          PDF
                         </a>
                         <button
                           onClick={() => handleEmailInvoice(invoice.id)}
                           disabled={isLoading || !company?.contact_email}
-                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-50"
+                          className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs disabled:opacity-50"
                           title={!company?.contact_email ? "No email on file" : "Send invoice"}
                         >
                           Email
                         </button>
-                        {invoice.status !== "paid" && (
+                        <button
+                          onClick={() => handleRegenerateInvoice(invoice.company_id, invoice.period, company?.name || "Unknown")}
+                          disabled={isLoading}
+                          className="px-2 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 text-xs"
+                          title="Recalculate invoice"
+                        >
+                          Regen
+                        </button>
+                        {invoice.status !== "paid" && invoice.status !== "void" && (
                           <button
                             onClick={() => handleUpdateStatus(invoice.id, "paid")}
                             disabled={isLoading}
-                            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                            className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
                           >
-                            Mark Paid
+                            Paid
                           </button>
                         )}
+                        {invoice.status !== "void" && (
+                          <button
+                            onClick={() => handleUpdateStatus(invoice.id, "void")}
+                            disabled={isLoading}
+                            className="px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-xs"
+                          >
+                            Void
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteInvoice(invoice.id, company?.name || "Unknown")}
+                          disabled={isLoading}
+                          className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs"
+                          title="Delete invoice"
+                        >
+                          Del
+                        </button>
                       </div>
                     </td>
                   </tr>
