@@ -471,7 +471,22 @@ export async function searchCustomersInQB(
  * Generate OAuth URL for user authorization
  */
 export function getQBAuthUrl(): string {
-  return QuickBooks.authorizeUrl(QB_CLIENT_ID, QB_REDIRECT_URI, "offline_access openid profile email phone address");
+  // QuickBooks OAuth 2.0 authorization endpoint
+  const authBaseUrl = "https://appcenter.intuit.com/connect/oauth2";
+
+  // Generate a random state for CSRF protection
+  const state = Math.random().toString(36).substring(2, 15);
+
+  // Build the authorization URL manually (node-quickbooks doesn't expose a static authorizeUrl method)
+  const params = new URLSearchParams({
+    client_id: QB_CLIENT_ID,
+    redirect_uri: QB_REDIRECT_URI,
+    response_type: "code",
+    scope: "com.intuit.quickbooks.accounting openid profile email phone address",
+    state: state,
+  });
+
+  return `${authBaseUrl}?${params.toString()}`;
 }
 
 /**
