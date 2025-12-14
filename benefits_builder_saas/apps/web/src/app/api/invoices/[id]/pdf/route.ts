@@ -71,8 +71,16 @@ async function drawPageHeader(
 
   y -= 16;
 
-  // Benefit Builder company info (left side, stays clear of logo)
-  page.drawText(`${BENEFIT_BUILDER.name}  •  ${BENEFIT_BUILDER.address}, ${BENEFIT_BUILDER.cityStateZip}`, {
+  // Benefit Builder company info (stacked on left side)
+  page.drawText(BENEFIT_BUILDER.name, {
+    x: leftMargin,
+    y: y,
+    size: 8,
+    font: helveticaBold,
+    color: grayText,
+  });
+  y -= 10;
+  page.drawText(BENEFIT_BUILDER.address, {
     x: leftMargin,
     y: y,
     size: 8,
@@ -80,7 +88,23 @@ async function drawPageHeader(
     color: grayText,
   });
   y -= 10;
-  page.drawText(`${BENEFIT_BUILDER.email}  •  ${BENEFIT_BUILDER.phone}`, {
+  page.drawText(BENEFIT_BUILDER.cityStateZip, {
+    x: leftMargin,
+    y: y,
+    size: 8,
+    font: helvetica,
+    color: grayText,
+  });
+  y -= 10;
+  page.drawText(BENEFIT_BUILDER.email, {
+    x: leftMargin,
+    y: y,
+    size: 8,
+    font: helvetica,
+    color: grayText,
+  });
+  y -= 10;
+  page.drawText(BENEFIT_BUILDER.phone, {
     x: leftMargin,
     y: y,
     size: 8,
@@ -366,10 +390,10 @@ export async function GET(
     page1.drawText("Rate", { x: x + 380, y: y, size: 9, font: helveticaBold, color: grayText });
     page1.drawText("Amount", { x: x + 470, y: y, size: 9, font: helveticaBold, color: grayText });
 
-    y -= 15;
+    y -= 18;
     page1.drawLine({
-      start: { x: tableX, y: y + 5 },
-      end: { x: tableX + tableWidth, y: y + 5 },
+      start: { x: tableX, y: y + 10 },
+      end: { x: tableX + tableWidth, y: y + 10 },
       thickness: 1,
       color: rgb(0.9, 0.9, 0.9),
     });
@@ -378,7 +402,7 @@ export async function GET(
     let subtotal = 0;
     if (summaryLines.length > 0) {
       summaryLines.forEach((line: any, index: number) => {
-        y -= 3;
+        y -= 5;
 
         page1.drawText(`${index + 1}.`, { x: tableX + 5, y, size: 8, font: helvetica, color: grayText });
 
@@ -533,10 +557,10 @@ export async function GET(
         });
         dy -= 20;
 
-        // Table header
+        // Table header - top border
         detailPage.drawLine({
-          start: { x: leftMargin, y: dy + 5 },
-          end: { x: rightMargin, y: dy + 5 },
+          start: { x: leftMargin, y: dy + 8 },
+          end: { x: rightMargin, y: dy + 8 },
           thickness: 1,
           color: rgb(0.8, 0.8, 0.8),
         });
@@ -547,10 +571,11 @@ export async function GET(
         detailPage.drawText("ER BB Fee", { x: leftMargin + 390, y: dy, size: 8, font: helveticaBold, color: grayText });
         detailPage.drawText("Total Fee", { x: leftMargin + 475, y: dy, size: 8, font: helveticaBold, color: grayText });
 
-        dy -= 12;
+        dy -= 15;
+        // Header bottom border
         detailPage.drawLine({
-          start: { x: leftMargin, y: dy + 5 },
-          end: { x: rightMargin, y: dy + 5 },
+          start: { x: leftMargin, y: dy + 8 },
+          end: { x: rightMargin, y: dy + 8 },
           thickness: 1,
           color: rgb(0.9, 0.9, 0.9),
         });
@@ -562,7 +587,7 @@ export async function GET(
 
         // Render employee rows
         for (const emp of pageEmployees) {
-          dy -= 5;
+          dy -= 6;
 
           // Employee name
           const name = (emp.description || "Unknown").substring(0, 30);
@@ -573,8 +598,6 @@ export async function GET(
           detailPage.drawText(formatCurrency(allowable), { x: leftMargin + 180, y: dy, size: 8, font: helvetica, color: grayText });
 
           // EE Fee and ER Fee (calculate from total based on model rates)
-          // Since we store total fee in amount_cents and allowable_benefit_cents separately,
-          // we need to derive EE/ER fees. For now, just show total split based on company model.
           const totalFee = emp.amount_cents || 0;
           const [eeRate, erRate] = getModelRates(company?.model);
           const totalRate = eeRate + erRate;
@@ -585,14 +608,14 @@ export async function GET(
           detailPage.drawText(formatCurrency(erFee), { x: leftMargin + 390, y: dy, size: 8, font: helvetica, color: grayText });
           detailPage.drawText(formatCurrency(totalFee), { x: leftMargin + 475, y: dy, size: 8, font: helveticaBold, color: grayText });
 
-          dy -= 15;
+          dy -= 12;
         }
 
         // Page totals
-        dy -= 10;
+        dy -= 8;
         detailPage.drawLine({
-          start: { x: leftMargin, y: dy + 5 },
-          end: { x: rightMargin, y: dy + 5 },
+          start: { x: leftMargin, y: dy + 10 },
+          end: { x: rightMargin, y: dy + 10 },
           thickness: 1,
           color: rgb(0.8, 0.8, 0.8),
         });
@@ -601,26 +624,28 @@ export async function GET(
         const pageTotal = pageEmployees.reduce((sum: number, emp: any) => sum + (emp.amount_cents || 0), 0);
         const pageAllowable = pageEmployees.reduce((sum: number, emp: any) => sum + (emp.allowable_benefit_cents || 0), 0);
 
-        detailPage.drawText(`Page ${pageNum} Totals:`, { x: leftMargin + 5, y: dy - 10, size: 8, font: helveticaBold, color: grayText });
-        detailPage.drawText(formatCurrency(pageAllowable), { x: leftMargin + 180, y: dy - 10, size: 8, font: helveticaBold, color: grayText });
-        detailPage.drawText(formatCurrency(pageTotal), { x: leftMargin + 475, y: dy - 10, size: 8, font: helveticaBold, color: bluePrimary });
+        dy -= 8;
+        detailPage.drawText(`Page ${pageNum} Totals:`, { x: leftMargin + 5, y: dy, size: 8, font: helveticaBold, color: grayText });
+        detailPage.drawText(formatCurrency(pageAllowable), { x: leftMargin + 180, y: dy, size: 8, font: helveticaBold, color: grayText });
+        detailPage.drawText(formatCurrency(pageTotal), { x: leftMargin + 475, y: dy, size: 8, font: helveticaBold, color: bluePrimary });
 
         // Grand totals on last detail page
         if (pageIdx === detailPages - 1) {
           const grandTotal = employeeDetailLines.reduce((sum: number, emp: any) => sum + (emp.amount_cents || 0), 0);
           const grandAllowable = employeeDetailLines.reduce((sum: number, emp: any) => sum + (emp.allowable_benefit_cents || 0), 0);
 
-          dy -= 30;
+          dy -= 25;
           detailPage.drawLine({
-            start: { x: leftMargin + 150, y: dy + 5 },
-            end: { x: rightMargin, y: dy + 5 },
+            start: { x: leftMargin + 150, y: dy + 10 },
+            end: { x: rightMargin, y: dy + 10 },
             thickness: 2,
             color: bluePrimary,
           });
 
-          detailPage.drawText(`Grand Totals (${employeeDetailLines.length} employees):`, { x: leftMargin + 5, y: dy - 10, size: 9, font: helveticaBold, color: bluePrimary });
-          detailPage.drawText(formatCurrency(grandAllowable), { x: leftMargin + 180, y: dy - 10, size: 9, font: helveticaBold, color: bluePrimary });
-          detailPage.drawText(formatCurrency(grandTotal), { x: leftMargin + 475, y: dy - 10, size: 9, font: helveticaBold, color: bluePrimary });
+          dy -= 8;
+          detailPage.drawText(`Grand Totals (${employeeDetailLines.length} employees):`, { x: leftMargin + 5, y: dy, size: 9, font: helveticaBold, color: bluePrimary });
+          detailPage.drawText(formatCurrency(grandAllowable), { x: leftMargin + 180, y: dy, size: 9, font: helveticaBold, color: bluePrimary });
+          detailPage.drawText(formatCurrency(grandTotal), { x: leftMargin + 475, y: dy, size: 9, font: helveticaBold, color: bluePrimary });
         }
 
         drawPageFooter(detailPage, helvetica);
