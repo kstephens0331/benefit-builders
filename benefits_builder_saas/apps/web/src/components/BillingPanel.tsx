@@ -3,6 +3,11 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 
+type Company = {
+  id: string;
+  name: string;
+};
+
 type InvoiceRow = {
   company_id: string;
   company_name: string;
@@ -36,13 +41,32 @@ export default function BillingPanel() {
   const [now] = useState(() => new Date());
   const [period, setPeriod] = useState<string>(toPeriod(now));
   const [isPending, startTransition] = useTransition();
+  const [isSinglePending, startSingleTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [loadingTable, setLoadingTable] = useState(false);
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<string>("");
 
   const jsonHref = useMemo(() => `/api/reports/billing/${period}`, [period]);
   const pdfHref = useMemo(() => `/api/reports/billing/${period}/pdf`, [period]);
+
+  // Fetch companies on mount
+  useEffect(() => {
+    async function fetchCompanies() {
+      try {
+        const res = await fetch("/api/companies?status=active");
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.data)) {
+          setCompanies(data.data.sort((a: Company, b: Company) => a.name.localeCompare(b.name)));
+        }
+      } catch (e) {
+        console.error("Failed to fetch companies:", e);
+      }
+    }
+    fetchCompanies();
+  }, []);
 
   async function fetchTable() {
     setLoadingTable(true);
@@ -62,11 +86,11 @@ export default function BillingPanel() {
 
   useEffect(() => { fetchTable(); /* eslint-disable-next-line */ }, [period]);
 
-  async function runClose() {
+  async function runGenerateAll() {
     setMessage(null);
     startTransition(async () => {
       try {
-        const res = await fetch("/api/billing/close", {
+        const res = await fetch("/api/billing/generate-invoices", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ period }),
@@ -77,7 +101,32 @@ export default function BillingPanel() {
         setMessage(`Generated ${count} invoices for ${period}.`);
         await fetchTable();
       } catch (e: any) {
-        setMessage(`Close failed: ${e?.message || e}`);
+        setMessage(`Failed: ${e?.message || e}`);
+      }
+    });
+  }
+
+  async function runSingleInvoice(companyId?: string) {
+    const targetCompanyId = companyId || selectedCompany;
+    if (!targetCompanyId) {
+      setMessage("Please select a company first.");
+      return;
+    }
+    setMessage(null);
+    startSingleTransition(async () => {
+      try {
+        const res = await fetch("/api/billing/generate-invoices", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ period, company_id: targetCompanyId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.ok) throw new Error(data?.error || `Failed (${res.status})`);
+        const companyName = companies.find(c => c.id === targetCompanyId)?.name || "Company";
+        setMessage(`Generated invoice for ${companyName} (${period}).`);
+        await fetchTable();
+      } catch (e: any) {
+        setMessage(`Failed: ${e?.message || e}`);
       }
     });
   }
@@ -96,6 +145,7 @@ export default function BillingPanel() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Period Selection */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col">
           <label className="text-xs font-medium text-slate-600 mb-1">Period</label>
@@ -107,7 +157,7 @@ export default function BillingPanel() {
           />
         </div>
 
-        <button onClick={runClose} disabled={isPending} className="px-4 py-2 rounded-xl bg-green-600 text-white disabled:opacity-50 hover:bg-green-700">
+        <button onClick={runGenerateAll} disabled={isPending} className="px-4 py-2 rounded-xl bg-green-600 text-white disabled:opacity-50 hover:bg-green-700">
           {isPending ? "Generating…" : "Generate All Invoices"}
         </button>
 
@@ -120,7 +170,36 @@ export default function BillingPanel() {
         </a>
       </div>
 
-      {message && <div className="text-sm text-slate-700 bg-slate-100 rounded-lg px-3 py-2">{message}</div>}
+      {/* Single Company Invoice Generation */}
+      <div className="flex flex-wrap items-end gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+        <div className="flex flex-col">
+          <label className="text-xs font-medium text-slate-600 mb-1">Generate Single Invoice</label>
+          <select
+            value={selectedCompany}
+            onChange={(e) => setSelectedCompany(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-slate-300 min-w-[250px]"
+          >
+            <option value="">Select a company...</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          onClick={() => runSingleInvoice()}
+          disabled={isSinglePending || !selectedCompany}
+          className="px-4 py-2 rounded-xl bg-blue-600 text-white disabled:opacity-50 hover:bg-blue-700"
+        >
+          {isSinglePending ? "Generating…" : "Generate Invoice"}
+        </button>
+      </div>
+
+      {message && (
+        <div className={`text-sm rounded-lg px-3 py-2 ${message.startsWith('Failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {message}
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-separate border-spacing-y-2">
@@ -133,15 +212,16 @@ export default function BillingPanel() {
               <th className="px-3 py-2 text-right">Employer Fee</th>
               <th className="px-3 py-2 text-right">Employer Net</th>
               <th className="px-3 py-2 text-right">Employee Fee Total</th>
+              <th className="px-3 py-2 text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loadingTable ? (
-              <tr><td className="px-3 py-3 text-slate-600" colSpan={7}>Loading…</td></tr>
+              <tr><td className="px-3 py-3 text-slate-600" colSpan={8}>Loading…</td></tr>
             ) : loadErr ? (
-              <tr><td className="px-3 py-3 text-red-600" colSpan={7}>{loadErr}</td></tr>
+              <tr><td className="px-3 py-3 text-red-600" colSpan={8}>{loadErr}</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-3 py-3 text-slate-600" colSpan={7}>No invoice data for {period}.</td></tr>
+              <tr><td className="px-3 py-3 text-slate-600" colSpan={8}>No invoice data for {period}.</td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.company_id} className="bg-slate-50">
@@ -152,6 +232,14 @@ export default function BillingPanel() {
                   <td className="px-3 py-2 text-right">{usd(r.employer_fee)}</td>
                   <td className="px-3 py-2 text-right">{usd(r.employer_net_savings)}</td>
                   <td className="px-3 py-2 text-right">{usd(r.employee_fee_total)}</td>
+                  <td className="px-3 py-2 text-center">
+                    <button
+                      onClick={() => runSingleInvoice(r.company_id)}
+                      className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
+                    >
+                      Regenerate
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
@@ -165,13 +253,14 @@ export default function BillingPanel() {
               <td className="px-3 py-2 text-right font-semibold">{usd(totals.erFee)}</td>
               <td className="px-3 py-2 text-right font-semibold">{usd(totals.erNet)}</td>
               <td className="px-3 py-2 text-right font-semibold">{usd(totals.eeFee)}</td>
+              <td className="px-3 py-2" />
             </tr>
           </tfoot>
         </table>
       </div>
 
       <p className="text-xs text-slate-500">
-        "Generate All Invoices" creates/updates invoices for all active companies for the selected period. Model fees (5/3, 3/4, 5/1, 4/4) are applied to monthly pre-tax totals.
+        "Generate All Invoices" creates/updates invoices for all active companies. "Generate Invoice" creates one for the selected company. Model fees (5/3, 3/4, 5/1, 4/4) are applied to monthly pre-tax totals.
       </p>
     </div>
   );

@@ -11,6 +11,9 @@ const BENEFIT_BUILDER = {
   cityStateZip: "Conroe, TX 77304-3300",
   email: "billdawson.bb@gmail.com",
   phone: "+1 (972) 741-5663",
+  website: "https://web-dun-three-87.vercel.app",
+  termsUrl: "https://web-dun-three-87.vercel.app/legal/terms",
+  privacyUrl: "https://web-dun-three-87.vercel.app/legal/privacy",
 };
 
 export async function GET(
@@ -524,6 +527,26 @@ export async function GET(
         color: greenText,
       });
     }
+
+    // ===== FOOTER SECTION =====
+    const footerY = 40;
+
+    // Divider line
+    page.drawLine({
+      start: { x: leftMargin, y: footerY + 15 },
+      end: { x: rightMargin, y: footerY + 15 },
+      thickness: 0.5,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+
+    // Thank you message
+    page.drawText("Thank you for your business!", {
+      x: leftMargin,
+      y: footerY,
+      size: 9,
+      font: helveticaBold,
+      color: grayText,
+    });
 
     // Save PDF
     const pdfBytes = await pdfDoc.save();

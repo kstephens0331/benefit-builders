@@ -469,7 +469,7 @@ Return ONLY valid JSON (no markdown, no code blocks, no explanation):
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-haiku-4-5-20251001', // Haiku for fast, accurate data extraction
         max_tokens: 16384,
         messages: [
           {
@@ -1007,84 +1007,102 @@ async function processStructuredData(data: any) {
     throw new Error(`Failed to create company: ${companyError?.message}`);
   }
 
-  // Send welcome email to new company
+  // Send welcome email asynchronously (don't await - fire and forget)
   if (company.contact_email) {
-    await sendWelcomeEmail(company.name, company.contact_email).catch((err) => {
+    sendWelcomeEmail(company.name, company.contact_email).catch((err) => {
       console.error(`Failed to send welcome email to ${company.contact_email}:`, err);
-      // Don't fail the upload process if email fails
     });
   }
-
-  const employeesCreated = [];
-  const employeesFailed = [];
 
   // Get pay period code for employees from company pay frequency
   const employeePayPeriod = payFrequencyToCode(payFrequency);
 
-  // Create employees and their benefits
+  // PERFORMANCE OPTIMIZATION: Batch insert all employees in ONE query
+  const employeeRecords = data.employees.map((empData: any) => ({
+    company_id: company.id,
+    first_name: empData.first_name,
+    last_name: empData.last_name,
+    dob: empData.dob || null,
+    filing_status: normalizeFilingStatus(empData.filing_status),
+    dependents: empData.dependents || 0,
+    gross_pay: empData.gross_pay,
+    tobacco_use: empData.tobacco_use || false,
+    pay_period: employeePayPeriod,
+    active: true,
+    consent_status: 'pending',
+  }));
+
+  console.log(`Batch inserting ${employeeRecords.length} employees...`);
+  const startTime = Date.now();
+
+  const { data: insertedEmployees, error: bulkEmpError } = await supabase
+    .from('employees')
+    .insert(employeeRecords)
+    .select('id, first_name, last_name');
+
+  console.log(`Batch insert completed in ${Date.now() - startTime}ms`);
+
+  if (bulkEmpError) {
+    throw new Error(`Failed to insert employees: ${bulkEmpError.message}`);
+  }
+
+  // Create a map of employee names to IDs for benefit association
+  const employeeIdMap = new Map<string, string>();
+  for (const emp of insertedEmployees || []) {
+    const key = `${emp.first_name}|${emp.last_name}`;
+    employeeIdMap.set(key, emp.id);
+  }
+
+  // PERFORMANCE OPTIMIZATION: Batch insert all benefits in ONE query
+  const allBenefits: any[] = [];
+  const today = new Date().toISOString().split('T')[0];
+
   for (const empData of data.employees) {
-    try {
-      // Normalize filing status
-      const filingStatus = normalizeFilingStatus(empData.filing_status);
+    if (!empData.benefits || empData.benefits.length === 0) continue;
 
-      const { data: employee, error: empError } = await supabase
-        .from('employees')
-        .insert({
-          company_id: company.id,
-          first_name: empData.first_name,
-          last_name: empData.last_name,
-          dob: empData.dob || null,
-          filing_status: filingStatus,
-          dependents: empData.dependents || 0,
-          gross_pay: empData.gross_pay,
-          tobacco_use: empData.tobacco_use || false,
-          pay_period: employeePayPeriod,
-          active: true,
-          consent_status: 'pending',
-        })
-        .select()
-        .single();
+    const key = `${empData.first_name}|${empData.last_name}`;
+    const employeeId = employeeIdMap.get(key);
 
-      if (empError || !employee) {
-        employeesFailed.push({
-          name: `${empData.first_name} ${empData.last_name}`,
-          error: empError?.message,
-        });
-        continue;
-      }
+    if (!employeeId) continue;
 
-      // Add benefits
-      if (empData.benefits && empData.benefits.length > 0) {
-        const benefitsToInsert = empData.benefits.map((b: any) => ({
-          employee_id: employee.id,
-          plan_code: b.plan_code,
-          per_pay_amount: b.per_pay_amount,
-          reduces_fit: b.reduces_fit ?? true,
-          reduces_fica: b.reduces_fica ?? true,
-          effective_date: new Date().toISOString().split('T')[0],
-        }));
-
-        const { error: benefitsError } = await supabase
-          .from('employee_benefits')
-          .insert(benefitsToInsert);
-
-        if (benefitsError) {
-          console.warn(`Benefits error for ${employee.id}:`, benefitsError);
-        }
-      }
-
-      employeesCreated.push({
-        id: employee.id,
-        name: `${employee.first_name} ${employee.last_name}`,
-        benefits_count: empData.benefits?.length || 0,
-      });
-    } catch (error: any) {
-      employeesFailed.push({
-        name: `${empData.first_name} ${empData.last_name}`,
-        error: error.message,
+    for (const b of empData.benefits) {
+      allBenefits.push({
+        employee_id: employeeId,
+        plan_code: b.plan_code,
+        per_pay_amount: b.per_pay_amount,
+        reduces_fit: b.reduces_fit ?? true,
+        reduces_fica: b.reduces_fica ?? true,
+        effective_date: today,
       });
     }
   }
+
+  if (allBenefits.length > 0) {
+    console.log(`Batch inserting ${allBenefits.length} benefits...`);
+    const benefitStartTime = Date.now();
+
+    const { error: bulkBenefitsError } = await supabase
+      .from('employee_benefits')
+      .insert(allBenefits);
+
+    console.log(`Benefits batch insert completed in ${Date.now() - benefitStartTime}ms`);
+
+    if (bulkBenefitsError) {
+      console.warn('Benefits batch insert error:', bulkBenefitsError);
+    }
+  }
+
+  // Build response
+  const employeesCreated = (insertedEmployees || []).map((emp: any) => {
+    const empData = data.employees.find(
+      (e: any) => e.first_name === emp.first_name && e.last_name === emp.last_name
+    );
+    return {
+      id: emp.id,
+      name: `${emp.first_name} ${emp.last_name}`,
+      benefits_count: empData?.benefits?.length || 0,
+    };
+  });
 
   return {
     company: {
@@ -1092,8 +1110,8 @@ async function processStructuredData(data: any) {
       name: company.name,
     },
     employees_created: employeesCreated.length,
-    employees_failed: employeesFailed.length,
+    employees_failed: 0,
     employees: employeesCreated,
-    failures: employeesFailed,
+    failures: [],
   };
 }
