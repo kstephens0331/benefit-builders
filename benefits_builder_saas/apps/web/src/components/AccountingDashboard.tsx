@@ -472,7 +472,7 @@ export default function AccountingDashboard({
               {lastSuccessfulSync && (
                 <div>
                   <span className="text-gray-500 text-sm">Last Sync:</span>
-                  <span className="ml-2 text-gray-900 text-sm">
+                  <span className="ml-2 text-gray-900 text-sm" suppressHydrationWarning>
                     {new Date(lastSuccessfulSync.synced_at).toLocaleString('en-US', {
                       month: 'short',
                       day: 'numeric',
@@ -520,7 +520,7 @@ export default function AccountingDashboard({
                             <span className="text-gray-500">({log.items_synced})</span>
                           )}
                         </div>
-                        <span className="text-gray-500">
+                        <span className="text-gray-500" suppressHydrationWarning>
                           {new Date(log.synced_at).toLocaleString('en-US', {
                             month: 'short',
                             day: 'numeric',
