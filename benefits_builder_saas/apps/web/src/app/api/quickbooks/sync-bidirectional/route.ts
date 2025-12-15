@@ -227,6 +227,11 @@ export async function POST(request: NextRequest) {
             syncResults.customers.pulled++;
           } else {
             // Create new company from QB customer
+            // Extract state from QuickBooks billing address if available
+            const qbState = qbCustomer.BillAddr?.CountrySubDivisionCode
+              || qbCustomer.ShipAddr?.CountrySubDivisionCode
+              || "Unknown";
+
             const { error: insertError } = await db.from("companies").insert({
               name: qbCustomer.DisplayName,
               contact_email: qbCustomer.PrimaryEmailAddr?.Address || null,
@@ -235,6 +240,7 @@ export async function POST(request: NextRequest) {
               qb_customer_id: qbCustomer.Id,
               qb_synced_at: new Date().toISOString(),
               model: "5/3", // Default model
+              state: qbState, // Required field - use QB billing address state or default
             });
 
             if (!insertError) {
