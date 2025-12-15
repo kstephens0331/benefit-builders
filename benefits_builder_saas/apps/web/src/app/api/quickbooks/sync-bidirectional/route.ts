@@ -288,10 +288,10 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // Calculate amounts
-          const totalAmount = Math.round((parseFloat(qbInvoice.TotalAmt) || 0) * 100); // Convert to cents
-          const balance = Math.round((parseFloat(qbInvoice.Balance) || 0) * 100);
-          const amountPaid = totalAmount - balance;
+          // Calculate amounts (QB returns dollars, database stores dollars - no conversion needed)
+          const totalAmount = Math.round((parseFloat(qbInvoice.TotalAmt) || 0) * 100) / 100; // Keep as dollars with 2 decimal precision
+          const balance = Math.round((parseFloat(qbInvoice.Balance) || 0) * 100) / 100;
+          const amountPaid = Math.round((totalAmount - balance) * 100) / 100;
 
           // Determine status
           let status = "open";
@@ -369,8 +369,8 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (arRecord) {
-            // Record payment in our system
-            const paymentAmount = Math.round(parseFloat(qbPayment.TotalAmt || "0") * 100); // Convert to cents
+            // Record payment in our system (QB returns dollars, DB stores dollars)
+            const paymentAmount = Math.round(parseFloat(qbPayment.TotalAmt || "0") * 100) / 100;
 
             await db.from("payment_transactions").insert({
               transaction_type: "ar_payment",
