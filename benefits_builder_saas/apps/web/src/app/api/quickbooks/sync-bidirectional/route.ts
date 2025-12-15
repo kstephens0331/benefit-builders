@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
             status = "partial";
           }
 
-          // Create A/R entry
+          // Create A/R entry (amount_due is a generated column, don't insert it)
           const { error: insertError } = await db.from("accounts_receivable").insert({
             company_id: company.id,
             invoice_number: qbInvoice.DocNumber || `QB-${qbInvoice.Id}`,
@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
             due_date: qbInvoice.DueDate || qbInvoice.TxnDate,
             amount: totalAmount,
             amount_paid: amountPaid,
-            amount_due: balance,
+            // amount_due is a generated column (amount - amount_paid), don't insert
             status: status,
             description: `Imported from QuickBooks`,
             synced_to_qb: true,
@@ -393,12 +393,12 @@ export async function POST(request: NextRequest) {
               newStatus = 'partial';
             }
 
-            // Update A/R record
+            // Update A/R record (amount_due is generated, only update amount_paid)
             await db
               .from("accounts_receivable")
               .update({
                 amount_paid: newAmountPaid,
-                amount_due: newAmountDue,
+                // amount_due is a generated column, don't update
                 status: newStatus,
               })
               .eq("id", arRecord.id);
