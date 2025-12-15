@@ -328,90 +328,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ===== STEP 5: Pull payments from QuickBooks (last 30 days) =====
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    const today = new Date().toISOString().split("T")[0];
-
-    const paymentsResult = await getAllPaymentsFromQB(
-      validTokens,
-      thirtyDaysAgo,
-      today
-    );
-
-    if (paymentsResult.success && paymentsResult.payments) {
-      for (const qbPayment of paymentsResult.payments) {
-        try {
-          // Check if payment already imported
-          const { data: existing } = await db
-            .from("payment_transactions")
-            .select("id")
-            .eq("qb_payment_id", qbPayment.Id)
-            .maybeSingle();
-
-          if (existing) {
-            continue; // Already imported
-          }
-
-          // Find matching invoice by QB invoice ID
-          const linkedInvoiceId = qbPayment.Line?.[0]?.LinkedTxn?.[0]?.TxnId;
-
-          if (!linkedInvoiceId) {
-            continue; // No linked invoice
-          }
-
-          // Find our A/R record with this QB invoice ID
-          const { data: arRecord } = await db
-            .from("accounts_receivable")
-            .select("id, amount, amount_paid, status")
-            .eq("quickbooks_invoice_id", linkedInvoiceId)
-            .maybeSingle();
-
-          if (arRecord) {
-            // Record payment in our system (QB returns dollars, DB stores dollars)
-            const paymentAmount = Math.round(parseFloat(qbPayment.TotalAmt || "0") * 100) / 100;
-
-            await db.from("payment_transactions").insert({
-              transaction_type: "ar_payment",
-              ar_id: arRecord.id,
-              payment_date: qbPayment.TxnDate,
-              amount: paymentAmount,
-              payment_method: qbPayment.PaymentMethodRef?.name || "other",
-              reference_number: qbPayment.PaymentRefNum || qbPayment.PrivateNote,
-              notes: `Imported from QuickBooks (Payment ID: ${qbPayment.Id})`,
-              qb_payment_id: qbPayment.Id,
-            });
-
-            // Calculate new amounts
-            const newAmountPaid = (arRecord.amount_paid || 0) + paymentAmount;
-            const newAmountDue = arRecord.amount - newAmountPaid;
-            let newStatus = arRecord.status;
-            if (newAmountDue <= 0) {
-              newStatus = 'paid';
-            } else if (newAmountPaid > 0) {
-              newStatus = 'partial';
-            }
-
-            // Update A/R record (amount_due is generated, only update amount_paid)
-            await db
-              .from("accounts_receivable")
-              .update({
-                amount_paid: newAmountPaid,
-                // amount_due is a generated column, don't update
-                status: newStatus,
-              })
-              .eq("id", arRecord.id);
-
-            syncResults.payments.pulled++;
-          }
-        } catch (error: any) {
-          syncResults.payments.errors.push(
-            `Payment ${qbPayment.Id}: ${error.message}`
-          );
-        }
-      }
-    }
+    // ===== STEP 5: Skip payment import =====
+    // NOTE: We don't import payments separately because invoice.Balance already
+    // reflects payments. The amount_paid is calculated as (TotalAmt - Balance).
+    // Importing payments would double-count them.
+    // Payment history can be viewed in QuickBooks directly.
 
     // ===== STEP 6: Log sync results =====
     const totalItemsSynced =
