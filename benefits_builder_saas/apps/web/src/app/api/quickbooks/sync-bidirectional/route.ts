@@ -227,10 +227,13 @@ export async function POST(request: NextRequest) {
             syncResults.customers.pulled++;
           } else {
             // Create new company from QB customer
-            // Extract state from QuickBooks billing address if available
-            const qbState = qbCustomer.BillAddr?.CountrySubDivisionCode
+            // Extract state from QuickBooks billing address - must be 2-char code
+            const rawState = qbCustomer.BillAddr?.CountrySubDivisionCode
               || qbCustomer.ShipAddr?.CountrySubDivisionCode
-              || "Unknown";
+              || "";
+            // Ensure it's a 2-character state code (truncate if needed, default to "XX" if empty)
+            const qbState = rawState.length === 2 ? rawState.toUpperCase() :
+                           rawState.length > 2 ? rawState.substring(0, 2).toUpperCase() : "XX";
 
             const { error: insertError } = await db.from("companies").insert({
               name: qbCustomer.DisplayName,
@@ -240,7 +243,8 @@ export async function POST(request: NextRequest) {
               qb_customer_id: qbCustomer.Id,
               qb_synced_at: new Date().toISOString(),
               model: "5/3", // Default model
-              state: qbState, // Required field - use QB billing address state or default
+              state: qbState, // Required 2-char field
+              pay_frequency: "monthly", // Default pay frequency for QB imports
             });
 
             if (!insertError) {
