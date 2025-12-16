@@ -190,7 +190,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ===== STEP 3: Pull customers from QuickBooks =====
+    // ===== STEP 3: Link existing companies to QuickBooks customers =====
+    // NOTE: We do NOT create new companies from QB customers.
+    // Companies = Employers with enrolled employees (created through the app)
+    // QB Customers = Payees (may or may not be companies in our system)
+    // We only LINK existing companies to their QB customer records by matching name.
     const customersResult = await getAllCustomersFromQB(validTokens);
 
     if (customersResult.success && customersResult.customers) {
@@ -204,7 +208,7 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (existingCompany) {
-            continue; // Already imported
+            continue; // Already linked
           }
 
           // Check if company with same name exists (link them)
@@ -225,34 +229,9 @@ export async function POST(request: NextRequest) {
               })
               .eq("id", matchingCompany.id);
             syncResults.customers.pulled++;
-          } else {
-            // Create new company from QB customer
-            // Extract state from QuickBooks billing address - must be 2-char code
-            const rawState = qbCustomer.BillAddr?.CountrySubDivisionCode
-              || qbCustomer.ShipAddr?.CountrySubDivisionCode
-              || "";
-            // Ensure it's a 2-character state code (truncate if needed, default to "XX" if empty)
-            const qbState = rawState.length === 2 ? rawState.toUpperCase() :
-                           rawState.length > 2 ? rawState.substring(0, 2).toUpperCase() : "XX";
-
-            const { error: insertError } = await db.from("companies").insert({
-              name: qbCustomer.DisplayName,
-              contact_email: qbCustomer.PrimaryEmailAddr?.Address || null,
-              contact_phone: qbCustomer.PrimaryPhone?.FreeFormNumber || null,
-              status: qbCustomer.Active ? "active" : "inactive",
-              qb_customer_id: qbCustomer.Id,
-              qb_synced_at: new Date().toISOString(),
-              model: "5/3", // Default model
-              state: qbState, // Required 2-char field
-              pay_frequency: "monthly", // Default pay frequency for QB imports
-            });
-
-            if (!insertError) {
-              syncResults.customers.pulled++;
-            } else {
-              syncResults.customers.errors.push(`${qbCustomer.DisplayName}: ${insertError.message}`);
-            }
           }
+          // If no matching company exists, we do NOT create one.
+          // QB customers that aren't companies remain unlinked.
         } catch (error: any) {
           syncResults.customers.errors.push(`${qbCustomer.DisplayName}: ${error.message}`);
         }
