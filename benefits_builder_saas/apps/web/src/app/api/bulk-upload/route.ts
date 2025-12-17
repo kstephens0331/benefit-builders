@@ -289,6 +289,31 @@ export async function POST(request: NextRequest) {
       console.log('Using user-selected model:', selectedModel);
     }
 
+    // PRIORITY: Use extracted company info from Excel cells (more reliable than AI)
+    structuredData.company = structuredData.company || {};
+    if (extractedCompanyName && extractedCompanyName.trim()) {
+      console.log(`Using extracted company name from Excel: "${extractedCompanyName}" (AI returned: "${structuredData.company.name}")`);
+      structuredData.company.name = extractedCompanyName;
+    }
+    if (extractedAddress && extractedAddress.trim()) {
+      structuredData.company.address = extractedAddress;
+    }
+    if (extractedCity && extractedCity.trim()) {
+      structuredData.company.city = extractedCity;
+    }
+    if (extractedState && extractedState.trim()) {
+      structuredData.company.state = extractedState;
+    }
+    if (extractedZip && extractedZip.trim()) {
+      structuredData.company.zip = extractedZip;
+    }
+    if (extractedContactName && extractedContactName.trim()) {
+      structuredData.company.contact_name = extractedContactName;
+    }
+    if (extractedPayFrequency && extractedPayFrequency.trim()) {
+      structuredData.company.pay_frequency = extractedPayFrequency;
+    }
+
     // Log structured data for debugging
     console.log('Structured data:', JSON.stringify(structuredData, null, 2));
     console.log('Employees count:', structuredData.employees?.length || 0);
