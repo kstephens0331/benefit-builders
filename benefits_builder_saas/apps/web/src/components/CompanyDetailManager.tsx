@@ -13,6 +13,7 @@ type Employee = {
   gross_pay: number;
   consent_status: string;
   active: boolean;
+  terminated?: boolean;
   dob?: string;
 };
 
@@ -140,6 +141,37 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
 
       if (!data.ok) {
         throw new Error(data.error || "Failed to update employee status");
+      }
+
+      setEmployees(employees.map((e) => (e.id === empId ? data.data : e)));
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleToggleTerminated = async (empId: string, empName: string, currentTerminated: boolean) => {
+    const action = currentTerminated ? "reinstate" : "terminate";
+    if (!confirm(`Are you sure you want to ${action} ${empName}?`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/employees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: empId, terminated: !currentTerminated }),
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to update employee termination status");
       }
 
       setEmployees(employees.map((e) => (e.id === empId ? data.data : e)));
@@ -393,6 +425,19 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                   }
                 >
                   {emp.active ? "active" : "inactive"}
+                </button>
+
+                <button
+                  onClick={() => handleToggleTerminated(emp.id, `${emp.first_name} ${emp.last_name}`, emp.terminated || false)}
+                  disabled={isLoading}
+                  className={
+                    "px-3 py-1 rounded-full text-sm font-medium text-center whitespace-nowrap " +
+                    (emp.terminated
+                      ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200")
+                  }
+                >
+                  {emp.terminated ? "terminated" : "not terminated"}
                 </button>
 
                 <button
