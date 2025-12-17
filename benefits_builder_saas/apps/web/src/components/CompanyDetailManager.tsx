@@ -368,6 +368,12 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
           >
             Download Roster PDF
           </a>
+          <Link
+            href={`/companies/${company.id}/deductions-report`}
+            className="px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 text-center whitespace-nowrap"
+          >
+            Deduction Report
+          </Link>
           <button
             onClick={handleGenerateProposal}
             disabled={isGeneratingProposal || employees.length === 0}

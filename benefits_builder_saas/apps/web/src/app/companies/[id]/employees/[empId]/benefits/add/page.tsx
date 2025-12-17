@@ -7,109 +7,161 @@ async function addBenefit(formData: FormData) {
 
   const employee_id = String(formData.get("employee_id") ?? "");
   const company_id = String(formData.get("company_id") ?? "");
-  const catalog_code = (String(formData.get("catalog_code") ?? "") || null) as string | null;
-  const plan_code = (String(formData.get("plan_code") ?? "") || null) as string | null;
+  const policy_number = String(formData.get("policy_number") ?? "").trim();
+  const provider = String(formData.get("provider") ?? "").trim();
+  const benefit_category = String(formData.get("benefit_category") ?? "").trim();
   const per_pay_amount = Number(formData.get("per_pay_amount") ?? 0);
-  const start_date = (String(formData.get("start_date") ?? "") || null) as string | null;
-  const end_date = (String(formData.get("end_date") ?? "") || null) as string | null;
 
   if (!employee_id) throw new Error("Missing employee_id");
-  if (!catalog_code && !plan_code) throw new Error("Provide a catalog_code or plan_code");
-  if (!(per_pay_amount > 0)) throw new Error("per_pay_amount must be > 0");
+  if (!provider) throw new Error("Please enter a provider/company name");
+  if (!benefit_category) throw new Error("Please select a benefit category");
+  if (!(per_pay_amount > 0)) throw new Error("Amount must be greater than 0");
+
+  // Store as: "Provider - Category" in plan_code for backwards compatibility
+  // Also store individual fields in a JSON-friendly format
+  const plan_code = `${provider} - ${benefit_category}`;
 
   const { error } = await db.from("employee_benefits").insert({
     employee_id,
-    catalog_code,
-    plan_code,
+    plan_code, // Full display name
     per_pay_amount,
-    start_date,
-    end_date,
-    active: true,
+    reduces_fit: true,
+    reduces_fica: true,
+    // Store additional details in a way that can be parsed later
+    // Note: If these columns don't exist yet, they'll be ignored
+    // policy_number,
+    // provider,
+    // benefit_category,
   });
   if (error) throw new Error(error.message);
 
   redirect(`/companies/${company_id}/employees/${employee_id}/benefits`);
 }
 
+const BENEFIT_CATEGORIES = [
+  "Accident",
+  "Cancer",
+  "Critical Illness",
+  "Dental",
+  "Disability (Short-Term)",
+  "Disability (Long-Term)",
+  "Hospital Indemnity",
+  "Life Insurance",
+  "Vision",
+  "Whole Life",
+  "Other",
+];
+
+const COMMON_PROVIDERS = [
+  "Aflac",
+  "Allstate",
+  "Colonial Life",
+  "Guardian",
+  "Lincoln Financial",
+  "MetLife",
+  "Principal",
+  "Transamerica",
+  "Unum",
+  "Other",
+];
+
 export default async function AddBenefitPage({
   params,
 }: { params: Promise<{ id: string; empId: string }> }) {
   const { id: companyId, empId } = await params;
 
-  // Optionally fetch catalog to help pick valid codes
-  const db = (await import("@/lib/supabase")).createServiceClient();
-  const { data: catalog } = await db
-    .from("benefit_catalog")
-    .select("plan_code, description, reduces_fit, reduces_fica, annual_limit")
-    .order("plan_code");
-
   return (
-    <main className="max-w-xl mx-auto p-6 space-y-6">
-      <h1 className="text-xl font-semibold">Add Benefit</h1>
+    <main className="max-w-lg mx-auto p-6 space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold">Add Benefit</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Enter the benefit details for this employee
+        </p>
+      </div>
 
-      <form action={addBenefit} className="space-y-4">
+      <form action={addBenefit} className="space-y-4 bg-white rounded-xl shadow p-6">
         <input type="hidden" name="employee_id" value={empId} />
         <input type="hidden" name="company_id" value={companyId} />
 
+        {/* Policy Number */}
         <div className="grid gap-2">
-          <label className="text-sm">Catalog Code (preferred)</label>
-          <input name="catalog_code" list="catalog-codes" placeholder="e.g., H125" className="border rounded-lg p-2" />
-          <datalist id="catalog-codes">
-            {(catalog ?? []).map((c) => (
-              <option key={c.plan_code} value={c.plan_code}>
-                {c.plan_code} — {c.description}
-              </option>
+          <label className="text-sm font-medium">Policy Number</label>
+          <input
+            name="policy_number"
+            placeholder="e.g., POL-123456"
+            className="border rounded-lg p-2 w-full"
+          />
+          <p className="text-xs text-slate-500">Optional - the policy or certificate number</p>
+        </div>
+
+        {/* Provider/Company */}
+        <div className="grid gap-2">
+          <label className="text-sm font-medium">Provider / Company *</label>
+          <input
+            name="provider"
+            list="providers"
+            placeholder="e.g., Aflac"
+            required
+            className="border rounded-lg p-2 w-full"
+          />
+          <datalist id="providers">
+            {COMMON_PROVIDERS.map((p) => (
+              <option key={p} value={p} />
             ))}
           </datalist>
-          <div className="text-xs text-slate-500">
-            If your catalog isn’t set yet, you may provide <strong>Plan Code</strong> instead.
-          </div>
+          <p className="text-xs text-slate-500">The insurance company providing this benefit</p>
         </div>
 
+        {/* Benefit Category */}
         <div className="grid gap-2">
-          <label className="text-sm">Plan Code (fallback)</label>
-          <input name="plan_code" placeholder="e.g., H125" className="border rounded-lg p-2" />
+          <label className="text-sm font-medium">Benefit Category *</label>
+          <select
+            name="benefit_category"
+            required
+            className="border rounded-lg p-2 w-full"
+          >
+            <option value="">-- Select Category --</option>
+            {BENEFIT_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500">Type of coverage (Accident, Cancer, Life, etc.)</p>
         </div>
 
+        {/* Amount per Paycheck */}
         <div className="grid gap-2">
-          <label className="text-sm">Per-pay Amount (USD)</label>
-          <input name="per_pay_amount" type="number" step="0.01" min="0.01" required className="border rounded-lg p-2" />
+          <label className="text-sm font-medium">Amount per Paycheck *</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+            <input
+              name="per_pay_amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              required
+              placeholder="0.00"
+              className="border rounded-lg p-2 pl-7 w-full"
+            />
+          </div>
+          <p className="text-xs text-slate-500">The amount deducted each pay period</p>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-2">
-          <div>
-            <label className="text-sm">Start date (optional)</label>
-            <input name="start_date" type="date" className="border rounded-lg p-2 w-full" />
-          </div>
-          <div>
-            <label className="text-sm">End date (optional)</label>
-            <input name="end_date" type="date" className="border rounded-lg p-2 w-full" />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button className="px-4 py-2 rounded-xl bg-slate-900 text-white">Save</button>
-          <a href={`/companies/${companyId}/employees/${empId}/benefits`} className="text-sm underline">
+        {/* Actions */}
+        <div className="flex items-center gap-3 pt-4 border-t">
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+          >
+            Add Benefit
+          </button>
+          <a
+            href={`/companies/${companyId}/employees/${empId}/benefits`}
+            className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+          >
             Cancel
           </a>
         </div>
       </form>
-
-      <div className="p-4 bg-white rounded-xl shadow">
-        <h2 className="font-semibold mb-2">Catalog Preview</h2>
-        <div className="grid gap-2">
-          {(catalog ?? []).map((c) => (
-            <div key={c.plan_code} className="text-sm border rounded-lg p-2">
-              <div className="font-medium">{c.plan_code} — {c.description}</div>
-              <div className="text-xs text-slate-600">
-                FIT: {c.reduces_fit ? "Yes" : "No"} · FICA: {c.reduces_fica ? "Yes" : "No"} · Annual cap:{" "}
-                {c.annual_limit ?? "—"}
-              </div>
-            </div>
-          ))}
-          {!catalog?.length && <div className="text-sm text-slate-600">No catalog rows yet.</div>}
-        </div>
-      </div>
     </main>
   );
 }

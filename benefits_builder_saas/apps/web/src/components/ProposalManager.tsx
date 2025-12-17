@@ -83,7 +83,7 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
     companyEmail: "",
     companyContact: "",
     effectiveDate: new Date().toISOString().split("T")[0],
-    modelPercentage: "5/1",
+    modelPercentage: "5/3",
     payPeriod: "Bi-Weekly",
     tier: "2025",
   });
@@ -143,7 +143,7 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
         companyPhone: "",
         companyEmail: "",
         companyContact: "",
-        modelPercentage: "5/1",
+        modelPercentage: "5/3",
         payPeriod: "Bi-Weekly",
         tier: "2025",
       }));
@@ -237,7 +237,7 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
         companyEmail: "",
         companyContact: "",
         effectiveDate: new Date().toISOString().split("T")[0],
-        modelPercentage: "5/1",
+        modelPercentage: "5/3",
         payPeriod: "Bi-Weekly",
         tier: "2025",
       });
@@ -736,10 +736,9 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    Model Percentage
+                    Model (EE% / ER%)
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.modelPercentage}
                     onChange={(e) =>
                       setFormData({
@@ -747,9 +746,16 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
                         modelPercentage: e.target.value,
                       })
                     }
-                    placeholder="5/1"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                  />
+                  >
+                    <option value="5/3">5/3 - Employee 5%, Employer 3%</option>
+                    <option value="3/4">3/4 - Employee 3%, Employer 4%</option>
+                    <option value="5/1">5/1 - Employee 5%, Employer 1%</option>
+                    <option value="5/0">5/0 - Employee 5%, Employer 0%</option>
+                    <option value="4/4">4/4 - Employee 4%, Employer 4%</option>
+                    <option value="6/0">6/0 - Employee 6%, Employer 0%</option>
+                    <option value="1/5">1/5 - Employee 1%, Employer 5%</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">
@@ -935,10 +941,9 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    Model Percentage
+                    Model (EE% / ER%)
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={editFormData.model_percentage}
                     onChange={(e) =>
                       setEditFormData({
@@ -946,9 +951,16 @@ export default function ProposalManager({ initialProposals, companies }: Props) 
                         model_percentage: e.target.value,
                       })
                     }
-                    placeholder="5/3"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                  />
+                  >
+                    <option value="5/3">5/3 - Employee 5%, Employer 3%</option>
+                    <option value="3/4">3/4 - Employee 3%, Employer 4%</option>
+                    <option value="5/1">5/1 - Employee 5%, Employer 1%</option>
+                    <option value="5/0">5/0 - Employee 5%, Employer 0%</option>
+                    <option value="4/4">4/4 - Employee 4%, Employer 4%</option>
+                    <option value="6/0">6/0 - Employee 6%, Employer 0%</option>
+                    <option value="1/5">1/5 - Employee 1%, Employer 5%</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">
