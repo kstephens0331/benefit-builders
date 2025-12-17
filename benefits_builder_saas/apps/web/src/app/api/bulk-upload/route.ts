@@ -420,11 +420,15 @@ async function parsePDFWithClaudeVision(buffer: Buffer, selectedModel: string | 
 Analyze this employee census/payroll PDF document and extract ALL information in strict JSON format.
 
 CRITICAL INSTRUCTIONS:
-1. COMPANY NAME: Look carefully at the TOP of the document for the company name. It may appear as:
-   - A title/header at the top of the first page
-   - Text like "COMPANY NAME", "Company:", or just prominently displayed
-   - Part of a report title like "SAGE CREEK CENSUS" means company is "Sage Creek"
-   - NEVER return "unknown" - always extract the actual company name from the document
+1. COMPANY NAME - THIS IS MANDATORY:
+   - Look at the TOP of EVERY PAGE for the company name
+   - Check headers, titles, letterhead, report titles
+   - Examples: "SAGE CREEK CENSUS" → company is "Sage Creek"
+   - "ABC Corp Payroll Report" → company is "ABC Corp"
+   - The filename may contain the company name
+   - NEVER return "unknown", "Company Name", "N/A", or any placeholder
+   - If you see ANY text that looks like a business name, USE IT
+   - This is the MOST IMPORTANT field to extract correctly
 
 2. STATE: Determine the state from:
    - Company address if shown
@@ -553,6 +557,13 @@ Analyze this employee census/payroll data extracted from a PDF and extract the f
 
 IMPORTANT: The data may come from various payroll systems and formats. Look for patterns and extract as much data as possible.
 
+COMPANY NAME - MANDATORY (most important field):
+- Look at the FIRST LINES of text for company name, header, or report title
+- Examples: "SAGE CREEK CENSUS" → company is "Sage Creek"
+- "ABC Corp Employee List" → company is "ABC Corp"
+- NEVER return "unknown", "Company Name", "N/A", or placeholders
+- If ANY text looks like a business name, USE IT
+
 BILLING MODEL DETECTION:
 - Look for patterns like "5/3", "3/4", "5/1", "4/4", "5/0", "6/0", "1/5"
 - "5% employee / 3% employer" means model "5/3"
@@ -561,7 +572,7 @@ BILLING MODEL DETECTION:
 - Default to "5/3" if not found
 
 COMPANY INFORMATION:
-- Company name (look for headers, titles, or company identifiers)
+- Company name (REQUIRED - extract from document header/title)
 - State (2-letter code)
 - Pay frequency (weekly, biweekly, semimonthly, or monthly) - look for pay period indicators
 - Billing model (one of: 5/3, 3/4, 5/1, 5/0, 4/4, 6/0, 1/5)
@@ -972,7 +983,12 @@ async function processStructuredData(data: any) {
   const supabase = createServiceClient();
 
   // Validate and provide defaults for required fields
-  const companyName = data.company?.name || 'Imported Company';
+  // Reject placeholder company names - require actual company name from document
+  const rawCompanyName = data.company?.name;
+  const invalidNames = ['unknown', 'imported company', 'company name', 'n/a', 'na', 'none', 'test', 'sample'];
+  const isValidName = rawCompanyName && !invalidNames.includes(rawCompanyName.toLowerCase().trim());
+  const companyName = isValidName ? rawCompanyName : `Import ${new Date().toLocaleDateString()}`;
+  console.log(`Company name validation: raw="${rawCompanyName}" → validated="${companyName}" (valid: ${isValidName})`);
   const companyState = data.company?.state || 'TX';
   const payFrequency = normalizePayFrequency(data.company?.pay_frequency);
   // Model is required - validate against allowed values, default to 5/3
