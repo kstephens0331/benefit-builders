@@ -202,13 +202,15 @@ export default function CompaniesManager({ initialCompanies }: Props) {
 
   const openEditModal = (company: Company) => {
     setSelectedCompany(company);
+    // Parse rates from model string (e.g., "5/3" = 5% employee, 3% employer)
+    const modelRates = parseModelRates(company.model || "5/3");
     setFormData({
       name: company.name,
       state: company.state,
       pay_frequency: company.pay_frequency || "biweekly",
       model: company.model,
-      employer_rate: company.employer_rate || 5.0,
-      employee_rate: company.employee_rate || 3.0,
+      employee_rate: company.employee_rate || modelRates.employee_rate,
+      employer_rate: company.employer_rate || modelRates.employer_rate,
       contact_email: company.contact_email || "",
       contact_phone: company.contact_phone || "",
       address: company.address || "",
