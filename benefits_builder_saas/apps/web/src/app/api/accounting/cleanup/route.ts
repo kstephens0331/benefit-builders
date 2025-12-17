@@ -30,12 +30,6 @@ export async function GET(request: NextRequest) {
       .order("amount_due", { ascending: true })
       .limit(50);
 
-    // Find A/R entries where amount_paid > amount (another indicator of double counting)
-    const { data: overpaid } = await db
-      .from("accounts_receivable")
-      .select("id, invoice_number, amount, amount_paid, amount_due, status, company_id, companies(name)")
-      .filter("amount_paid", "gt", db.raw?.("amount") || 0);
-
     // Count companies without QB link
     const { count: unlinkedCompanies } = await db
       .from("companies")
