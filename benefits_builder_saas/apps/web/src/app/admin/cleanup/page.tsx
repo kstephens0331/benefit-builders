@@ -303,7 +303,7 @@ export default function CleanupPage() {
               <p className="font-medium">About Data Cleanup</p>
               <ul className="mt-2 space-y-1 list-disc list-inside">
                 <li><strong>Large Amounts:</strong> Entries with $100k+ amounts likely resulted from a x100 bug during sync</li>
-                <li><strong>Negative Due:</strong> When amount_paid > amount, it indicates payments were double-counted</li>
+                <li><strong>Negative Due:</strong> When amount_paid exceeds amount, it indicates payments were double-counted</li>
                 <li><strong>Orphaned:</strong> A/R entries without a valid company link are orphans</li>
                 <li>After cleanup, run QuickBooks Sync to reimport correct data</li>
               </ul>
