@@ -39,12 +39,12 @@ async function setupUsers() {
       active: true
     },
     {
-      username: "user2@benefitsbuilder.com",
-      password: "ChangeMe123!",  // Temporary password
-      full_name: "User 2 - Awaiting Setup",
-      email: "user2@benefitsbuilder.com",
+      username: "Josh",
+      password: "Eghm1234",
+      full_name: "Josh",
+      email: "josh@benefitsbuilder.com",
       role: "user",
-      active: false  // Disabled until Bill provides credentials
+      active: true
     },
     {
       username: "user3@benefitsbuilder.com",
@@ -118,9 +118,9 @@ async function setupUsers() {
 
   console.log("\n✅ User setup complete!\n");
   console.log("📝 Active Users:");
-  console.log("   - info@stephenscode.dev (admin) - Password: 78410889Ks!");
-  console.log("\n⚠️ Inactive Users (Awaiting Bill's credentials):");
-  console.log("   - user2@benefitsbuilder.com (user)");
+  console.log("   - info@stephenscode.dev (admin)");
+  console.log("   - Josh (user)");
+  console.log("\n⚠️ Inactive Users (Awaiting credentials):");
   console.log("   - user3@benefitsbuilder.com (user)");
   console.log("   - user4@benefitsbuilder.com (viewer)");
   console.log("\nTo activate users, update their credentials and set active=true\n");
