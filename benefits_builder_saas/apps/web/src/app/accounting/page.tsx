@@ -66,6 +66,18 @@ export default async function AccountingPage() {
   // Get last successful sync
   const lastSuccessfulSync = qbSyncLogs?.find(log => log.status === 'success');
 
+  // Get counts of items pending sync
+  const { count: unsyncedCompaniesCount } = await db
+    .from("companies")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "active")
+    .or("qb_customer_id.is.null,qb_synced_at.is.null");
+
+  const { count: unsyncedInvoicesCount } = await db
+    .from("invoices")
+    .select("*", { count: "exact", head: true })
+    .eq("qb_synced", false);
+
   // Fetch payment alerts
   const { data: alerts } = await db
     .from("payment_alerts")
@@ -143,6 +155,10 @@ export default async function AccountingPage() {
       monthEndStatus={monthEndStatus}
       currentMonth={currentMonth}
       currentYear={currentYear}
+      pendingSync={{
+        companies: unsyncedCompaniesCount || 0,
+        invoices: unsyncedInvoicesCount || 0,
+      }}
     />
   );
 }

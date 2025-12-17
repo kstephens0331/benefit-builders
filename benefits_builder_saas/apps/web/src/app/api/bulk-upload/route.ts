@@ -975,8 +975,10 @@ async function processStructuredData(data: any) {
   const companyName = data.company?.name || 'Imported Company';
   const companyState = data.company?.state || 'TX';
   const payFrequency = normalizePayFrequency(data.company?.pay_frequency);
-  // Model is required - use default if not provided
-  const billingModel = data.company?.model || '5/3';
+  // Model is required - validate against allowed values, default to 5/3
+  const rawModel = data.company?.model;
+  const billingModel = (rawModel && VALID_MODELS.includes(rawModel)) ? rawModel : '5/3';
+  console.log(`Model validation: raw="${rawModel}" → validated="${billingModel}" (valid: ${VALID_MODELS.join(', ')})`);
   // Optional address fields
   const address = data.company?.address || null;
   const city = data.company?.city || null;

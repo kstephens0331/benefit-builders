@@ -48,6 +48,7 @@ interface AccountingDashboardProps {
   monthEndStatus: any;
   currentMonth: number;
   currentYear: number;
+  pendingSync?: { companies: number; invoices: number };
 }
 
 export default function AccountingDashboard({
@@ -67,6 +68,7 @@ export default function AccountingDashboard({
   monthEndStatus,
   currentMonth,
   currentYear,
+  pendingSync,
 }: AccountingDashboardProps) {
   const [showManager, setShowManager] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -442,7 +444,7 @@ export default function AccountingDashboard({
           <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
             Quick Actions
           </h3>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             <Link
               href="/invoices"
               className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all"
@@ -450,6 +452,14 @@ export default function AccountingDashboard({
               <div className="text-2xl mb-2">📄</div>
               <div className="text-sm font-medium text-gray-900">Invoices</div>
               <div className="text-xs text-gray-500 mt-1">Manage billing</div>
+            </Link>
+            <Link
+              href="/accounting/payees"
+              className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all"
+            >
+              <div className="text-2xl mb-2">👥</div>
+              <div className="text-sm font-medium text-gray-900">Payees</div>
+              <div className="text-xs text-gray-500 mt-1">QB Customers</div>
             </Link>
             <Link
               href="/accounting/alerts"
@@ -539,6 +549,35 @@ export default function AccountingDashboard({
                     <span className="ml-2 text-gray-500 text-sm">
                       ({lastSuccessfulSync.items_synced} items)
                     </span>
+                  )}
+                </div>
+              )}
+
+              {/* Pending Sync Status */}
+              {pendingSync && (pendingSync.companies > 0 || pendingSync.invoices > 0) && (
+                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center">
+                    <span className="text-yellow-600 mr-2">⏳</span>
+                    <span className="text-sm font-medium text-yellow-800">Pending Sync</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center justify-between bg-white p-2 rounded">
+                      <span className="text-gray-600">Companies:</span>
+                      <span className={`font-medium ${pendingSync.companies > 0 ? 'text-yellow-700' : 'text-green-600'}`}>
+                        {pendingSync.companies > 0 ? pendingSync.companies : '✓'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white p-2 rounded">
+                      <span className="text-gray-600">Invoices:</span>
+                      <span className={`font-medium ${pendingSync.invoices > 0 ? 'text-yellow-700' : 'text-green-600'}`}>
+                        {pendingSync.invoices > 0 ? pendingSync.invoices : '✓'}
+                      </span>
+                    </div>
+                  </div>
+                  {(pendingSync.companies > 0 || pendingSync.invoices > 0) && (
+                    <p className="mt-2 text-xs text-yellow-700">
+                      Click "Sync Now" to push these items to QuickBooks
+                    </p>
                   )}
                 </div>
               )}
