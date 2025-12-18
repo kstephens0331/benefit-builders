@@ -3,62 +3,65 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const db = createServiceClient();
 
-    // Check if we have QuickBooks credentials stored
-    const { data: settings, error } = await db
-      .from("system_settings")
-      .select("qb_access_token, qb_refresh_token, qb_realm_id, qb_token_expires_at")
-      .single();
+    // Check quickbooks_connections table (same as sync-bidirectional uses)
+    const { data: connection, error: connError } = await db
+      .from("quickbooks_connections")
+      .select("*")
+      .eq("status", "active")
+      .maybeSingle();
 
-    if (error) {
-      // If settings don't exist yet, QB is not connected
-      if (error.code === "PGRST116") {
-        return NextResponse.json({
-          ok: true,
-          connected: false,
-          lastSync: null,
-        });
-      }
-      throw error;
+    if (connError) {
+      console.error("Error checking QB connection:", connError);
+      return NextResponse.json({
+        ok: true,
+        connected: false,
+        lastSync: null,
+        error: connError.message,
+      });
     }
 
-    const hasCredentials = !!(
-      settings?.qb_access_token &&
-      settings?.qb_refresh_token &&
-      settings?.qb_realm_id
-    );
+    if (!connection) {
+      return NextResponse.json({
+        ok: true,
+        connected: false,
+        lastSync: null,
+      });
+    }
 
     // Check if token is expired
     let tokenValid = false;
-    if (hasCredentials && settings.qb_token_expires_at) {
-      const expiresAt = new Date(settings.qb_token_expires_at);
+    if (connection.token_expires_at) {
+      const expiresAt = new Date(connection.token_expires_at);
       tokenValid = expiresAt > new Date();
     }
 
     // Get last sync time from quickbooks_sync_log
     let lastSync = null;
-    if (hasCredentials) {
-      const { data: lastSyncData } = await db
-        .from("quickbooks_sync_log")
-        .select("created_at")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+    const { data: lastSyncData } = await db
+      .from("quickbooks_sync_log")
+      .select("synced_at")
+      .order("synced_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-      if (lastSyncData) {
-        lastSync = lastSyncData.created_at;
-      }
+    if (lastSyncData) {
+      lastSync = lastSyncData.synced_at;
     }
 
     return NextResponse.json({
       ok: true,
-      connected: hasCredentials && tokenValid,
+      connected: tokenValid,
+      companyName: connection.company_name || null,
+      realmId: connection.realm_id || null,
       lastSync: lastSync,
-      realmId: settings?.qb_realm_id || null,
+      tokenExpiresAt: connection.token_expires_at,
+      tokenExpired: !tokenValid,
     });
   } catch (error: any) {
     console.error("Error checking QuickBooks status:", error);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getQBTokensFromCode } from "@/lib/quickbooks";
+import { getQBTokensFromCode, getQBCompanyInfo } from "@/lib/quickbooks";
 import { createServiceClient } from "@/lib/supabase";
 
 // GET - Handle QuickBooks OAuth callback
@@ -31,6 +31,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Try to get company name from QuickBooks
+    let companyName = null;
+    try {
+      const companyInfo = await getQBCompanyInfo(tokens);
+      if (companyInfo.success && companyInfo.company) {
+        companyName = companyInfo.company.CompanyName || companyInfo.company.LegalName || null;
+      }
+    } catch (e) {
+      console.warn("Could not fetch QB company name:", e);
+      // Continue without company name - not critical
+    }
+
     // Store tokens in database
     const db = createServiceClient();
 
@@ -40,7 +52,7 @@ export async function GET(request: NextRequest) {
       .update({ status: "disconnected" })
       .eq("status", "active");
 
-    // Insert new connection
+    // Insert new connection with company name
     const { error: insertError } = await db
       .from("quickbooks_connections")
       .insert({
@@ -48,6 +60,7 @@ export async function GET(request: NextRequest) {
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
         token_expires_at: tokens.accessTokenExpiry,
+        company_name: companyName,
         status: "active",
       });
 
@@ -58,9 +71,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Redirect back to accounting page with success
+    // Redirect back to QuickBooks sync page with success
     return NextResponse.redirect(
-      new URL("/accounting?success=qb_connected", request.url)
+      new URL("/quickbooks/sync?success=connected", request.url)
     );
   } catch (error: any) {
     console.error("QuickBooks callback error:", error);
