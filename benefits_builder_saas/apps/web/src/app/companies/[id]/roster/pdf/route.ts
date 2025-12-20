@@ -1,10 +1,169 @@
 // apps/web/src/app/companies/[id]/roster/pdf/route.ts
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from "pdf-lib";
 import { createServiceClient } from "@/lib/supabase";
-import fs from "fs";
-import path from "path";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 export const runtime = "nodejs";
+
+// Benefit Builder company info (matches invoice)
+const BENEFIT_BUILDER = {
+  name: "Benefit Builder",
+  address: "206A S Loop 336 W Box 322",
+  cityStateZip: "Conroe, TX 77304-3300",
+  email: "billdawson.bb@gmail.com",
+  phone: "+1 (972) 741-5663",
+  website: "https://web-dun-three-87.vercel.app",
+};
+
+// Helper to draw page header (matches invoice style)
+async function drawPageHeader(
+  page: PDFPage,
+  helveticaBold: PDFFont,
+  helvetica: PDFFont,
+  company: any,
+  logoImage: any,
+  pageNumber: number,
+  totalPages: number
+) {
+  const { width, height } = page.getSize();
+  const leftMargin = 40;
+  const rightMargin = width - 40;
+  let y = height - 30;
+
+  const bluePrimary = rgb(0.1, 0.4, 0.7);
+  const grayText = rgb(0.3, 0.3, 0.3);
+
+  // Calculate logo dimensions
+  let logoHeight = 0;
+  if (logoImage) {
+    const logoDims = logoImage.scale(0.10);
+    logoHeight = logoDims.height;
+  }
+
+  // "EMPLOYEE ROSTER" title (top left, blue)
+  page.drawText("EMPLOYEE ROSTER", {
+    x: leftMargin,
+    y: y,
+    size: 18,
+    font: helveticaBold,
+    color: bluePrimary,
+  });
+
+  // Logo (top right)
+  if (logoImage) {
+    const logoDims = logoImage.scale(0.10);
+    page.drawImage(logoImage, {
+      x: rightMargin - logoDims.width,
+      y: y - logoDims.height + 20,
+      width: logoDims.width,
+      height: logoDims.height,
+    });
+  }
+
+  y -= 16;
+
+  // Benefit Builder company info (stacked on left side)
+  page.drawText(BENEFIT_BUILDER.name, {
+    x: leftMargin,
+    y: y,
+    size: 8,
+    font: helveticaBold,
+    color: grayText,
+  });
+  y -= 10;
+  page.drawText(BENEFIT_BUILDER.address, {
+    x: leftMargin,
+    y: y,
+    size: 8,
+    font: helvetica,
+    color: grayText,
+  });
+  y -= 10;
+  page.drawText(BENEFIT_BUILDER.cityStateZip, {
+    x: leftMargin,
+    y: y,
+    size: 8,
+    font: helvetica,
+    color: grayText,
+  });
+  y -= 10;
+  page.drawText(BENEFIT_BUILDER.email, {
+    x: leftMargin,
+    y: y,
+    size: 8,
+    font: helvetica,
+    color: grayText,
+  });
+  y -= 10;
+  page.drawText(BENEFIT_BUILDER.phone, {
+    x: leftMargin,
+    y: y,
+    size: 8,
+    font: helvetica,
+    color: grayText,
+  });
+
+  // Move Y down past the logo
+  const logoBottomY = height - 30 - logoHeight + 20;
+  y = Math.min(y - 12, logoBottomY - 5);
+
+  // Company info on left
+  page.drawText(`Company: ${company?.name || "Unknown"}`, {
+    x: leftMargin,
+    y: y,
+    size: 9,
+    font: helveticaBold,
+    color: grayText,
+  });
+
+  // Model and date on right
+  const today = new Date().toLocaleDateString("en-US");
+  page.drawText(`Model: ${company?.model || "5/3"}  |  Generated: ${today}  |  Page ${pageNumber} of ${totalPages}`, {
+    x: rightMargin - 250,
+    y: y,
+    size: 8,
+    font: helvetica,
+    color: grayText,
+  });
+
+  y -= 8;
+
+  // Divider line
+  page.drawLine({
+    start: { x: leftMargin, y: y },
+    end: { x: rightMargin, y: y },
+    thickness: 1,
+    color: rgb(0.8, 0.8, 0.8),
+  });
+
+  return y - 10;
+}
+
+// Helper to draw page footer (matches invoice style)
+function drawPageFooter(page: PDFPage, helvetica: PDFFont) {
+  const { width } = page.getSize();
+  const leftMargin = 40;
+  const rightMargin = width - 40;
+  const footerY = 30;
+
+  const grayText = rgb(0.3, 0.3, 0.3);
+
+  page.drawLine({
+    start: { x: leftMargin, y: footerY + 10 },
+    end: { x: rightMargin, y: footerY + 10 },
+    thickness: 0.5,
+    color: rgb(0.8, 0.8, 0.8),
+  });
+
+  page.drawText("Benefit Builder - Empowering Your Benefits Program", {
+    x: leftMargin,
+    y: footerY,
+    size: 8,
+    font: helvetica,
+    color: grayText,
+  });
+}
 
 export async function GET(
   _req: Request,
@@ -15,7 +174,7 @@ export async function GET(
 
   const { data: company, error: cErr } = await db
     .from("companies")
-    .select("id,name,state,model,status")
+    .select("id,name,state,model,status,pay_frequency")
     .eq("id", companyId)
     .single();
   if (cErr || !company) {
@@ -25,10 +184,11 @@ export async function GET(
     });
   }
 
+  // Query with correct column names from schema
   const { data: emps, error: eErr } = await db
     .from("employees")
     .select(
-      "first_name,last_name,state,pay_period,paycheck_gross,filing_status,dependents,active,inactive_date,hire_date"
+      "first_name,last_name,gross_pay,filing_status,dependents,active,inactive_date,consent_status,tobacco_use,dob"
     )
     .eq("company_id", companyId)
     .order("last_name", { ascending: true });
@@ -40,127 +200,203 @@ export async function GET(
   }
 
   const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const boldFont = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const helvetica = await pdf.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  // Load Benefits Booster logo if available
-  let logoImage = null;
-  const logoPath = path.join(process.cwd(), "public", "benefits-booster-logo.png");
-  if (fs.existsSync(logoPath)) {
-    try {
-      const logoBytes = fs.readFileSync(logoPath);
-      logoImage = await pdf.embedPng(logoBytes);
-    } catch (e) {
-      console.log("Logo not found, skipping");
-    }
+  // Load Benefit Builder logo (same as invoice)
+  let logoImage: any = null;
+  try {
+    const logoPath = join(process.cwd(), "public", "benefit-builder-logo-trans.png");
+    const logoBytes = readFileSync(logoPath);
+    logoImage = await pdf.embedPng(logoBytes);
+  } catch (e) {
+    console.warn("Logo not found, skipping...");
   }
 
-  let page = pdf.addPage([612, 792]);
-  const { height, width } = page.getSize();
+  const employees = emps ?? [];
+  const employeesPerPage = 28;
+  const totalPages = Math.max(1, Math.ceil(employees.length / employeesPerPage));
 
-  // Colors matching Benefits Booster theme
-  const primaryBlue = rgb(0.05, 0.32, 0.62); // #0D5280
-  const accentRed = rgb(0.8, 0.1, 0.1);
-  const textGray = rgb(0.2, 0.2, 0.2);
+  // Colors
+  const bluePrimary = rgb(0.1, 0.4, 0.7);
+  const blueLight = rgb(0.9, 0.95, 1);
+  const grayText = rgb(0.3, 0.3, 0.3);
+  const greenText = rgb(0.1, 0.6, 0.1);
+  const redText = rgb(0.7, 0.1, 0.1);
 
-  let y = height - 50;
-  const draw = (t: string, size = 12, x = 50, isBold = false, color = textGray) => {
-    page.drawText(t, { x, y, size, font: isBold ? boldFont : font, color });
+  // Filing status mapping
+  const filingMap: Record<string, string> = {
+    single: "Single",
+    married: "Married",
+    head: "HOH",
   };
-  const line = (dy = 18) => (y -= dy);
 
-  // Header Section with Logo and Branding
-  const drawPageHeader = () => {
-    if (logoImage) {
-      const logoWidth = 80;
-      const logoHeight = 48;
-      page.drawImage(logoImage, {
-        x: 50,
-        y: y - logoHeight,
-        width: logoWidth,
-        height: logoHeight,
+  // Pay frequency mapping
+  const payFreqMap: Record<string, string> = {
+    weekly: "Weekly",
+    biweekly: "Biweekly",
+    semimonthly: "Semi-Monthly",
+    monthly: "Monthly",
+  };
+
+  for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
+    const page = pdf.addPage([612, 792]);
+    const { width, height } = page.getSize();
+    const leftMargin = 40;
+    const rightMargin = width - 40;
+
+    let y = await drawPageHeader(page, helveticaBold, helvetica, company, logoImage, pageIdx + 1, totalPages);
+
+    // Summary box on first page
+    if (pageIdx === 0) {
+      const boxHeight = 50;
+      page.drawRectangle({
+        x: leftMargin,
+        y: y - boxHeight,
+        width: rightMargin - leftMargin,
+        height: boxHeight,
+        color: blueLight,
       });
-      // Add tagline below logo in red
-      page.drawText("Making your benefits soar", {
-        x: 50,
-        y: y - logoHeight - 15,
+
+      const activeCount = employees.filter((e: any) => e.active).length;
+      const enrolledCount = employees.filter((e: any) => e.consent_status === "elect").length;
+      const pendingCount = employees.filter((e: any) => e.consent_status === "pending").length;
+      const declinedCount = employees.filter((e: any) => e.consent_status === "dont").length;
+
+      // Summary stats
+      const colWidth = (rightMargin - leftMargin) / 4;
+      let statsY = y - 15;
+
+      page.drawText("Total Employees", { x: leftMargin + 10, y: statsY, size: 8, font: helvetica, color: grayText });
+      page.drawText(String(employees.length), { x: leftMargin + 10, y: statsY - 12, size: 14, font: helveticaBold, color: bluePrimary });
+
+      page.drawText("Active", { x: leftMargin + colWidth + 10, y: statsY, size: 8, font: helvetica, color: grayText });
+      page.drawText(String(activeCount), { x: leftMargin + colWidth + 10, y: statsY - 12, size: 14, font: helveticaBold, color: greenText });
+
+      page.drawText("Enrolled", { x: leftMargin + colWidth * 2 + 10, y: statsY, size: 8, font: helvetica, color: grayText });
+      page.drawText(String(enrolledCount), { x: leftMargin + colWidth * 2 + 10, y: statsY - 12, size: 14, font: helveticaBold, color: greenText });
+
+      page.drawText("Pending", { x: leftMargin + colWidth * 3 + 10, y: statsY, size: 8, font: helvetica, color: grayText });
+      page.drawText(String(pendingCount), { x: leftMargin + colWidth * 3 + 10, y: statsY - 12, size: 14, font: helveticaBold, color: bluePrimary });
+
+      y -= boxHeight + 15;
+
+      // Company details line
+      const payFreq = payFreqMap[company.pay_frequency || "biweekly"] || company.pay_frequency;
+      page.drawText(`State: ${company.state || "-"}  |  Pay Frequency: ${payFreq}  |  Model: ${company.model || "5/3"}`, {
+        x: leftMargin,
+        y: y,
         size: 9,
-        font: font,
-        color: accentRed,
+        font: helvetica,
+        color: grayText,
       });
-      y -= logoHeight + 25;
-    } else {
-      // Draw text logo if image not available
-      draw("Benefits Booster", 16, 50, true, primaryBlue);
-      line(20);
-      draw("Making your benefits soar", 9, 50, false, accentRed);
-      line(20);
+      y -= 20;
     }
 
-    draw(`Employee Roster`, 16, 50, true);
-    line(24);
-    draw(`${company.name} — ${company.state ?? "-"} — Model ${company.model ?? "-"}`);
-    line();
-  };
+    // Table header
+    page.drawLine({
+      start: { x: leftMargin, y: y + 5 },
+      end: { x: rightMargin, y: y + 5 },
+      thickness: 1,
+      color: rgb(0.8, 0.8, 0.8),
+    });
 
-  drawPageHeader();
+    // Column positions
+    const cols = {
+      name: leftMargin + 5,
+      status: leftMargin + 160,
+      consent: leftMargin + 220,
+      grossPay: leftMargin + 300,
+      filing: leftMargin + 380,
+      deps: leftMargin + 440,
+      tobacco: leftMargin + 480,
+    };
 
-  // Column headers
-  const cols = [
-    { label: "Employee", x: 50 },
-    { label: "Active", x: 220 },
-    { label: "Pay Period", x: 280 },
-    { label: "Gross/Pay", x: 360 },
-    { label: "Filing", x: 440 },
-    { label: "Deps", x: 500 },
-  ];
+    page.drawText("Employee Name", { x: cols.name, y, size: 8, font: helveticaBold, color: grayText });
+    page.drawText("Status", { x: cols.status, y, size: 8, font: helveticaBold, color: grayText });
+    page.drawText("Enrollment", { x: cols.consent, y, size: 8, font: helveticaBold, color: grayText });
+    page.drawText("Gross Pay", { x: cols.grossPay, y, size: 8, font: helveticaBold, color: grayText });
+    page.drawText("Filing", { x: cols.filing, y, size: 8, font: helveticaBold, color: grayText });
+    page.drawText("Deps", { x: cols.deps, y, size: 8, font: helveticaBold, color: grayText });
+    page.drawText("Tobacco", { x: cols.tobacco, y, size: 8, font: helveticaBold, color: grayText });
 
-  const drawHeader = () => {
-    draw("Employee", 12, cols[0].x);
-    draw("Active", 12, cols[1].x);
-    draw("Pay Period", 12, cols[2].x);
-    draw("Gross/Pay", 12, cols[3].x);
-    draw("Filing", 12, cols[4].x);
-    draw("Deps", 12, cols[5].x);
-    line();
-  };
+    y -= 15;
+    page.drawLine({
+      start: { x: leftMargin, y: y + 8 },
+      end: { x: rightMargin, y: y + 8 },
+      thickness: 1,
+      color: rgb(0.9, 0.9, 0.9),
+    });
 
-  drawHeader();
+    // Get employees for this page
+    const startIdx = pageIdx * employeesPerPage;
+    const endIdx = Math.min(startIdx + employeesPerPage, employees.length);
+    const pageEmployees = employees.slice(startIdx, endIdx);
 
-  const ppMap: Record<string, string> = { w: "Weekly", b: "Biweekly", s: "Semi", m: "Monthly" };
+    for (const emp of pageEmployees) {
+      y -= 6;
 
-  for (const e of emps ?? []) {
-    if (y < 80) {
-      page = pdf.addPage([612, 792]);
-      y = height - 50;
-      drawPageHeader();
-      drawHeader();
+      const name = `${emp.last_name}, ${emp.first_name}`.substring(0, 25);
+      const status = emp.active ? "Active" : "Inactive";
+      const statusColor = emp.active ? greenText : redText;
+
+      let consent = "Pending";
+      let consentColor = bluePrimary;
+      if (emp.consent_status === "elect") {
+        consent = "Enrolled";
+        consentColor = greenText;
+      } else if (emp.consent_status === "dont") {
+        consent = "Declined";
+        consentColor = redText;
+      }
+
+      const grossPay = `$${Number(emp.gross_pay || 0).toFixed(2)}`;
+      const filing = filingMap[emp.filing_status] || emp.filing_status || "-";
+      const deps = String(emp.dependents || 0);
+      const tobacco = emp.tobacco_use ? "Yes" : "No";
+      const tobaccoColor = emp.tobacco_use ? redText : grayText;
+
+      page.drawText(name, { x: cols.name, y, size: 8, font: helvetica, color: grayText });
+      page.drawText(status, { x: cols.status, y, size: 8, font: helvetica, color: statusColor });
+      page.drawText(consent, { x: cols.consent, y, size: 8, font: helvetica, color: consentColor });
+      page.drawText(grossPay, { x: cols.grossPay, y, size: 8, font: helvetica, color: grayText });
+      page.drawText(filing, { x: cols.filing, y, size: 8, font: helvetica, color: grayText });
+      page.drawText(deps, { x: cols.deps, y, size: 8, font: helvetica, color: grayText });
+      page.drawText(tobacco, { x: cols.tobacco, y, size: 8, font: helvetica, color: tobaccoColor });
+
+      y -= 12;
     }
 
-    const name = `${e.last_name}, ${e.first_name}`;
-    const active = e.active ? "Yes" : e.inactive_date ? `No (${String(e.inactive_date).slice(0, 10)})` : "No";
-    const pp = ppMap[e.pay_period ?? "b"] ?? "-";
-    const gross = Number(e.paycheck_gross ?? 0).toFixed(2);
-    const filing = e.filing_status?.toUpperCase?.() ?? "-";
-    const deps = String(e.dependents ?? 0);
+    // Page subtotals on last row
+    if (pageIdx === totalPages - 1 && employees.length > 0) {
+      y -= 10;
+      page.drawLine({
+        start: { x: leftMargin, y: y + 8 },
+        end: { x: rightMargin, y: y + 8 },
+        thickness: 1,
+        color: rgb(0.8, 0.8, 0.8),
+      });
 
-    draw(name, 11, cols[0].x);
-    draw(active, 11, cols[1].x);
-    draw(pp, 11, cols[2].x);
-    draw(`$${gross}`, 11, cols[3].x);
-    draw(filing, 11, cols[4].x);
-    draw(deps, 11, cols[5].x);
-    line();
+      const totalGross = employees.reduce((sum: number, e: any) => sum + Number(e.gross_pay || 0), 0);
+      const totalDeps = employees.reduce((sum: number, e: any) => sum + Number(e.dependents || 0), 0);
+
+      page.drawText(`Total (${employees.length} employees):`, { x: cols.name, y, size: 8, font: helveticaBold, color: bluePrimary });
+      page.drawText(`$${totalGross.toFixed(2)}`, { x: cols.grossPay, y, size: 8, font: helveticaBold, color: bluePrimary });
+      page.drawText(String(totalDeps), { x: cols.deps, y, size: 8, font: helveticaBold, color: bluePrimary });
+    }
+
+    drawPageFooter(page, helvetica);
   }
 
-  const bytes = await pdf.save(); // Uint8Array
+  const bytes = await pdf.save();
   const ab = new ArrayBuffer(bytes.length);
   new Uint8Array(ab).set(bytes);
 
+  const fileName = `Roster-${company.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
   return new Response(ab, {
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `inline; filename="roster-${company.name}.pdf"`,
+      "content-disposition": `inline; filename="${fileName}"`,
     },
   });
 }
