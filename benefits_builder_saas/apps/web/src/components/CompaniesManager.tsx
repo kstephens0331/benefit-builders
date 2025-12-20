@@ -18,6 +18,11 @@ type Company = {
   address?: string;
   city?: string;
   zip?: string;
+  // Custom Section 125 amounts for 3/4 model (monthly)
+  sec125_single_0?: number;
+  sec125_married_0?: number;
+  sec125_single_deps?: number;
+  sec125_married_deps?: number;
 };
 
 type Props = {
@@ -56,6 +61,11 @@ export default function CompaniesManager({ initialCompanies }: Props) {
     city: "",
     zip: "",
     status: "active",
+    // Custom Section 125 amounts for 3/4 model (monthly)
+    sec125_single_0: 800,
+    sec125_married_0: 1200,
+    sec125_single_deps: 1200,
+    sec125_married_deps: 1700,
   });
 
   const resetForm = () => {
@@ -72,6 +82,10 @@ export default function CompaniesManager({ initialCompanies }: Props) {
       city: "",
       zip: "",
       status: "active",
+      sec125_single_0: 800,
+      sec125_married_0: 1200,
+      sec125_single_deps: 1200,
+      sec125_married_deps: 1700,
     });
   };
 
@@ -202,21 +216,27 @@ export default function CompaniesManager({ initialCompanies }: Props) {
 
   const openEditModal = (company: Company) => {
     setSelectedCompany(company);
-    // Parse rates from model string (e.g., "5/3" = 5% employee, 3% employer)
+    // Always derive rates from model string - ignore stored rates which may be stale
     const modelRates = parseModelRates(company.model || "5/3");
     setFormData({
       name: company.name,
       state: company.state,
       pay_frequency: company.pay_frequency || "biweekly",
-      model: company.model,
-      employee_rate: company.employee_rate || modelRates.employee_rate,
-      employer_rate: company.employer_rate || modelRates.employer_rate,
+      model: company.model || "5/3",
+      // Always use model-derived rates to ensure consistency
+      employee_rate: modelRates.employee_rate,
+      employer_rate: modelRates.employer_rate,
       contact_email: company.contact_email || "",
       contact_phone: company.contact_phone || "",
       address: company.address || "",
       city: company.city || "",
       zip: company.zip || "",
       status: company.status,
+      // Load sec125 values (these are only used for 3/4 model)
+      sec125_single_0: company.sec125_single_0 || 800,
+      sec125_married_0: company.sec125_married_0 || 1200,
+      sec125_single_deps: company.sec125_single_deps || 1200,
+      sec125_married_deps: company.sec125_married_deps || 1700,
     });
     setShowEditModal(true);
   };
@@ -460,6 +480,80 @@ export default function CompaniesManager({ initialCompanies }: Props) {
                   </div>
                 </div>
 
+                {/* Custom Section 125 amounts for 3/4 model */}
+                {formData.model === "3/4" && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-medium text-blue-800 mb-3">
+                      Custom Section 125 Monthly Amounts (3/4 Model)
+                    </h4>
+                    <p className="text-sm text-blue-600 mb-3">
+                      Enter the monthly allowable benefit amounts for each filing status.
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Single, No Deps</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            min="500"
+                            max="2500"
+                            step="50"
+                            value={formData.sec125_single_0}
+                            onChange={(e) => setFormData({ ...formData, sec125_single_0: Number(e.target.value) })}
+                            className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Married, No Deps</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            min="500"
+                            max="2500"
+                            step="50"
+                            value={formData.sec125_married_0}
+                            onChange={(e) => setFormData({ ...formData, sec125_married_0: Number(e.target.value) })}
+                            className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Single w/ Deps</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            min="500"
+                            max="2500"
+                            step="50"
+                            value={formData.sec125_single_deps}
+                            onChange={(e) => setFormData({ ...formData, sec125_single_deps: Number(e.target.value) })}
+                            className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Married w/ Deps</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            min="500"
+                            max="2500"
+                            step="50"
+                            value={formData.sec125_married_deps}
+                            onChange={(e) => setFormData({ ...formData, sec125_married_deps: Number(e.target.value) })}
+                            className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium mb-1">
                     Address
@@ -686,6 +780,80 @@ export default function CompaniesManager({ initialCompanies }: Props) {
                     />
                   </div>
                 </div>
+
+                {/* Custom Section 125 amounts for 3/4 model */}
+                {formData.model === "3/4" && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-medium text-blue-800 mb-3">
+                      Custom Section 125 Monthly Amounts (3/4 Model)
+                    </h4>
+                    <p className="text-sm text-blue-600 mb-3">
+                      Enter the monthly allowable benefit amounts for each filing status.
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Single, No Deps</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            min="500"
+                            max="2500"
+                            step="50"
+                            value={formData.sec125_single_0}
+                            onChange={(e) => setFormData({ ...formData, sec125_single_0: Number(e.target.value) })}
+                            className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Married, No Deps</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            min="500"
+                            max="2500"
+                            step="50"
+                            value={formData.sec125_married_0}
+                            onChange={(e) => setFormData({ ...formData, sec125_married_0: Number(e.target.value) })}
+                            className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Single w/ Deps</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            min="500"
+                            max="2500"
+                            step="50"
+                            value={formData.sec125_single_deps}
+                            onChange={(e) => setFormData({ ...formData, sec125_single_deps: Number(e.target.value) })}
+                            className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Married w/ Deps</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            min="500"
+                            max="2500"
+                            step="50"
+                            value={formData.sec125_married_deps}
+                            onChange={(e) => setFormData({ ...formData, sec125_married_deps: Number(e.target.value) })}
+                            className="w-full pl-7 pr-3 py-2 border rounded-lg"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium mb-1">

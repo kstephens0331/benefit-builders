@@ -28,6 +28,11 @@ export async function POST(request: NextRequest) {
         city: body.city || null,
         zip: body.zip || null,
         status: body.status || 'active',
+        // Custom Section 125 amounts for 3/4 model
+        sec125_single_0: body.sec125_single_0 || null,
+        sec125_married_0: body.sec125_married_0 || null,
+        sec125_single_deps: body.sec125_single_deps || null,
+        sec125_married_deps: body.sec125_married_deps || null,
       })
       .select()
       .single();
