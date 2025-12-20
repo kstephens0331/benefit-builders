@@ -60,7 +60,13 @@ function calcStateTax(
   }
 
   if (stateWithholding.method === 'flat' && stateWithholding.flat_rate) {
-    return calcSITFlat(perPayTaxableIncome, stateWithholding.flat_rate);
+    // Flat tax states also need standard deduction applied
+    // Convert to annual, apply deduction, calculate tax, convert back
+    const annualGross = perPayTaxableIncome * periodsPerYear;
+    const stateStandardDeduction = stateWithholding.standardDeduction || 0;
+    const annualTaxable = Math.max(0, annualGross - stateStandardDeduction);
+    const annualTax = annualTaxable * stateWithholding.flat_rate;
+    return +(annualTax / periodsPerYear).toFixed(2);
   }
 
   if (stateWithholding.method === 'brackets' && stateWithholding.brackets) {
