@@ -44,39 +44,42 @@ function calcFederalTax(
 // Calculate state income tax based on method
 // IMPORTANT: For bracket states, brackets are ANNUAL amounts
 // We need to convert per-pay to annual, calculate tax, then convert back
+// Uses standardDeduction + personalExemption + (dependents × dependentExemption)
 function calcStateTax(
   perPayTaxableIncome: number,
   periodsPerYear: number,
+  dependents: number,
   stateWithholding?: {
     state: string;
     method: 'none' | 'flat' | 'brackets';
     flat_rate?: number;
     brackets?: Array<{ over: number; rate: number }>;
     standardDeduction?: number;
+    personalExemption?: number;
+    dependentExemption?: number;
   } | null
 ): number {
   if (!stateWithholding || stateWithholding.method === 'none') {
     return 0;
   }
 
+  // Convert per-pay to annual
+  const annualGross = perPayTaxableIncome * periodsPerYear;
+
+  // Calculate total deduction: standardDeduction + personalExemption + (dependents × dependentExemption)
+  const standardDed = stateWithholding.standardDeduction || 0;
+  const personalEx = stateWithholding.personalExemption || 0;
+  const dependentEx = stateWithholding.dependentExemption || 0;
+  const totalDeduction = standardDed + personalEx + (dependents * dependentEx);
+
+  const annualTaxable = Math.max(0, annualGross - totalDeduction);
+
   if (stateWithholding.method === 'flat' && stateWithholding.flat_rate) {
-    // Flat tax states also need standard deduction applied
-    // Convert to annual, apply deduction, calculate tax, convert back
-    const annualGross = perPayTaxableIncome * periodsPerYear;
-    const stateStandardDeduction = stateWithholding.standardDeduction || 0;
-    const annualTaxable = Math.max(0, annualGross - stateStandardDeduction);
     const annualTax = annualTaxable * stateWithholding.flat_rate;
     return +(annualTax / periodsPerYear).toFixed(2);
   }
 
   if (stateWithholding.method === 'brackets' && stateWithholding.brackets) {
-    // State brackets are ANNUAL - convert per-pay to annual first
-    const annualGross = perPayTaxableIncome * periodsPerYear;
-
-    // Apply state standard deduction (MO = $14,600 for 2025)
-    const stateStandardDeduction = stateWithholding.standardDeduction || 0;
-    const annualTaxable = Math.max(0, annualGross - stateStandardDeduction);
-
     // Progressive bracket calculation on annual income
     let annualTax = 0;
     const brackets = stateWithholding.brackets.sort((a, b) => a.over - b.over);
@@ -136,6 +139,9 @@ type Props = {
     method: 'none' | 'flat' | 'brackets';
     flat_rate?: number;
     brackets?: Array<{ over: number; rate: number }>;
+    standardDeduction?: number;
+    personalExemption?: number;
+    dependentExemption?: number;
   } | null;
   enrolledBenefits: number; // Current enrolled amount
   showAdminView?: boolean; // When false, hide BB fees and detailed math
@@ -224,7 +230,7 @@ export default function BenefitsCalculator({
     fedWithholding
   );
   // State tax: pass gross pay (before fed deductions) since state uses its own deductions
-  const beforeSIT = calcStateTax(grossPay, payPeriodsPerYear, stateWithholding);
+  const beforeSIT = calcStateTax(grossPay, payPeriodsPerYear, employee.dependents || 0, stateWithholding);
   const beforeTotalTax = beforeFICA.fica + beforeFIT + beforeSIT;
   const beforeNetPay = grossPay - beforeTotalTax;
 
@@ -240,7 +246,7 @@ export default function BenefitsCalculator({
     fedWithholding
   );
   // State tax: pass gross pay minus Section 125 benefit (pre-tax deduction)
-  const afterSIT = calcStateTax(grossPay - benefitAmount, payPeriodsPerYear, stateWithholding);
+  const afterSIT = calcStateTax(grossPay - benefitAmount, payPeriodsPerYear, employee.dependents || 0, stateWithholding);
   const afterTotalTax = afterFICA.fica + afterFIT + afterSIT;
 
   const employeeFee = benefitAmount * (employeeRate / 100);

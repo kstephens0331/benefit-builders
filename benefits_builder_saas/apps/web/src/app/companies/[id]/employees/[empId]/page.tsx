@@ -134,13 +134,18 @@ export default async function EmployeePage({
   const hardcodedStateTax = STATE_TAX_CONFIG[employeeState.toUpperCase()];
 
   // Build state withholding object - use database if available, else use hardcoded config
+  // Include standardDeduction, personalExemption, and dependentExemption for accurate tax calculation
+  // Note: Database may not have personal/dependent exemption columns, so fall back to hardcoded values
   const stateWithholdingData = stateParams
     ? {
         state: stateParams.state,
         method: stateParams.method as 'none' | 'flat' | 'brackets',
         flat_rate: Number(stateParams.flat_rate) || undefined,
         brackets: stateParams.brackets as Array<{ over: number; rate: number }> || undefined,
-        standardDeduction: Number(stateParams.standard_deduction) || 0,
+        standardDeduction: Number(stateParams.standard_deduction) || (hardcodedStateTax?.standardDeduction || 0),
+        // Use hardcoded exemptions since database doesn't have these columns
+        personalExemption: hardcodedStateTax?.personalExemption || 0,
+        dependentExemption: hardcodedStateTax?.dependentExemption || 0,
       }
     : hardcodedStateTax
     ? {
@@ -149,6 +154,8 @@ export default async function EmployeePage({
         flat_rate: hardcodedStateTax.flatRate,
         brackets: hardcodedStateTax.brackets,
         standardDeduction: hardcodedStateTax.standardDeduction || 0,
+        personalExemption: hardcodedStateTax.personalExemption || 0,
+        dependentExemption: hardcodedStateTax.dependentExemption || 0,
       }
     : null;
 

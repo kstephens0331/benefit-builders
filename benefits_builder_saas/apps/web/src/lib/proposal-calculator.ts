@@ -425,8 +425,9 @@ export const STATE_TAX_CONFIG: Record<string, { method: 'none' | 'flat' | 'brack
 /**
  * Calculate state income tax based on annual taxable income
  * Uses proper bracket calculations for states like MO
+ * Applies standardDeduction + personalExemption + (dependents × dependentExemption)
  */
-export function calculateStateTax(annualTaxableIncome: number, state: string): number {
+export function calculateStateTax(annualTaxableIncome: number, state: string, dependents: number = 0): number {
   const stateUpper = (state || 'MO').toUpperCase();
   const config = STATE_TAX_CONFIG[stateUpper];
 
@@ -434,8 +435,13 @@ export function calculateStateTax(annualTaxableIncome: number, state: string): n
     return 0;
   }
 
-  // Apply standard deduction if applicable
-  const taxableAfterDeduction = Math.max(0, annualTaxableIncome - (config.standardDeduction || 0));
+  // Calculate total deduction: standardDeduction + personalExemption + (dependents × dependentExemption)
+  const standardDed = config.standardDeduction || 0;
+  const personalEx = config.personalExemption || 0;
+  const dependentEx = config.dependentExemption || 0;
+  const totalDeduction = standardDed + personalEx + (dependents * dependentEx);
+
+  const taxableAfterDeduction = Math.max(0, annualTaxableIncome - totalDeduction);
 
   if (config.method === 'flat') {
     return taxableAfterDeduction * (config.flatRate || 0);
@@ -533,13 +539,14 @@ export function calculateProposalMetrics(
   const annualWithSection125 = (paycheckGross - benefitPerPay) * periodsPerYear;
 
   // Calculate state tax using proper brackets (annual basis then convert to per-pay)
+  // Pass dependents for proper exemption calculation
   const stateUpperCase = (state || 'MO').toUpperCase();
   const beforeSITAnnual = stateTaxRate !== undefined
     ? annualGross * stateTaxRate
-    : calculateStateTax(annualGross, stateUpperCase);
+    : calculateStateTax(annualGross, stateUpperCase, dependents);
   const afterSITAnnual = stateTaxRate !== undefined
     ? annualWithSection125 * stateTaxRate
-    : calculateStateTax(annualWithSection125, stateUpperCase);
+    : calculateStateTax(annualWithSection125, stateUpperCase, dependents);
 
   // Convert annual state tax to per-pay
   const beforeSIT = beforeSITAnnual / periodsPerYear;
