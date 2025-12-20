@@ -566,8 +566,8 @@ export async function GET(
         });
 
         detailPage.drawText("Employee Name", { x: leftMargin + 5, y: dy, size: 8, font: helveticaBold, color: grayText });
-        detailPage.drawText("Sec 125 (Monthly)", { x: leftMargin + 170, y: dy, size: 8, font: helveticaBold, color: grayText });
-        detailPage.drawText("EE BB Fee", { x: leftMargin + 290, y: dy, size: 8, font: helveticaBold, color: grayText });
+        detailPage.drawText("Allowable Benefit (Monthly)", { x: leftMargin + 150, y: dy, size: 8, font: helveticaBold, color: grayText });
+        detailPage.drawText("EE BB Fee", { x: leftMargin + 300, y: dy, size: 8, font: helveticaBold, color: grayText });
         detailPage.drawText("ER BB Fee", { x: leftMargin + 380, y: dy, size: 8, font: helveticaBold, color: grayText });
         detailPage.drawText("Total Fee", { x: leftMargin + 470, y: dy, size: 8, font: helveticaBold, color: grayText });
 
@@ -593,9 +593,9 @@ export async function GET(
           const name = (emp.description || "Unknown").substring(0, 30);
           detailPage.drawText(name, { x: leftMargin + 5, y: dy, size: 8, font: helvetica, color: grayText });
 
-          // Section 125 Monthly (use stored value)
-          const section125 = emp.section125_monthly_cents || 0;
-          detailPage.drawText(formatCurrency(section125), { x: leftMargin + 180, y: dy, size: 8, font: helvetica, color: grayText });
+          // Allowable Benefit Monthly (net pay increase)
+          const allowable = emp.allowable_benefit_cents || 0;
+          detailPage.drawText(formatCurrency(allowable), { x: leftMargin + 170, y: dy, size: 8, font: helvetica, color: grayText });
 
           // EE Fee and ER Fee (use stored values)
           const eeFee = emp.ee_fee_cents || 0;
@@ -620,17 +620,17 @@ export async function GET(
 
         // Calculate page totals
         const pageTotal = pageEmployees.reduce((sum: number, emp: any) => sum + (emp.amount_cents || 0), 0);
-        const pageSection125 = pageEmployees.reduce((sum: number, emp: any) => sum + (emp.section125_monthly_cents || 0), 0);
+        const pageAllowable = pageEmployees.reduce((sum: number, emp: any) => sum + (emp.allowable_benefit_cents || 0), 0);
 
         dy -= 8;
         detailPage.drawText(`Page ${pageNum} Totals:`, { x: leftMargin + 5, y: dy, size: 8, font: helveticaBold, color: grayText });
-        detailPage.drawText(formatCurrency(pageSection125), { x: leftMargin + 180, y: dy, size: 8, font: helveticaBold, color: grayText });
+        detailPage.drawText(formatCurrency(pageAllowable), { x: leftMargin + 170, y: dy, size: 8, font: helveticaBold, color: grayText });
         detailPage.drawText(formatCurrency(pageTotal), { x: leftMargin + 475, y: dy, size: 8, font: helveticaBold, color: bluePrimary });
 
         // Grand totals on last detail page
         if (pageIdx === detailPages - 1) {
           const grandTotal = employeeDetailLines.reduce((sum: number, emp: any) => sum + (emp.amount_cents || 0), 0);
-          const grandSection125 = employeeDetailLines.reduce((sum: number, emp: any) => sum + (emp.section125_monthly_cents || 0), 0);
+          const grandAllowable = employeeDetailLines.reduce((sum: number, emp: any) => sum + (emp.allowable_benefit_cents || 0), 0);
 
           dy -= 25;
           detailPage.drawLine({
@@ -642,7 +642,7 @@ export async function GET(
 
           dy -= 8;
           detailPage.drawText(`Grand Totals (${employeeDetailLines.length} employees):`, { x: leftMargin + 5, y: dy, size: 9, font: helveticaBold, color: bluePrimary });
-          detailPage.drawText(formatCurrency(grandSection125), { x: leftMargin + 180, y: dy, size: 9, font: helveticaBold, color: bluePrimary });
+          detailPage.drawText(formatCurrency(grandAllowable), { x: leftMargin + 170, y: dy, size: 9, font: helveticaBold, color: bluePrimary });
           detailPage.drawText(formatCurrency(grandTotal), { x: leftMargin + 475, y: dy, size: 9, font: helveticaBold, color: bluePrimary });
         }
 

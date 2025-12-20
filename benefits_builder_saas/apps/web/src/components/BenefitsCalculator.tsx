@@ -132,6 +132,7 @@ type Props = {
     brackets?: Array<{ over: number; rate: number }>;
   } | null;
   enrolledBenefits: number; // Current enrolled amount
+  showAdminView?: boolean; // When false, hide BB fees and detailed math
 };
 
 export default function BenefitsCalculator({
@@ -141,7 +142,9 @@ export default function BenefitsCalculator({
   fedWithholding,
   stateWithholding,
   enrolledBenefits,
+  showAdminView: initialAdminView = true,
 }: Props) {
+  const [isAdminView, setIsAdminView] = useState(initialAdminView);
   const grossPay = Number(employee.gross_pay) || 0;
   const safetyCapPercent = Number(company.safety_cap_percent) || 50;
 
@@ -260,95 +263,80 @@ export default function BenefitsCalculator({
 
   return (
     <div className="space-y-6">
+      {/* Admin View Toggle */}
+      <div className="flex items-center justify-end gap-3">
+        <span className="text-sm text-slate-600">
+          {isAdminView ? "Admin View" : "Employee View"}
+        </span>
+        <button
+          onClick={() => setIsAdminView(!isAdminView)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            isAdminView ? 'bg-blue-600' : 'bg-slate-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              isAdminView ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </div>
+
       {/* Auto-Calculated Section 125 Amount Display */}
       <div className={`p-6 rounded-2xl shadow-lg border-2 ${
         hasShortfall
-          ? 'bg-gradient-to-br from-yellow-50 to-orange-100 border-yellow-400'
+          ? 'bg-gradient-to-br from-red-50 to-red-100 border-red-300'
           : 'bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-200'
       }`}>
-        <h3 className={`text-lg font-bold mb-4 ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
+        <h3 className={`text-lg font-bold mb-4 ${hasShortfall ? 'text-red-900' : 'text-blue-900'}`}>
           💰 Section 125 Calculation
         </h3>
 
-        {hasShortfall && (
-          <div className="mb-4 p-4 bg-red-100 border-2 border-red-400 rounded-lg">
-            <div className="font-bold text-red-900 mb-2">⚠️ INSUFFICIENT GROSS PAY</div>
-            <div className="text-sm text-red-800 space-y-1">
-              <div>Monthly Gross Pay: <strong>${affordability.grossMonthly.toFixed(2)}</strong></div>
-              <div>Target Monthly: <strong>${affordability.targetMonthly.toFixed(2)}</strong></div>
-              <div>Max Deduction ({safetyCapPercent}% of gross): <strong>${(affordability.grossMonthly * safetyCapPercent / 100).toFixed(2)}</strong></div>
-              <div>Safe Monthly: <strong>${affordability.safeMonthly.toFixed(2)}</strong></div>
-              <div className="text-red-900 font-bold">Shortfall: ${affordability.shortfallMonthly.toFixed(2)}/month</div>
-              <div className="mt-2 text-xs">
-                Employee's monthly gross (${affordability.grossMonthly.toFixed(2)}) is too low for the full Section 125 benefit.
-                Deduction capped at {affordability.percentOfGross.toFixed(1)}% of monthly gross (maximum {safetyCapPercent}%).
+        {hasShortfall ? (
+          <div className="text-center py-8">
+            <div className="text-6xl mb-4">❌</div>
+            <div className="text-2xl font-bold text-red-800 mb-2">Not Eligible</div>
+            <div className="text-sm text-red-600">
+              Gross pay of ${grossPay.toFixed(2)}/paycheck is insufficient for Section 125 benefits.
+            </div>
+            <div className="text-sm text-red-600 mt-1">
+              Required minimum: ${affordability.targetPerPaycheck.toFixed(2)}/paycheck
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <div className="text-sm text-slate-600">Monthly Gross</div>
+                <div className="text-lg font-bold text-blue-900">
+                  ${affordability.grossMonthly.toFixed(2)}
+                </div>
+                <div className="text-xs text-slate-500 mt-1">${grossPay.toFixed(2)}/pay</div>
+              </div>
+              <div>
+                <div className="text-sm text-slate-600">Company Tier</div>
+                <div className="text-lg font-bold text-blue-900">
+                  {company.tier.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-slate-600">Section 125 Monthly</div>
+                <div className="text-lg font-bold text-blue-900">
+                  ${monthlySection125Amount.toFixed(2)}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-slate-600">Section 125 Per Paycheck</div>
+                <div className="text-2xl font-bold text-blue-900">
+                  ${section125PerPaycheck.toFixed(2)}
+                </div>
               </div>
             </div>
-          </div>
+            <div className="mt-4 text-sm p-3 rounded-lg text-blue-800 bg-blue-100">
+              <strong>Auto-calculated</strong> based on filing status ({employee.filing_status}) and dependents ({employee.dependents})
+            </div>
+          </>
         )}
-
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div>
-            <div className="text-sm text-slate-600">Monthly Gross</div>
-            <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
-              ${affordability.grossMonthly.toFixed(2)}
-            </div>
-            <div className="text-xs text-slate-500 mt-1">${grossPay.toFixed(2)}/pay</div>
-          </div>
-          <div>
-            <div className="text-sm text-slate-600">Company Tier</div>
-            <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
-              {company.tier.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-            </div>
-          </div>
-          <div>
-            <div className="text-sm text-slate-600">Safety Cap %</div>
-            <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
-              {safetyCapPercent.toFixed(1)}%
-            </div>
-            <div className="text-xs text-slate-500 mt-1">Max of monthly gross</div>
-          </div>
-          <div>
-            <div className="text-sm text-slate-600">
-              {hasShortfall ? 'Safe Monthly Amount' : 'Monthly Amount'}
-              {hasShortfall && <span className="text-red-600 ml-1">*CAPPED*</span>}
-            </div>
-            <div className={`text-lg font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
-              ${monthlySection125Amount.toFixed(2)}
-              {hasShortfall && (
-                <div className="text-xs text-red-600 font-normal mt-1">
-                  Target: ${affordability.targetMonthly.toFixed(2)}
-                </div>
-              )}
-            </div>
-          </div>
-          <div>
-            <div className="text-sm text-slate-600">
-              {hasShortfall ? 'Safe Per Paycheck' : 'Per Paycheck Amount'}
-              {hasShortfall && <span className="text-red-600 ml-1">*CAPPED*</span>}
-            </div>
-            <div className={`text-2xl font-bold ${hasShortfall ? 'text-orange-900' : 'text-blue-900'}`}>
-              ${section125PerPaycheck.toFixed(2)}
-              {hasShortfall && (
-                <div className="text-xs text-red-600 font-normal mt-1">
-                  Target: ${affordability.targetPerPaycheck.toFixed(2)}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className={`mt-4 text-sm p-3 rounded-lg ${
-          hasShortfall
-            ? 'text-orange-800 bg-orange-100'
-            : 'text-blue-800 bg-blue-100'
-        }`}>
-          <strong>Auto-calculated</strong> based on filing status ({employee.filing_status}) and dependents ({employee.dependents})
-          {hasShortfall && (
-            <div className="mt-2 font-bold text-red-700">
-              Note: Deduction reduced to prevent exceeding {safetyCapPercent}% of gross pay
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Paycheck Comparison */}
@@ -478,66 +466,71 @@ export default function BenefitsCalculator({
 
       {/* Savings Summary - Monthly Values */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Employee Allowable Benefit Amount */}
+        {/* Employee Allowable Benefit Amount Per Paycheck */}
         <div className="p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg">
           <h3 className="text-sm font-medium opacity-90 mb-2">Allowable Benefit Amount</h3>
-          <div className="text-4xl font-bold mb-2">${(employeeNetIncrease * payPeriodsPerYear / 12).toFixed(2)}</div>
-          <div className="text-sm opacity-90">per month</div>
+          <div className="text-4xl font-bold mb-2">${employeeNetIncrease.toFixed(2)}</div>
+          <div className="text-sm opacity-90">per paycheck</div>
           <div className="mt-4 pt-4 border-t border-blue-400 text-sm">
             <div className="flex justify-between">
-              <span>Tax Savings:</span>
+              <span>Monthly:</span>
               <span className="font-semibold">
-                ${(employeeTaxSavings * payPeriodsPerYear / 12).toFixed(2)}
+                ${(employeeNetIncrease * payPeriodsPerYear / 12).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between text-xs opacity-75 mt-1">
-              <span>After {employeeRate}% BB fee</span>
+              <span>Tax Savings - {employeeRate}% BB fee</span>
             </div>
           </div>
         </div>
 
-        {/* Employer Savings */}
-        <div className="p-6 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-2xl shadow-lg">
-          <h3 className="text-sm font-medium opacity-90 mb-2">
-            Employer FICA Savings
-          </h3>
-          <div className="text-4xl font-bold mb-2">
-            ${(employerFICASavings * payPeriodsPerYear / 12).toFixed(2)}
-          </div>
-          <div className="text-sm opacity-90">per month</div>
-          <div className="mt-4 pt-4 border-t border-purple-400 text-sm">
-            <div className="flex justify-between">
-              <span>Before BB:</span>
-              <span className="font-semibold">${(employerFICASavings * payPeriodsPerYear / 12).toFixed(2)}</span>
+        {/* Employer Savings - Admin Only */}
+        {isAdminView && (
+          <div className="p-6 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-2xl shadow-lg">
+            <h3 className="text-sm font-medium opacity-90 mb-2">
+              Employer FICA Savings
+            </h3>
+            <div className="text-4xl font-bold mb-2">
+              ${(employerFICASavings * payPeriodsPerYear / 12).toFixed(2)}
             </div>
-            <div className="flex justify-between font-bold mt-2">
-              <span>After BB:</span>
-              <span>${(employerNetSavings * payPeriodsPerYear / 12).toFixed(2)}</span>
+            <div className="text-sm opacity-90">per month</div>
+            <div className="mt-4 pt-4 border-t border-purple-400 text-sm">
+              <div className="flex justify-between">
+                <span>Before BB:</span>
+                <span className="font-semibold">${(employerFICASavings * payPeriodsPerYear / 12).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold mt-2">
+                <span>After BB:</span>
+                <span>${(employerNetSavings * payPeriodsPerYear / 12).toFixed(2)}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Benefits Builder Revenue */}
-        <div className="p-6 bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-2xl shadow-lg">
-          <h3 className="text-sm font-medium opacity-90 mb-2">
-            Benefits Builder Fees
-          </h3>
-          <div className="text-4xl font-bold mb-2">${(bbTotalFees * payPeriodsPerYear / 12).toFixed(2)}</div>
-          <div className="text-sm opacity-90">per month</div>
-          <div className="mt-4 pt-4 border-t border-amber-400 text-sm">
-            <div className="flex justify-between">
-              <span>Employee ({employeeRate}%):</span>
-              <span className="font-semibold">${(employeeFee * payPeriodsPerYear / 12).toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Employer ({employerRate}%):</span>
-              <span className="font-semibold">${(employerFee * payPeriodsPerYear / 12).toFixed(2)}</span>
+        {/* Benefits Builder Revenue - Admin Only */}
+        {isAdminView && (
+          <div className="p-6 bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-2xl shadow-lg">
+            <h3 className="text-sm font-medium opacity-90 mb-2">
+              Benefits Builder Fees
+            </h3>
+            <div className="text-4xl font-bold mb-2">${(bbTotalFees * payPeriodsPerYear / 12).toFixed(2)}</div>
+            <div className="text-sm opacity-90">per month</div>
+            <div className="mt-4 pt-4 border-t border-amber-400 text-sm">
+              <div className="flex justify-between">
+                <span>Employee ({employeeRate}%):</span>
+                <span className="font-semibold">${(employeeFee * payPeriodsPerYear / 12).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Employer ({employerRate}%):</span>
+                <span className="font-semibold">${(employerFee * payPeriodsPerYear / 12).toFixed(2)}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Detailed Math Breakdown */}
+      {/* Detailed Math Breakdown - Admin Only */}
+      {isAdminView && (
       <div className="p-6 bg-white rounded-2xl shadow-lg border-2 border-slate-200">
         <h3 className="text-lg font-bold text-slate-900 mb-4">📊 Detailed Math Breakdown</h3>
         <p className="text-sm text-slate-600 mb-6">Step-by-step calculations to verify all numbers</p>
@@ -784,6 +777,7 @@ export default function BenefitsCalculator({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
