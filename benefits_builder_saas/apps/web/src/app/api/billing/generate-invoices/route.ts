@@ -229,6 +229,7 @@ export async function POST(req: Request) {
       const allowableBenefitCents = Math.round(emp.allowable_benefit_monthly * 100);
       const eeFeeCents = Math.round(emp.ee_fee_monthly * 100);
       const erFeeCents = Math.round(emp.er_fee_monthly * 100);
+      const section125Cents = Math.round(emp.section_125_monthly * 100);
 
       const { error: detErr } = await db.from("invoice_lines").insert({
         invoice_id: invoiceId,
@@ -239,6 +240,9 @@ export async function POST(req: Request) {
         amount_cents: totalEmpFeeCents,
         employee_id: emp.employee_id,
         allowable_benefit_cents: allowableBenefitCents,
+        section125_monthly_cents: section125Cents,
+        ee_fee_cents: eeFeeCents,
+        er_fee_cents: erFeeCents,
       });
       if (detErr) return NextResponse.json({ ok: false, error: detErr.message }, { status: 500 });
     }
