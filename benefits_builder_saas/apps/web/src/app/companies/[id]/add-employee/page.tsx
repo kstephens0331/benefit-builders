@@ -1,4 +1,4 @@
-﻿// src/app/companies/[id]/add-employee/page.tsx
+// src/app/companies/[id]/add-employee/page.tsx
 import { redirect } from "next/navigation";
 
 async function createEmployee(formData: FormData) {
@@ -8,15 +8,16 @@ async function createEmployee(formData: FormData) {
   const company_id = String(formData.get("company_id") ?? "");
   const first_name = String(formData.get("first_name") ?? "").trim();
   const last_name = String(formData.get("last_name") ?? "").trim();
-  const state = String(formData.get("state") ?? "").trim().toUpperCase();
   const dob = (String(formData.get("dob") ?? "") || null) as string | null;
-  const hire_date = (String(formData.get("hire_date") ?? "") || null) as string | null;
-  const pay_period = String(formData.get("pay_period") ?? "b"); // w/b/s/m
-  const paycheck_gross = Number(formData.get("paycheck_gross") ?? 0);
-  const filing_status = String(formData.get("filing_status") ?? "s"); // s/m/h (you can map to single/married/head elsewhere)
+  const gross_pay = Number(formData.get("gross_pay") ?? 0);
+  // Map short codes to full values: s->single, m->married, h->head
+  const filingCode = String(formData.get("filing_status") ?? "s");
+  const filing_status = filingCode === "m" ? "married" : filingCode === "h" ? "head" : "single";
   const dependents = Number(formData.get("dependents") ?? 0);
+  const tobacco_use = String(formData.get("tobacco_use") ?? "false") === "true";
   const active = String(formData.get("active") ?? "true") === "true";
   const inactive_date = (String(formData.get("inactive_date") ?? "") || null) as string | null;
+  const consent_status = String(formData.get("consent_status") ?? "pending");
 
   if (!company_id || !first_name || !last_name) throw new Error("Missing required fields");
 
@@ -24,15 +25,14 @@ async function createEmployee(formData: FormData) {
     company_id,
     first_name,
     last_name,
-    state,
     dob,
-    hire_date,
-    pay_period,
-    paycheck_gross,
+    gross_pay,
     filing_status,
     dependents,
+    tobacco_use,
     active,
-    inactive_date
+    inactive_date,
+    consent_status,
   });
   if (error) throw new Error(error.message);
 
@@ -53,58 +53,56 @@ export default async function AddEmployeePage({
 
         <div className="grid md:grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <label className="text-sm">First name</label>
+            <label className="text-sm">First name *</label>
             <input name="first_name" required className="border rounded-lg p-2" />
           </div>
           <div className="grid gap-2">
-            <label className="text-sm">Last name</label>
+            <label className="text-sm">Last name *</label>
             <input name="last_name" required className="border rounded-lg p-2" />
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-4">
-          <div className="grid gap-2">
-            <label className="text-sm">State</label>
-            <input name="state" required className="border rounded-lg p-2" placeholder="TX" />
-          </div>
-          <div className="grid gap-2">
-            <label className="text-sm">DOB</label>
-            <input type="date" name="dob" className="border rounded-lg p-2" />
-          </div>
-          <div className="grid gap-2">
-            <label className="text-sm">Hire date</label>
-            <input type="date" name="hire_date" className="border rounded-lg p-2" />
           </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <label className="text-sm">Pay period</label>
-            <select name="pay_period" className="border rounded-lg p-2" defaultValue="b">
-              <option value="w">weekly</option>
-              <option value="b">biweekly</option>
-              <option value="s">semimonthly</option>
-              <option value="m">monthly</option>
-            </select>
+            <label className="text-sm">DOB</label>
+            <input type="date" name="dob" className="border rounded-lg p-2" />
           </div>
           <div className="grid gap-2">
-            <label className="text-sm">Paycheck gross</label>
-            <input name="paycheck_gross" type="number" step="0.01" className="border rounded-lg p-2" required />
+            <label className="text-sm">Gross Pay (per paycheck) *</label>
+            <input name="gross_pay" type="number" step="0.01" className="border rounded-lg p-2" required />
           </div>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
           <div className="grid gap-2">
-            <label className="text-sm">Marital status</label>
+            <label className="text-sm">Filing Status</label>
             <select name="filing_status" className="border rounded-lg p-2" defaultValue="s">
-              <option value="s">single</option>
-              <option value="m">married</option>
-              <option value="h">head</option>
+              <option value="s">Single</option>
+              <option value="m">Married</option>
+              <option value="h">Head of Household</option>
             </select>
           </div>
           <div className="grid gap-2">
             <label className="text-sm">Dependents</label>
             <input name="dependents" type="number" min="0" className="border rounded-lg p-2" defaultValue={0} />
+          </div>
+          <div className="grid gap-2">
+            <label className="text-sm">Tobacco Use</label>
+            <select name="tobacco_use" className="border rounded-lg p-2" defaultValue="false">
+              <option value="false">No</option>
+              <option value="true">Yes</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <label className="text-sm">Consent Status</label>
+            <select name="consent_status" className="border rounded-lg p-2" defaultValue="pending">
+              <option value="pending">Pending</option>
+              <option value="elect">Enrolled</option>
+              <option value="dont">Declined</option>
+            </select>
           </div>
           <div className="grid gap-2">
             <label className="text-sm">Active?</label>
@@ -120,8 +118,8 @@ export default async function AddEmployeePage({
           <input type="date" name="inactive_date" className="border rounded-lg p-2" />
         </div>
 
-        <div className="flex items-center gap-2">
-          <button className="px-4 py-2 rounded-xl bg-slate-900 text-white">Save</button>
+        <div className="flex items-center gap-2 pt-4">
+          <button className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-700">Save</button>
           <a href={`/companies/${companyId}`} className="text-sm underline">Cancel</a>
         </div>
       </form>
