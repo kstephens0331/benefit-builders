@@ -610,6 +610,99 @@ export const KENTUCKY_LOCAL_TAXES: Record<string, LocalTaxConfig> = {
   'HARLAN COUNTY': { city: 'Harlan County', state: 'KY', residentRate: 0.0150, nonResidentRate: 0.0150, taxType: 'income' },
 };
 
+// ============================================
+// MISSOURI EARNINGS TAXES (Kansas City & St. Louis only)
+// Only these two cities in MO can levy earnings taxes
+// 1% flat rate for all who work in the city
+// Rates effective 2024/2025
+// ============================================
+
+export const MISSOURI_LOCAL_TAXES: Record<string, LocalTaxConfig> = {
+  'KANSAS CITY': {
+    city: 'Kansas City',
+    state: 'MO',
+    residentRate: 0.01,
+    nonResidentRate: 0.01,
+    taxType: 'income',
+    notes: '1% earnings tax on all who work in KC',
+  },
+  'ST. LOUIS': {
+    city: 'St. Louis',
+    state: 'MO',
+    residentRate: 0.01,
+    nonResidentRate: 0.01,
+    taxType: 'income',
+    notes: '1% earnings tax on all who work in STL',
+  },
+  'SAINT LOUIS': {
+    city: 'St. Louis',
+    state: 'MO',
+    residentRate: 0.01,
+    nonResidentRate: 0.01,
+    taxType: 'income',
+    notes: 'Alias for St. Louis',
+  },
+};
+
+// ============================================
+// ALABAMA OCCUPATIONAL TAXES (4 jurisdictions)
+// Only Birmingham, Bessemer, Gadsden, and Macon County
+// Rates effective 2024/2025
+// ============================================
+
+export const ALABAMA_LOCAL_TAXES: Record<string, LocalTaxConfig> = {
+  'BIRMINGHAM': {
+    city: 'Birmingham',
+    state: 'AL',
+    residentRate: 0.01,
+    nonResidentRate: 0.01,
+    taxType: 'income',
+    notes: '1% occupational tax',
+  },
+  'BESSEMER': {
+    city: 'Bessemer',
+    state: 'AL',
+    residentRate: 0.01,
+    nonResidentRate: 0.01,
+    taxType: 'income',
+    notes: '1% occupational tax',
+  },
+  'GADSDEN': {
+    city: 'Gadsden',
+    state: 'AL',
+    residentRate: 0.02,
+    nonResidentRate: 0.02,
+    taxType: 'income',
+    notes: '2% occupational tax - highest in Alabama',
+  },
+  'MACON COUNTY': {
+    city: 'Macon County',
+    state: 'AL',
+    residentRate: 0.01,
+    nonResidentRate: 0.01,
+    taxType: 'income',
+    notes: '1% county occupational tax',
+  },
+};
+
+// ============================================
+// DELAWARE WAGE TAX (Wilmington only)
+// Only Wilmington has a local wage tax in Delaware
+// 1.25% for residents and non-residents working in Wilmington
+// Rates effective FY2025
+// ============================================
+
+export const DELAWARE_LOCAL_TAXES: Record<string, LocalTaxConfig> = {
+  'WILMINGTON': {
+    city: 'Wilmington',
+    state: 'DE',
+    residentRate: 0.0125,
+    nonResidentRate: 0.0125,
+    taxType: 'wage',
+    notes: '1.25% wage tax - only jurisdiction in DE with local income tax',
+  },
+};
+
 // Master lookup by state
 export const LOCAL_TAX_BY_STATE: Record<string, Record<string, LocalTaxConfig>> = {
   MI: MICHIGAN_LOCAL_TAXES,
@@ -619,6 +712,9 @@ export const LOCAL_TAX_BY_STATE: Record<string, Record<string, LocalTaxConfig>> 
   IN: INDIANA_LOCAL_TAXES,
   MD: MARYLAND_LOCAL_TAXES,
   KY: KENTUCKY_LOCAL_TAXES,
+  MO: MISSOURI_LOCAL_TAXES,
+  AL: ALABAMA_LOCAL_TAXES,
+  DE: DELAWARE_LOCAL_TAXES,
 };
 
 /**
