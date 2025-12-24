@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { calcFICA, calcFITFromTable, calcSITFlat } from "@/lib/tax";
 import { calculateSection125Amount, calculateSafeSection125Deduction, checkSection125Affordability, monthlyToPerPay, type CompanyTier, type FilingStatus, type CustomSection125Amounts } from "@/lib/section125";
+import { calculateLocalTax, stateHasLocalTax } from "@/lib/local-tax-config";
 
 // Calculate FEDERAL income tax using IRS Percentage Method
 // IMPORTANT: Federal brackets are ANNUAL amounts from IRS Pub 15-T
@@ -111,6 +112,10 @@ type Props = {
     dependents: number;
     pay_period: string;
     state?: string;
+    city?: string;        // City/municipality for local tax
+    county?: string;      // County for local tax (IN, MD, KY)
+    work_city?: string;   // Work location city (if different from residence)
+    work_state?: string;  // Work location state (if different from residence)
   };
   company: {
     model: string;
@@ -231,7 +236,18 @@ export default function BenefitsCalculator({
   );
   // State tax: pass gross pay (before fed deductions) since state uses its own deductions
   const beforeSIT = calcStateTax(grossPay, payPeriodsPerYear, employee.dependents || 0, stateWithholding);
-  const beforeTotalTax = beforeFICA.fica + beforeFIT + beforeSIT;
+
+  // Local tax (city/county): calculate annual then convert to per-pay
+  // Use city for MI, OH, PA, NY; county for IN, MD; both may apply for KY
+  const annualGrossBefore = grossPay * payPeriodsPerYear;
+  const residenceState = employee.state || '';
+  const residenceCity = employee.city || employee.county || '';
+  const workState = employee.work_state || residenceState;
+  const workCity = employee.work_city || residenceCity;
+  const beforeLocalAnnual = calculateLocalTax(annualGrossBefore, residenceState, residenceCity, workState, workCity);
+  const beforeLocalTax = beforeLocalAnnual / payPeriodsPerYear;
+
+  const beforeTotalTax = beforeFICA.fica + beforeFIT + beforeSIT + beforeLocalTax;
   const beforeNetPay = grossPay - beforeTotalTax;
 
   // AFTER (with benefits) - using IRS Percentage Method with ANNUAL brackets
@@ -247,7 +263,13 @@ export default function BenefitsCalculator({
   );
   // State tax: pass gross pay minus Section 125 benefit (pre-tax deduction)
   const afterSIT = calcStateTax(grossPay - benefitAmount, payPeriodsPerYear, employee.dependents || 0, stateWithholding);
-  const afterTotalTax = afterFICA.fica + afterFIT + afterSIT;
+
+  // Local tax after Section 125 deduction (most local taxes are on earned income, so Section 125 reduces)
+  const annualGrossAfter = (grossPay - benefitAmount) * payPeriodsPerYear;
+  const afterLocalAnnual = calculateLocalTax(annualGrossAfter, residenceState, residenceCity, workState, workCity);
+  const afterLocalTax = afterLocalAnnual / payPeriodsPerYear;
+
+  const afterTotalTax = afterFICA.fica + afterFIT + afterSIT + afterLocalTax;
 
   const employeeFee = benefitAmount * (employeeRate / 100);
   const employerFee = benefitAmount * (employerRate / 100);
