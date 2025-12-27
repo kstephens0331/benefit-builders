@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase";
+import { getCurrentUser } from "@/lib/auth";
 import BankReconciliationManager from "@/components/BankReconciliationManager";
 
 export const metadata = {
@@ -7,6 +8,7 @@ export const metadata = {
 
 export default async function BankReconciliationPage() {
   const db = createServiceClient();
+  const user = await getCurrentUser();
 
   // Fetch all bank reconciliations
   const { data: reconciliations } = await db
@@ -45,6 +47,7 @@ export default async function BankReconciliationPage() {
         exists: !!currentMonthRec,
         reconciled: currentMonthRec?.reconciled || false,
       }}
+      userId={user?.id || null}
     />
   );
 }

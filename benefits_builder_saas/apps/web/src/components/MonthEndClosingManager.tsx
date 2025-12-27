@@ -22,12 +22,14 @@ interface MonthEndClosingManagerProps {
   closings: Closing[];
   currentYear: number;
   currentMonth: number;
+  userId: string | null;
 }
 
 export default function MonthEndClosingManager({
   closings: initialClosings,
   currentYear,
   currentMonth,
+  userId,
 }: MonthEndClosingManagerProps) {
   const [closings, setClosings] = useState(initialClosings);
   const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number } | null>(null);
@@ -84,7 +86,7 @@ export default function MonthEndClosingManager({
         body: JSON.stringify({
           year: selectedMonth.year,
           month: selectedMonth.month,
-          userId: 'current-user-id', // TODO: Get from auth
+          userId: userId,
           confirmationText,
         }),
       });

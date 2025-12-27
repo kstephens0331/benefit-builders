@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase";
+import { getCurrentUser } from "@/lib/auth";
 import MonthEndClosingManager from "@/components/MonthEndClosingManager";
 
 export const metadata = {
@@ -7,6 +8,7 @@ export const metadata = {
 
 export default async function MonthEndPage() {
   const db = createServiceClient();
+  const user = await getCurrentUser();
 
   // Fetch all month-end closings
   const { data: closings } = await db
@@ -26,6 +28,7 @@ export default async function MonthEndPage() {
       closings={closings || []}
       currentYear={currentYear}
       currentMonth={currentMonth}
+      userId={user?.id || null}
     />
   );
 }

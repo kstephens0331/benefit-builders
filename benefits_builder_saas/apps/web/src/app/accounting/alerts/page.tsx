@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase";
+import { getCurrentUser } from "@/lib/auth";
 import PaymentAlertsManager from "@/components/PaymentAlertsManager";
 
 export const metadata = {
@@ -7,6 +8,7 @@ export const metadata = {
 
 export default async function PaymentAlertsPage() {
   const db = createServiceClient();
+  const user = await getCurrentUser();
 
   // Fetch all payment alerts
   const { data: alerts } = await db
@@ -52,6 +54,7 @@ export default async function PaymentAlertsPage() {
       alerts={alerts || []}
       reminders={reminders || []}
       stats={stats}
+      userId={user?.id || null}
     />
   );
 }

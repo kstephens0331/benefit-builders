@@ -71,7 +71,7 @@ export async function PATCH(
       updates.reconciled = body.reconciled;
       if (body.reconciled) {
         updates.reconciled_at = new Date().toISOString();
-        updates.reconciled_by = body.userId || null; // TODO: Get from auth
+        updates.reconciled_by = body.userId || null;
       } else {
         updates.reconciled_at = null;
         updates.reconciled_by = null;

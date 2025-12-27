@@ -39,12 +39,14 @@ interface BankReconciliationManagerProps {
     exists: boolean;
     reconciled: boolean;
   };
+  userId: string | null;
 }
 
 export default function BankReconciliationManager({
   initialReconciliations,
   stats: initialStats,
   currentMonth,
+  userId,
 }: BankReconciliationManagerProps) {
   const [reconciliations, setReconciliations] = useState(initialReconciliations);
   const [stats, setStats] = useState(initialStats);
@@ -156,7 +158,7 @@ export default function BankReconciliationManager({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reconciled: true,
-          userId: 'current-user-id', // TODO: Get from auth
+          userId: userId,
         }),
       });
 

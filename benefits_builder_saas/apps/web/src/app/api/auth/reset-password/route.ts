@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { sendPasswordResetEmail, sendPasswordResetConfirmationEmail } from "@/lib/email";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
@@ -121,8 +122,8 @@ export async function POST(request: Request) {
         used: false,
       });
 
-      // TODO: Send email with reset link
-      // await sendPasswordResetEmail(email, resetToken);
+      // Send email with reset link
+      await sendPasswordResetEmail(email, resetToken);
 
       return NextResponse.json({
         ok: true,
@@ -195,8 +196,17 @@ export async function POST(request: Request) {
         .delete()
         .eq("user_id", resetToken.user_id);
 
-      // TODO: Send confirmation email
-      // await sendPasswordResetConfirmationEmail(user.email);
+      // Get user email for confirmation
+      const { data: userData } = await db
+        .from("auth_users")
+        .select("email")
+        .eq("id", resetToken.user_id)
+        .single();
+
+      // Send confirmation email
+      if (userData?.email) {
+        await sendPasswordResetConfirmationEmail(userData.email);
+      }
 
       return NextResponse.json({
         ok: true,

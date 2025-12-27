@@ -46,12 +46,14 @@ interface PaymentAlertsManagerProps {
     warning: number;
     info: number;
   };
+  userId: string | null;
 }
 
 export default function PaymentAlertsManager({
   alerts: initialAlerts,
   reminders,
   stats: initialStats,
+  userId,
 }: PaymentAlertsManagerProps) {
   const [alerts, setAlerts] = useState(initialAlerts);
   const [stats, setStats] = useState(initialStats);
@@ -104,7 +106,7 @@ export default function PaymentAlertsManager({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: 'acknowledged',
-          userId: 'current-user-id', // TODO: Get from auth
+          userId: userId,
         }),
       });
 
@@ -135,7 +137,7 @@ export default function PaymentAlertsManager({
         body: JSON.stringify({
           status: 'resolved',
           resolutionNotes: notes || 'Resolved',
-          userId: 'current-user-id', // TODO: Get from auth
+          userId: userId,
         }),
       });
 

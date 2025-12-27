@@ -606,4 +606,115 @@ export async function sendMonthEndReport(
   }
 }
 
+/**
+ * Send password reset email with link
+ */
+export async function sendPasswordResetEmail(email: string, resetToken: string) {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+
+  const subject = "Reset Your Password - Benefits Builder";
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; }
+        .button { display: inline-block; background: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 8px 8px; }
+        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Reset</h1>
+        </div>
+        <div class="content">
+          <p>Hello,</p>
+          <p>We received a request to reset your password for your Benefits Builder account. Click the button below to create a new password:</p>
+
+          <div style="text-align: center;">
+            <a href="${resetLink}" class="button">Reset Password</a>
+          </div>
+
+          <div class="warning">
+            <strong>Important:</strong> This link will expire in 30 minutes for your security.
+          </div>
+
+          <p>If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+
+          <p>If the button doesn't work, copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #2563eb;">${resetLink}</p>
+
+          <p>Best regards,<br>
+          <strong>Benefits Builder Team</strong></p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} Benefits Builder. All rights reserved.</p>
+          <p>This email was sent because a password reset was requested for this email address.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail(email, subject, html);
+}
+
+/**
+ * Send password reset confirmation email
+ */
+export async function sendPasswordResetConfirmationEmail(email: string) {
+  const subject = "Password Changed Successfully - Benefits Builder";
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; }
+        .success { background: #d1fae5; border-left: 4px solid #059669; padding: 15px; margin: 20px 0; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 8px 8px; }
+        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Changed</h1>
+        </div>
+        <div class="content">
+          <div class="success">
+            <strong>Success!</strong> Your password has been changed successfully.
+          </div>
+
+          <p>Hello,</p>
+          <p>This email confirms that your Benefits Builder account password was changed on ${new Date().toLocaleString()}.</p>
+
+          <div class="warning">
+            <strong>Didn't make this change?</strong> If you didn't change your password, please contact us immediately at info@benefitsbuilder.com or call your account representative.
+          </div>
+
+          <p>You can now log in with your new password.</p>
+
+          <p>Best regards,<br>
+          <strong>Benefits Builder Team</strong></p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} Benefits Builder. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail(email, subject, html);
+}
+
 export { sendEmail };
