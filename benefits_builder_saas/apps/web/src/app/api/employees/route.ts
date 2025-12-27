@@ -41,6 +41,11 @@ export async function POST(request: NextRequest) {
         tobacco_use: body.tobacco_use || false,
         active: body.active !== undefined ? body.active : true,
         consent_status: body.consent_status || "pending",
+        // Local tax fields
+        city: body.city || null,
+        county: body.county || null,
+        work_city: body.work_city || null,
+        work_county: body.work_county || null,
       })
       .select()
       .single();

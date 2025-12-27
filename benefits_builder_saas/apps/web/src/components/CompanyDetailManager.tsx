@@ -31,6 +31,7 @@ type Company = {
   contact_phone?: string;
   address?: string;
   city?: string;
+  assigned_rep_id?: string | null;
   // Custom Section 125 amounts for 3/4 model (monthly)
   sec125_single_0?: number;
   sec125_married_0?: number;
@@ -38,9 +39,16 @@ type Company = {
   sec125_married_deps?: number;
 };
 
+type Rep = {
+  id: string;
+  full_name: string;
+};
+
 type Props = {
   company: Company;
   initialEmployees: Employee[];
+  reps?: Rep[];
+  userIsAdmin?: boolean;
 };
 
 // Helper to convert pay frequency to abbreviation
@@ -61,7 +69,7 @@ function getPayFrequencyAbbr(frequency?: string): string {
   }
 }
 
-export default function CompanyDetailManager({ company, initialEmployees }: Props) {
+export default function CompanyDetailManager({ company, initialEmployees, reps = [], userIsAdmin = false }: Props) {
   const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
   const [isLoading, setIsLoading] = useState(false);
@@ -92,6 +100,7 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
     contact_phone: company.contact_phone || "",
     address: company.address || "",
     city: company.city || "",
+    assigned_rep_id: company.assigned_rep_id || "",
     // Custom Section 125 amounts for 3/4 model (monthly)
     sec125_single_0: company.sec125_single_0 || 800,
     sec125_married_0: company.sec125_married_0 || 1200,
@@ -677,6 +686,32 @@ export default function CompanyDetailManager({ company, initialEmployees }: Prop
                       <option value="pending">Pending</option>
                     </select>
                   </div>
+
+                  {/* Assigned Rep - Only visible to admins */}
+                  {userIsAdmin && reps.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Assigned Sales Rep
+                      </label>
+                      <select
+                        value={companyFormData.assigned_rep_id}
+                        onChange={(e) =>
+                          setCompanyFormData({ ...companyFormData, assigned_rep_id: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                      >
+                        <option value="">-- Unassigned --</option>
+                        {reps.map((rep) => (
+                          <option key={rep.id} value={rep.id}>
+                            {rep.full_name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Reps can only view their assigned companies
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Contact & Address Information */}

@@ -1,17 +1,51 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { getCurrentUser, getRepFilterId, getClientCompanyId, isAdmin, isRep, isClient } from "@/lib/auth";
 
 export async function GET() {
   const db = createServiceClient();
-  const { data, error } = await db.from("companies").select("*").order("name");
+  const user = await getCurrentUser();
+  const repFilterId = getRepFilterId(user);
+  const clientCompanyId = getClientCompanyId(user);
+
+  // Build query based on role
+  let query = db.from("companies").select("*, assigned_rep:internal_users!assigned_rep_id(id, full_name)").order("name");
+
+  // Client users can only see their single assigned company
+  if (clientCompanyId) {
+    query = query.eq("id", clientCompanyId);
+  }
+  // Reps only see their assigned companies
+  else if (repFilterId) {
+    query = query.eq("assigned_rep_id", repFilterId);
+  }
+
+  const { data, error } = await query;
   if (error) return NextResponse.json({ ok:false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok:true, count: data?.length ?? 0, data });
+  return NextResponse.json({ ok:true, count: data?.length ?? 0, data, user_role: user?.role });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const db = createServiceClient();
+    const user = await getCurrentUser();
+
+    // Admins and reps can create companies
+    // Clients cannot create companies
+    if (!isAdmin(user) && !isRep(user)) {
+      return NextResponse.json(
+        { ok: false, error: "Only admins and reps can create companies" },
+        { status: 403 }
+      );
+    }
+
+    // For reps, auto-assign the company to themselves
+    // Reps cannot set assigned_rep_id to someone else
+    let assignedRepId = body.assigned_rep_id || null;
+    if (isRep(user)) {
+      assignedRepId = user?.id; // Always assign to themselves
+    }
 
     const { data, error } = await db
       .from("companies")
@@ -28,6 +62,7 @@ export async function POST(request: NextRequest) {
         city: body.city || null,
         zip: body.zip || null,
         status: body.status || 'active',
+        assigned_rep_id: assignedRepId,
         // Custom Section 125 amounts for 3/4 model
         sec125_single_0: body.sec125_single_0 || null,
         sec125_married_0: body.sec125_married_0 || null,
@@ -66,6 +101,20 @@ export async function PATCH(request: NextRequest) {
     }
 
     const db = createServiceClient();
+    const user = await getCurrentUser();
+
+    // Clients cannot update companies at all
+    if (isClient(user)) {
+      return NextResponse.json(
+        { ok: false, error: "Clients cannot modify company details" },
+        { status: 403 }
+      );
+    }
+
+    // Reps cannot change assigned_rep_id (only admins can reassign)
+    if (isRep(user) && 'assigned_rep_id' in updates) {
+      delete updates.assigned_rep_id;
+    }
 
     const { data, error } = await db
       .from("companies")

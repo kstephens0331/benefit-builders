@@ -1,5 +1,6 @@
 // apps/web/src/app/companies/[id]/page.tsx
 import { createServiceClient } from "@/lib/supabase";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import CompanyDetailManager from "@/components/CompanyDetailManager";
 
 type Params = { params: Promise<{ id: string }> };
@@ -7,10 +8,12 @@ type Params = { params: Promise<{ id: string }> };
 export default async function CompanyPage({ params }: Params) {
   const { id: companyId } = await params;
   const db = createServiceClient();
+  const user = await getCurrentUser();
+  const userIsAdmin = isAdmin(user);
 
   const { data: company, error: cErr } = await db
     .from("companies")
-    .select("id,name,state,model,status,tier,employer_rate,employee_rate,pay_frequency,contact_name,contact_phone,address,city")
+    .select("id,name,state,model,status,tier,employer_rate,employee_rate,pay_frequency,contact_name,contact_phone,address,city,assigned_rep_id")
     .eq("id", companyId)
     .single();
 
@@ -38,5 +41,24 @@ export default async function CompanyPage({ params }: Params) {
     );
   }
 
-  return <CompanyDetailManager company={company} initialEmployees={employees || []} />;
+  // Fetch reps list for admin assignment dropdown
+  let reps: { id: string; full_name: string }[] = [];
+  if (userIsAdmin) {
+    const { data: repData } = await db
+      .from("internal_users")
+      .select("id, full_name")
+      .in("role", ["rep", "admin", "super_admin"])
+      .eq("active", true)
+      .order("full_name");
+    reps = repData || [];
+  }
+
+  return (
+    <CompanyDetailManager
+      company={company}
+      initialEmployees={employees || []}
+      reps={reps}
+      userIsAdmin={userIsAdmin}
+    />
+  );
 }

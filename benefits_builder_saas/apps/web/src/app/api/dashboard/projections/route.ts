@@ -7,11 +7,11 @@ import { validateRequestBody } from "@/lib/validation";
 export const runtime = "nodejs";
 
 const ProjectionSchema = z.object({
-  target_companies: z.number().int().min(1).max(10000),
-  avg_employees_per_company: z.number().min(1).max(1000),
+  new_companies: z.number().int().min(0).max(10000),
+  avg_employees_per_company: z.number().min(0).max(1000),
   avg_pretax_per_employee: z.number().min(0).max(10000),
   avg_model_rate: z.number().min(0).max(0.10).optional().default(0.06), // Combined 6% avg (e.g., 5/1 = 6%, 5/3 = 8%)
-  months_to_achieve: z.number().int().min(1).max(60).optional().default(12),
+  months_remaining: z.number().int().min(1).max(12).optional().default(12),
   save: z.boolean().optional().default(false),
   notes: z.string().max(1000).optional()
 });
@@ -29,79 +29,92 @@ export async function POST(req: Request) {
   }
 
   const {
-    target_companies,
+    new_companies,
     avg_employees_per_company,
     avg_pretax_per_employee,
     avg_model_rate,
-    months_to_achieve,
+    months_remaining,
     save,
     notes
   } = validation.data;
 
-  // Calculate projections
-  const total_employees = target_companies * avg_employees_per_company;
-  const total_pretax_monthly = total_employees * avg_pretax_per_employee;
-  const projected_monthly_revenue = total_pretax_monthly * avg_model_rate!;
-  const projected_annual_revenue = projected_monthly_revenue * 12;
-
-  // Get current metrics for comparison
+  // Get current metrics
   const { count: current_companies } = await db
     .from("companies")
     .select("*", { count: "exact", head: true })
     .eq("status", "active");
 
-  const { count: current_employees } = await db
+  const { count: current_enrolled_employees } = await db
     .from("employees")
     .select("*", { count: "exact", head: true })
-    .eq("active", true);
+    .eq("active", true)
+    .eq("consent_status", "elect");
 
-  const companies_needed = target_companies - (current_companies || 0);
-  const employees_needed = total_employees - (current_employees || 0);
+  // Get current monthly revenue from enrolled employees
+  const { data: revenueData } = await db
+    .from("employees")
+    .select("pretax_benefit, model")
+    .eq("active", true)
+    .eq("consent_status", "elect");
 
-  const companies_per_month = months_to_achieve! > 0 ? companies_needed / months_to_achieve! : 0;
+  let current_monthly_revenue = 0;
+  if (revenueData) {
+    for (const emp of revenueData) {
+      const pretax = Number(emp.pretax_benefit) || 0;
+      const model = emp.model || "5/3";
+      // Parse model to get combined rate (e.g., "5/3" = 0.05 + 0.03 = 0.08)
+      const parts = model.split("/");
+      const empRate = (parseInt(parts[0]) || 0) / 100;
+      const erRate = (parseInt(parts[1]) || 0) / 100;
+      current_monthly_revenue += pretax * (empRate + erRate);
+    }
+  }
+
+  // Calculate new business projections
+  const new_employees = new_companies * avg_employees_per_company;
+  const new_pretax_monthly = new_employees * avg_pretax_per_employee;
+  const new_monthly_revenue = new_pretax_monthly * avg_model_rate!;
+
+  // Combined totals
+  const total_companies = (current_companies || 0) + new_companies;
+  const total_employees = (current_enrolled_employees || 0) + new_employees;
+  const combined_monthly_revenue = current_monthly_revenue + new_monthly_revenue;
+  const partial_year_revenue = combined_monthly_revenue * months_remaining!;
+  const annual_revenue = combined_monthly_revenue * 12;
 
   const projection_result = {
-    inputs: {
-      target_companies,
-      avg_employees_per_company,
-      avg_pretax_per_employee,
-      avg_model_rate: avg_model_rate!,
-      months_to_achieve: months_to_achieve!
+    current: {
+      companies: current_companies || 0,
+      employees: current_enrolled_employees || 0,
+      monthly_revenue: parseFloat(current_monthly_revenue.toFixed(2))
     },
-    projections: {
+    new_business: {
+      companies: new_companies,
+      employees: new_employees,
+      monthly_revenue: parseFloat(new_monthly_revenue.toFixed(2))
+    },
+    combined: {
+      total_companies,
       total_employees,
-      total_pretax_monthly,
-      projected_monthly_revenue: parseFloat(projected_monthly_revenue.toFixed(2)),
-      projected_annual_revenue: parseFloat(projected_annual_revenue.toFixed(2))
-    },
-    gap_analysis: {
-      current_companies: current_companies || 0,
-      current_employees: current_employees || 0,
-      companies_needed: Math.max(0, companies_needed),
-      employees_needed: Math.max(0, employees_needed),
-      companies_per_month: parseFloat(companies_per_month.toFixed(2)),
-      months_to_target: months_to_achieve!
-    },
-    assumptions: {
-      model_rate_explanation: "Combined employee + employer fee rate (e.g., 5/1 model = 6% total)",
-      estimated_employer_savings: "Typically 7.65% of pretax amount (FICA)",
-      profit_margin_estimate: parseFloat(((avg_model_rate! / 0.0765) * 100).toFixed(1)) + "%"
+      monthly_revenue: parseFloat(combined_monthly_revenue.toFixed(2)),
+      partial_year_revenue: parseFloat(partial_year_revenue.toFixed(2)),
+      annual_revenue: parseFloat(annual_revenue.toFixed(2))
     }
   };
 
   // Save projection if requested
   if (save) {
     const target_date = new Date();
-    target_date.setMonth(target_date.getMonth() + months_to_achieve!);
+    target_date.setMonth(target_date.getMonth() + months_remaining!);
 
     await db.from("revenue_projections").insert({
       projection_date: target_date.toISOString().split("T")[0],
-      projected_companies: target_companies,
+      projected_companies: total_companies,
       projected_avg_employees: avg_employees_per_company,
       projected_avg_pretax: avg_pretax_per_employee,
-      projected_monthly_revenue,
-      projected_annual_revenue,
-      assumptions: projection_result.assumptions,
+      projected_monthly_revenue: combined_monthly_revenue,
+      projected_annual_revenue: annual_revenue,
+      assumptions: { new_companies, months_remaining },
       notes
     });
   }

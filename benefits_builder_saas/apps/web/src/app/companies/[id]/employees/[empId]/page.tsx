@@ -37,7 +37,7 @@ export default async function EmployeePage({
   const { data: emp, error: empError } = await db
     .from("employees")
     .select(
-      "id, first_name, last_name, state, pay_period, gross_pay, filing_status, dependents, active, hire_date, dob, inactive_date, company_id, safety_cap_percent"
+      "id, first_name, last_name, state, pay_period, gross_pay, filing_status, dependents, active, hire_date, dob, inactive_date, company_id, safety_cap_percent, city, county, work_city, work_county"
     )
     .eq("id", empId)
     .single();
@@ -359,6 +359,55 @@ export default async function EmployeePage({
             />
           </div>
         </div>
+
+        {/* City/County fields for local tax calculations */}
+        <div className="pt-3 border-t border-slate-100">
+          <div className="text-xs text-slate-500 mb-2">Local Tax Location (for states with city/county taxes)</div>
+          <div className={row}>
+            <div>
+              <div className={label}>Residence City</div>
+              <EmployeeFieldEditor
+                employeeId={empId}
+                fieldName="city"
+                fieldLabel="Residence City"
+                initialValue={emp.city || ""}
+                fieldType="text"
+              />
+            </div>
+            <div>
+              <div className={label}>Residence County</div>
+              <EmployeeFieldEditor
+                employeeId={empId}
+                fieldName="county"
+                fieldLabel="Residence County"
+                initialValue={emp.county || ""}
+                fieldType="text"
+              />
+            </div>
+          </div>
+          <div className={row}>
+            <div>
+              <div className={label}>Work City (if different)</div>
+              <EmployeeFieldEditor
+                employeeId={empId}
+                fieldName="work_city"
+                fieldLabel="Work City"
+                initialValue={emp.work_city || ""}
+                fieldType="text"
+              />
+            </div>
+            <div>
+              <div className={label}>Work County (if different)</div>
+              <EmployeeFieldEditor
+                employeeId={empId}
+                fieldName="work_county"
+                fieldLabel="Work County"
+                initialValue={emp.work_county || ""}
+                fieldType="text"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Total Enrolled Benefits */}
@@ -385,6 +434,11 @@ export default async function EmployeePage({
           dependents: emp.dependents || 0,
           pay_period: effectivePayPeriod,
           state: employeeState,
+          // Local tax location fields
+          city: emp.city || undefined,
+          county: emp.county || undefined,
+          work_city: emp.work_city || undefined,
+          work_county: emp.work_county || undefined,
         }}
         company={{
           model: company?.model || "N/A",

@@ -1,5 +1,6 @@
 // Next.js Middleware - Authentication Gate
 // Protects all routes except login page
+// Enforces role-based access control for reps and clients
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -14,6 +15,48 @@ const PUBLIC_ROUTES = [
   "/api/auth/logout",
   "/api/quickbooks/callback",  // QuickBooks OAuth callback
 ];
+
+// Routes that reps CAN access (all other routes are blocked for reps)
+const REP_ALLOWED_ROUTES = [
+  "/companies",
+  "/proposals",
+  "/api/companies",
+  "/api/proposals",
+  "/api/employees",
+  "/api/auth",
+];
+
+// Check if a route is allowed for reps
+function isRepAllowedRoute(pathname: string): boolean {
+  return REP_ALLOWED_ROUTES.some(route =>
+    pathname === route || pathname.startsWith(route + "/")
+  );
+}
+
+// Check if a route is allowed for clients (company owners/executives)
+// Clients can ONLY access their single assigned company and its employees
+function isClientAllowedRoute(pathname: string, assignedCompanyId: string | null): boolean {
+  if (!assignedCompanyId) return false;
+
+  // Auth routes always allowed
+  if (pathname.startsWith("/api/auth")) return true;
+
+  // Allow access to their specific company page and sub-routes
+  if (pathname === `/companies/${assignedCompanyId}` ||
+      pathname.startsWith(`/companies/${assignedCompanyId}/`)) {
+    return true;
+  }
+
+  // Allow employee API access for their company
+  if (pathname.startsWith("/api/employees")) return true;
+
+  // Allow companies API access (will be filtered server-side)
+  if (pathname === "/api/companies" || pathname === `/api/companies/${assignedCompanyId}`) {
+    return true;
+  }
+
+  return false;
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -57,7 +100,29 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Valid session, continue
+  // Role-based access control for clients (company owners/executives)
+  // They can ONLY see their single assigned company
+  if (user.role === "client") {
+    if (!isClientAllowedRoute(pathname, user.assigned_company_id || null)) {
+      // Redirect clients to their company page
+      if (user.assigned_company_id) {
+        return NextResponse.redirect(new URL(`/companies/${user.assigned_company_id}`, request.url));
+      }
+      // No assigned company, redirect to login with error
+      return NextResponse.redirect(new URL("/login?error=no_company", request.url));
+    }
+  }
+
+  // Role-based access control for reps
+  if (user.role === "rep") {
+    // Check if this route is allowed for reps
+    if (!isRepAllowedRoute(pathname)) {
+      // Redirect reps to companies page if they try to access unauthorized routes
+      return NextResponse.redirect(new URL("/companies", request.url));
+    }
+  }
+
+  // Valid session and authorized, continue
   return NextResponse.next();
 }
 

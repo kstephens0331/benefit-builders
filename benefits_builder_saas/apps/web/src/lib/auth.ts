@@ -13,9 +13,83 @@ export interface InternalUser {
   username: string;
   full_name: string;
   email: string | null;
-  role: "admin" | "user" | "viewer";
+  role: "super_admin" | "admin" | "rep" | "client" | "user" | "viewer";
   active: boolean;
   last_login_at: string | null;
+  assigned_company_id?: string | null; // For client role - their single company
+}
+
+/**
+ * Check if user has admin-level access (super_admin or admin)
+ * These users can see all companies and data
+ */
+export function isAdmin(user: InternalUser | null): boolean {
+  return user?.role === "super_admin" || user?.role === "admin";
+}
+
+/**
+ * Check if user is a sales rep with limited access
+ * Reps can only see their assigned companies
+ */
+export function isRep(user: InternalUser | null): boolean {
+  return user?.role === "rep";
+}
+
+/**
+ * Check if user is a client (company owner/executive)
+ * Clients can only see their ONE assigned company and add/remove employees
+ */
+export function isClient(user: InternalUser | null): boolean {
+  return user?.role === "client";
+}
+
+/**
+ * Check if user has access to a specific company
+ * - Admins can access all companies
+ * - Reps can only access their assigned companies
+ * - Clients can only access their single assigned company
+ */
+export async function canAccessCompany(user: InternalUser | null, companyId: string): Promise<boolean> {
+  if (!user) return false;
+  if (isAdmin(user)) return true;
+
+  // Client can only access their assigned company
+  if (isClient(user)) {
+    return user.assigned_company_id === companyId;
+  }
+
+  // Rep can access companies assigned to them
+  if (isRep(user)) {
+    const db = createServiceClient();
+    const { data: company } = await db
+      .from("companies")
+      .select("assigned_rep_id")
+      .eq("id", companyId)
+      .single();
+    return company?.assigned_rep_id === user.id;
+  }
+
+  return false;
+}
+
+/**
+ * Get companies filter for current user
+ * Returns the user's ID if they're a rep (for filtering), or null for admins (no filter)
+ */
+export function getRepFilterId(user: InternalUser | null): string | null {
+  if (!user) return null;
+  if (isAdmin(user)) return null; // Admins see all
+  if (isRep(user)) return user.id; // Reps see only assigned
+  return null;
+}
+
+/**
+ * Get client's assigned company ID (for filtering to single company)
+ */
+export function getClientCompanyId(user: InternalUser | null): string | null {
+  if (!user) return null;
+  if (isClient(user)) return user.assigned_company_id || null;
+  return null;
 }
 
 export interface SessionInfo {
@@ -56,7 +130,7 @@ export async function authenticateUser(
   // Find user with matching username and password
   const { data: user, error } = await db
     .from("internal_users")
-    .select("id, username, full_name, email, role, active, last_login_at")
+    .select("id, username, full_name, email, role, active, last_login_at, assigned_company_id")
     .eq("username", username)
     .eq("password_hash", passwordHash)
     .single();
@@ -167,7 +241,7 @@ export async function validateSession(sessionToken: string): Promise<InternalUse
   // Get user info
   const { data: user } = await db
     .from("internal_users")
-    .select("id, username, full_name, email, role, active, last_login_at")
+    .select("id, username, full_name, email, role, active, last_login_at, assigned_company_id")
     .eq("id", session.user_id)
     .single();
 

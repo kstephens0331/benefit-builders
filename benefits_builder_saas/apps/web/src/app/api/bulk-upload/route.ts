@@ -1,6 +1,7 @@
 // apps/web/src/app/api/bulk-upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
+import { getCurrentUser, isRep, isAdmin, isClient } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
 import * as XLSX from 'xlsx';
 import { sendWelcomeEmail } from '@/lib/email';
@@ -40,6 +41,25 @@ const VALID_MODELS = ['5/3', '3/4', '5/1', '5/0', '4/4', '6/0', '1/5'];
 
 export async function POST(request: NextRequest) {
   try {
+    // Check user authentication and authorization
+    const user = await getCurrentUser();
+
+    // Clients cannot upload (they can only add/remove employees from their roster)
+    if (isClient(user)) {
+      return NextResponse.json(
+        { ok: false, error: 'Clients cannot upload companies. Use the employee roster to add employees.' },
+        { status: 403 }
+      );
+    }
+
+    // Only admins and reps can upload
+    if (!isAdmin(user) && !isRep(user)) {
+      return NextResponse.json(
+        { ok: false, error: 'Only admins and reps can upload companies' },
+        { status: 403 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const pdfUrl = formData.get('url') as string | null;
@@ -52,6 +72,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Get rep user ID for auto-assignment (only for reps)
+    const repUserId = isRep(user) ? user?.id : null;
 
     let buffer: Buffer;
     let fileName: string;
@@ -93,8 +116,8 @@ export async function POST(request: NextRequest) {
     const isPDF = fileType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
 
     if (isPDF) {
-      // Handle PDF file
-      return await processPDF(buffer, selectedModel);
+      // Handle PDF file (pass repUserId for auto-assignment)
+      return await processPDF(buffer, selectedModel, repUserId);
     }
 
     // Handle Excel/CSV file (existing logic)
@@ -318,8 +341,8 @@ export async function POST(request: NextRequest) {
     console.log('Structured data:', JSON.stringify(structuredData, null, 2));
     console.log('Employees count:', structuredData.employees?.length || 0);
 
-    // Process the structured data
-    const result = await processStructuredData(structuredData);
+    // Process the structured data (pass repUserId for auto-assignment)
+    const result = await processStructuredData(structuredData, repUserId);
 
     return NextResponse.json({
       ok: true,
@@ -329,6 +352,7 @@ export async function POST(request: NextRequest) {
         employees_parsed: structuredData.employees?.length || 0,
         company_name_extracted: extractedCompanyName || '(none)',
         model_used: structuredData.company?.model || '5/3',
+        assigned_to_rep: repUserId ? true : false,
       },
       ...result,
     });
@@ -354,7 +378,7 @@ function isValidStateCode(code: string): boolean {
 }
 
 // Process PDF files using pdf-parse and Claude AI
-async function processPDF(buffer: Buffer, selectedModel: string | null): Promise<NextResponse> {
+async function processPDF(buffer: Buffer, selectedModel: string | null, repUserId?: string | null): Promise<NextResponse> {
   let structuredData: any = null;
   let parseMethod = 'unknown';
 
@@ -409,8 +433,8 @@ async function processPDF(buffer: Buffer, selectedModel: string | null): Promise
     // Log structured data for debugging
     console.log('PDF structured data:', JSON.stringify(structuredData, null, 2));
 
-    // Process the structured data
-    const result = await processStructuredData(structuredData);
+    // Process the structured data (pass repUserId for auto-assignment)
+    const result = await processStructuredData(structuredData, repUserId);
 
     return NextResponse.json({
       ok: true,
@@ -419,6 +443,7 @@ async function processPDF(buffer: Buffer, selectedModel: string | null): Promise
         parse_method: parseMethod,
         employees_parsed: structuredData.employees?.length || 0,
         model_used: structuredData.company?.model || '5/3',
+        assigned_to_rep: repUserId ? true : false,
       },
       ...result,
     });
@@ -1004,7 +1029,7 @@ function payFrequencyToCode(freq: string): string {
   }
 }
 
-async function processStructuredData(data: any) {
+async function processStructuredData(data: any, repUserId?: string | null) {
   const supabase = createServiceClient();
 
   // Validate and provide defaults for required fields
@@ -1026,9 +1051,9 @@ async function processStructuredData(data: any) {
   const zip = data.company?.zip || null;
   const contactName = data.company?.contact_name || null;
 
-  console.log('Creating company with:', { companyName, companyState, payFrequency, billingModel, address, city, zip, contactName });
+  console.log('Creating company with:', { companyName, companyState, payFrequency, billingModel, address, city, zip, contactName, repUserId });
 
-  // Create company
+  // Create company (auto-assign to rep if uploading user is a rep)
   const { data: company, error: companyError } = await supabase
     .from('companies')
     .insert({
@@ -1042,6 +1067,7 @@ async function processStructuredData(data: any) {
       city: city,
       zip: zip,
       status: 'active',
+      assigned_rep_id: repUserId || null, // Auto-assign to rep if they uploaded
     })
     .select()
     .single();
@@ -1073,6 +1099,11 @@ async function processStructuredData(data: any) {
     pay_period: employeePayPeriod,
     active: true,
     consent_status: 'pending',
+    // Local tax fields
+    city: empData.city || null,
+    county: empData.county || null,
+    work_city: empData.work_city || null,
+    work_county: empData.work_county || null,
   }));
 
   console.log(`Batch inserting ${employeeRecords.length} employees...`);

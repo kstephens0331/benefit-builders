@@ -115,6 +115,7 @@ type Props = {
     city?: string;        // City/municipality for local tax
     county?: string;      // County for local tax (IN, MD, KY)
     work_city?: string;   // Work location city (if different from residence)
+    work_county?: string; // Work location county (if different from residence)
     work_state?: string;  // Work location state (if different from residence)
   };
   company: {

@@ -54,21 +54,30 @@ interface DashboardData {
 }
 
 interface ProjectionInputs {
-  target_companies: number;
+  new_companies: number;
   avg_employees_per_company: number;
   avg_pretax_per_employee: number;
   avg_model_rate: number;
-  months_to_achieve: number;
+  months_remaining: number;
 }
 
 interface ProjectionResult {
-  projections: {
-    projected_monthly_revenue: number;
-    projected_annual_revenue: number;
+  current: {
+    companies: number;
+    employees: number;
+    monthly_revenue: number;
   };
-  gap_analysis: {
-    companies_needed: number;
-    companies_per_month: number;
+  new_business: {
+    companies: number;
+    employees: number;
+    monthly_revenue: number;
+  };
+  combined: {
+    total_companies: number;
+    total_employees: number;
+    monthly_revenue: number;
+    partial_year_revenue: number;
+    annual_revenue: number;
   };
 }
 
@@ -76,11 +85,11 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [projectionInputs, setProjectionInputs] = useState<ProjectionInputs>({
-    target_companies: 50,
+    new_companies: 10,
     avg_employees_per_company: 15,
     avg_pretax_per_employee: 300,
     avg_model_rate: 0.06,
-    months_to_achieve: 12
+    months_remaining: 12
   });
   const [projection, setProjection] = useState<ProjectionResult | null>(null);
   const [showProjectionCalculator, setShowProjectionCalculator] = useState(false);
@@ -316,34 +325,55 @@ export default function DashboardPage() {
 
           {showProjectionCalculator && (
             <CardContent>
+              {/* Current Business Summary */}
+              <div className="mb-6 p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg">
+                <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-3">Current Business</div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">Companies</div>
+                    <div className="text-xl font-bold text-blue-600">{summary.active_companies}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">Employees</div>
+                    <div className="text-xl font-bold text-purple-600">{summary.enrolled_employees}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">Monthly Revenue</div>
+                    <div className="text-xl font-bold text-emerald-600">${summary.monthly_revenue.toFixed(0)}</div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-slide-in-up">
                 <div className="space-y-4">
                   <Input
-                    label="Target Companies"
+                    label="New Companies to Add"
                     type="number"
-                    value={projectionInputs.target_companies}
-                    onChange={(e) => setProjectionInputs({ ...projectionInputs, target_companies: parseInt(e.target.value) })}
+                    value={projectionInputs.new_companies}
+                    onChange={(e) => setProjectionInputs({ ...projectionInputs, new_companies: parseInt(e.target.value) || 0 })}
                   />
 
                   <Input
-                    label="Avg Employees per Company"
+                    label="Avg Employees per New Company"
                     type="number"
                     value={projectionInputs.avg_employees_per_company}
-                    onChange={(e) => setProjectionInputs({ ...projectionInputs, avg_employees_per_company: parseInt(e.target.value) })}
+                    onChange={(e) => setProjectionInputs({ ...projectionInputs, avg_employees_per_company: parseInt(e.target.value) || 0 })}
                   />
 
                   <Input
                     label="Avg Pretax per Employee (Monthly)"
                     type="number"
                     value={projectionInputs.avg_pretax_per_employee}
-                    onChange={(e) => setProjectionInputs({ ...projectionInputs, avg_pretax_per_employee: parseInt(e.target.value) })}
+                    onChange={(e) => setProjectionInputs({ ...projectionInputs, avg_pretax_per_employee: parseInt(e.target.value) || 0 })}
                   />
 
                   <Input
-                    label="Months to Achieve"
+                    label="Months Remaining in Year"
                     type="number"
-                    value={projectionInputs.months_to_achieve}
-                    onChange={(e) => setProjectionInputs({ ...projectionInputs, months_to_achieve: parseInt(e.target.value) })}
+                    min={1}
+                    max={12}
+                    value={projectionInputs.months_remaining}
+                    onChange={(e) => setProjectionInputs({ ...projectionInputs, months_remaining: Math.min(12, Math.max(1, parseInt(e.target.value) || 12)) })}
                   />
 
                   <Button
@@ -357,38 +387,51 @@ export default function DashboardPage() {
                 </div>
 
                 {projection && (
-                  <div className="p-6 bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 rounded-lg border border-primary-200 dark:border-primary-700 animate-scale-in">
-                    <div className="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-4">
-                      Projection Results
+                  <div className="space-y-4 animate-scale-in">
+                    {/* New Business Impact */}
+                    <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <div className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-3">New Business Impact</div>
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400">Companies</div>
+                          <div className="text-lg font-bold text-blue-700 dark:text-blue-300">+{projection.new_business.companies}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400">Employees</div>
+                          <div className="text-lg font-bold text-blue-700 dark:text-blue-300">+{projection.new_business.employees}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400">Monthly Rev</div>
+                          <div className="text-lg font-bold text-blue-700 dark:text-blue-300">+${projection.new_business.monthly_revenue.toLocaleString()}</div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-3">
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="text-sm text-neutral-600 dark:text-neutral-400">Monthly Revenue</div>
-                          <div className="text-2xl font-bold text-success-600 dark:text-success-400">
-                            ${projection.projections.projected_monthly_revenue.toLocaleString()}
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="text-sm text-neutral-600 dark:text-neutral-400">Annual Revenue</div>
-                          <div className="text-2xl font-bold text-success-600 dark:text-success-400">
-                            ${projection.projections.projected_annual_revenue.toLocaleString()}
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="text-sm text-neutral-600 dark:text-neutral-400">Companies Needed</div>
-                          <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                            {projection.gap_analysis.companies_needed}
-                          </div>
-                          <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                            Acquire {projection.gap_analysis.companies_per_month.toFixed(1)} per month
-                          </div>
-                        </CardContent>
-                      </Card>
+
+                    {/* Combined Projections */}
+                    <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-lg border border-emerald-200 dark:border-emerald-700">
+                      <div className="text-sm font-semibold text-emerald-800 dark:text-emerald-200 mb-3">Combined Projections</div>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-emerald-700 dark:text-emerald-300">Total Companies</span>
+                          <span className="text-lg font-bold text-emerald-800 dark:text-emerald-200">{projection.combined.total_companies}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-emerald-700 dark:text-emerald-300">Total Employees</span>
+                          <span className="text-lg font-bold text-emerald-800 dark:text-emerald-200">{projection.combined.total_employees}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-emerald-200 dark:border-emerald-700 pt-2">
+                          <span className="text-sm text-emerald-700 dark:text-emerald-300">Monthly Revenue</span>
+                          <span className="text-xl font-bold text-emerald-800 dark:text-emerald-200">${projection.combined.monthly_revenue.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-emerald-700 dark:text-emerald-300">Partial Year ({projectionInputs.months_remaining} mo)</span>
+                          <span className="text-xl font-bold text-emerald-800 dark:text-emerald-200">${projection.combined.partial_year_revenue.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-emerald-700 dark:text-emerald-300">Annual Revenue</span>
+                          <span className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">${projection.combined.annual_revenue.toLocaleString()}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
