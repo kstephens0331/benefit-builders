@@ -16,9 +16,10 @@ import type { Route } from "next";
 interface NavClientProps {
   userMenu?: React.ReactNode;
   isAdmin?: boolean;
+  canAccessProposals?: boolean;
 }
 
-export function NavClient({ userMenu, isAdmin = false }: NavClientProps) {
+export function NavClient({ userMenu, isAdmin = false, canAccessProposals = false }: NavClientProps) {
   const link =
     "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-neutral-700 hover:bg-neutral-100 hover:text-primary-600 active:scale-95";
 
@@ -36,10 +37,12 @@ export function NavClient({ userMenu, isAdmin = false }: NavClientProps) {
         Companies
       </Link>
 
-      {/* Proposals - visible to admins and reps (middleware handles this) */}
-      <Link className={link} href={"/proposals" as Route}>
-        Proposals
-      </Link>
+      {/* Proposals - visible to admins and reps only */}
+      {canAccessProposals && (
+        <Link className={link} href={"/proposals" as Route}>
+          Proposals
+        </Link>
+      )}
 
       {/* Admin-only pages */}
       {isAdmin && (
@@ -52,6 +55,9 @@ export function NavClient({ userMenu, isAdmin = false }: NavClientProps) {
           </Link>
           <Link className={link} href={"/reports" as Route}>
             Reports
+          </Link>
+          <Link className={link} href={"/admin/users" as Route}>
+            Users
           </Link>
         </>
       )}

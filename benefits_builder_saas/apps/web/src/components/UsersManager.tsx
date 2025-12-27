@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+type Company = {
+  id: string;
+  name: string;
+};
+
 type User = {
   id: string;
   username: string;
@@ -12,13 +17,25 @@ type User = {
   active: boolean;
   last_login_at?: string;
   created_at: string;
+  assigned_company_id?: string | null;
+  assigned_company?: { id: string; name: string } | null;
 };
 
 type Props = {
   initialUsers: User[];
+  companies: Company[];
 };
 
-export default function UsersManager({ initialUsers }: Props) {
+const ROLE_OPTIONS = [
+  { value: "super_admin", label: "Super Admin", color: "bg-purple-100 text-purple-700" },
+  { value: "admin", label: "Admin", color: "bg-red-100 text-red-700" },
+  { value: "rep", label: "Sales Rep", color: "bg-orange-100 text-orange-700" },
+  { value: "client", label: "Client (Company)", color: "bg-teal-100 text-teal-700" },
+  { value: "user", label: "User", color: "bg-blue-100 text-blue-700" },
+  { value: "viewer", label: "Viewer", color: "bg-slate-100 text-slate-700" },
+];
+
+export default function UsersManager({ initialUsers, companies }: Props) {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -34,6 +51,7 @@ export default function UsersManager({ initialUsers }: Props) {
     email: "",
     role: "user",
     active: true,
+    assigned_company_id: "",
   });
 
   const resetForm = () => {
@@ -44,7 +62,16 @@ export default function UsersManager({ initialUsers }: Props) {
       email: "",
       role: "user",
       active: true,
+      assigned_company_id: "",
     });
+  };
+
+  const getRoleColor = (role: string) => {
+    return ROLE_OPTIONS.find((r) => r.value === role)?.color || "bg-slate-100 text-slate-700";
+  };
+
+  const getRoleLabel = (role: string) => {
+    return ROLE_OPTIONS.find((r) => r.value === role)?.label || role;
   };
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -54,14 +81,25 @@ export default function UsersManager({ initialUsers }: Props) {
       return;
     }
 
+    // Client role requires a company assignment
+    if (formData.role === "client" && !formData.assigned_company_id) {
+      setError("Client users must be assigned to a company");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
+      const payload = {
+        ...formData,
+        assigned_company_id: formData.role === "client" ? formData.assigned_company_id : null,
+      };
+
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -85,6 +123,12 @@ export default function UsersManager({ initialUsers }: Props) {
     e.preventDefault();
     if (!selectedUser) return;
 
+    // Client role requires a company assignment
+    if (formData.role === "client" && !formData.assigned_company_id) {
+      setError("Client users must be assigned to a company");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -96,6 +140,7 @@ export default function UsersManager({ initialUsers }: Props) {
         email: formData.email,
         role: formData.role,
         active: formData.active,
+        assigned_company_id: formData.role === "client" ? formData.assigned_company_id : null,
       };
 
       // Only include password if it's provided
@@ -162,6 +207,7 @@ export default function UsersManager({ initialUsers }: Props) {
       email: user.email,
       role: user.role,
       active: user.active,
+      assigned_company_id: user.assigned_company_id || "",
     });
     setShowEditModal(true);
   };
@@ -204,6 +250,7 @@ export default function UsersManager({ initialUsers }: Props) {
               <th className="text-left px-6 py-3 text-sm font-semibold text-slate-700">Full Name</th>
               <th className="text-left px-6 py-3 text-sm font-semibold text-slate-700">Email</th>
               <th className="text-left px-6 py-3 text-sm font-semibold text-slate-700">Role</th>
+              <th className="text-left px-6 py-3 text-sm font-semibold text-slate-700">Company</th>
               <th className="text-left px-6 py-3 text-sm font-semibold text-slate-700">Status</th>
               <th className="text-left px-6 py-3 text-sm font-semibold text-slate-700">Last Login</th>
               <th className="text-right px-6 py-3 text-sm font-semibold text-slate-700">Actions</th>
@@ -216,17 +263,12 @@ export default function UsersManager({ initialUsers }: Props) {
                 <td className="px-6 py-4">{user.full_name}</td>
                 <td className="px-6 py-4 text-sm text-slate-600">{user.email}</td>
                 <td className="px-6 py-4">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      user.role === "admin"
-                        ? "bg-red-100 text-red-700"
-                        : user.role === "user"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {user.role}
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${getRoleColor(user.role)}`}>
+                    {getRoleLabel(user.role)}
                   </span>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-600">
+                  {user.assigned_company?.name || (user.role === "client" ? <span className="text-amber-600">Not assigned</span> : "—")}
                 </td>
                 <td className="px-6 py-4">
                   <span
@@ -324,14 +366,36 @@ export default function UsersManager({ initialUsers }: Props) {
                   <label className="block text-sm font-medium mb-1">Role</label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value, assigned_company_id: "" })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
-                    <option value="admin">Admin</option>
-                    <option value="user">User</option>
-                    <option value="viewer">Viewer</option>
+                    {ROLE_OPTIONS.map((role) => (
+                      <option key={role.value} value={role.value}>
+                        {role.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
+
+                {formData.role === "client" && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Assigned Company *</label>
+                    <select
+                      value={formData.assigned_company_id}
+                      onChange={(e) => setFormData({ ...formData, assigned_company_id: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    >
+                      <option value="">Select a company...</option>
+                      {companies.map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">Client users can only access this company</p>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2">
                   <input
@@ -429,14 +493,36 @@ export default function UsersManager({ initialUsers }: Props) {
                   <label className="block text-sm font-medium mb-1">Role</label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value, assigned_company_id: e.target.value !== "client" ? "" : formData.assigned_company_id })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
-                    <option value="admin">Admin</option>
-                    <option value="user">User</option>
-                    <option value="viewer">Viewer</option>
+                    {ROLE_OPTIONS.map((role) => (
+                      <option key={role.value} value={role.value}>
+                        {role.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
+
+                {formData.role === "client" && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Assigned Company *</label>
+                    <select
+                      value={formData.assigned_company_id}
+                      onChange={(e) => setFormData({ ...formData, assigned_company_id: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    >
+                      <option value="">Select a company...</option>
+                      {companies.map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">Client users can only access this company</p>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2">
                   <input

@@ -1,6 +1,6 @@
 // apps/web/src/app/companies/[id]/page.tsx
 import { createServiceClient } from "@/lib/supabase";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser, isAdmin, isClient } from "@/lib/auth";
 import CompanyDetailManager from "@/components/CompanyDetailManager";
 
 type Params = { params: Promise<{ id: string }> };
@@ -10,6 +10,7 @@ export default async function CompanyPage({ params }: Params) {
   const db = createServiceClient();
   const user = await getCurrentUser();
   const userIsAdmin = isAdmin(user);
+  const userIsClient = isClient(user);
 
   const { data: company, error: cErr } = await db
     .from("companies")
@@ -59,6 +60,7 @@ export default async function CompanyPage({ params }: Params) {
       initialEmployees={employees || []}
       reps={reps}
       userIsAdmin={userIsAdmin}
+      userIsClient={userIsClient}
     />
   );
 }

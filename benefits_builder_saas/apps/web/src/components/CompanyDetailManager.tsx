@@ -49,6 +49,7 @@ type Props = {
   initialEmployees: Employee[];
   reps?: Rep[];
   userIsAdmin?: boolean;
+  userIsClient?: boolean;
 };
 
 // Helper to convert pay frequency to abbreviation
@@ -69,7 +70,7 @@ function getPayFrequencyAbbr(frequency?: string): string {
   }
 }
 
-export default function CompanyDetailManager({ company, initialEmployees, reps = [], userIsAdmin = false }: Props) {
+export default function CompanyDetailManager({ company, initialEmployees, reps = [], userIsAdmin = false, userIsClient = false }: Props) {
   const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
   const [isLoading, setIsLoading] = useState(false);
@@ -335,41 +336,60 @@ export default function CompanyDetailManager({ company, initialEmployees, reps =
 
   return (
     <main className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Client-friendly header for company owners */}
+      {userIsClient && (
+        <div className="bg-gradient-to-r from-blue-50 to-teal-50 border border-blue-200 rounded-xl p-4 mb-4">
+          <p className="text-blue-800 font-medium">Welcome to your company portal. You can view and manage your employee roster below.</p>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold">{company.name}</h1>
-            <button
-              onClick={() => setShowCompanyEditModal(true)}
-              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium text-center whitespace-nowrap self-start"
-            >
-              Edit Company
-            </button>
+            {/* Hide Edit Company button for clients */}
+            {!userIsClient && (
+              <button
+                onClick={() => setShowCompanyEditModal(true)}
+                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium text-center whitespace-nowrap self-start"
+              >
+                Edit Company
+              </button>
+            )}
           </div>
           <p className="text-slate-600 text-sm">
-            {company.state} · Model {company.model} · {company.status} · Tier: {company.tier || "2025"}
+            {userIsClient
+              ? `${company.state} · ${employees.length} employees`
+              : `${company.state} · Model ${company.model} · ${company.status} · Tier: ${company.tier || "2025"}`
+            }
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Link
-            href={`/companies/${company.id}/deductions`}
-            className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-semibold text-center whitespace-nowrap"
-          >
-            View Deductions
-          </Link>
+          {/* Hide View Deductions for clients */}
+          {!userIsClient && (
+            <Link
+              href={`/companies/${company.id}/deductions`}
+              className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-semibold text-center whitespace-nowrap"
+            >
+              View Deductions
+            </Link>
+          )}
           <Link
             href={`/companies/${company.id}/add-employee`}
             className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-center whitespace-nowrap"
           >
             Add Employee
           </Link>
-          <a
-            href={`/companies/${company.id}/billing/pdf?period=${period}`}
-            target="_blank"
-            className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 text-center whitespace-nowrap"
-          >
-            Download Invoice PDF
-          </a>
+          {/* Hide billing/invoice PDF for clients */}
+          {!userIsClient && (
+            <a
+              href={`/companies/${company.id}/billing/pdf?period=${period}`}
+              target="_blank"
+              className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 text-center whitespace-nowrap"
+            >
+              Download Invoice PDF
+            </a>
+          )}
           <a
             href={`/companies/${company.id}/roster/pdf`}
             target="_blank"
@@ -377,19 +397,24 @@ export default function CompanyDetailManager({ company, initialEmployees, reps =
           >
             Download Roster PDF
           </a>
-          <Link
-            href={`/companies/${company.id}/deductions-report`}
-            className="px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 text-center whitespace-nowrap"
-          >
-            Deduction Report
-          </Link>
-          <button
-            onClick={handleGenerateProposal}
-            disabled={isGeneratingProposal || employees.length === 0}
-            className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-center whitespace-nowrap"
-          >
-            {isGeneratingProposal ? "Generating..." : "Generate Proposal"}
-          </button>
+          {/* Hide Deduction Report and Generate Proposal for clients */}
+          {!userIsClient && (
+            <>
+              <Link
+                href={`/companies/${company.id}/deductions-report`}
+                className="px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 text-center whitespace-nowrap"
+              >
+                Deduction Report
+              </Link>
+              <button
+                onClick={handleGenerateProposal}
+                disabled={isGeneratingProposal || employees.length === 0}
+                className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-center whitespace-nowrap"
+              >
+                {isGeneratingProposal ? "Generating..." : "Generate Proposal"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

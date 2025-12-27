@@ -12,10 +12,18 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   const redirect = searchParams.get("redirect") || "/dashboard";
+  const errorParam = searchParams.get("error");
+
+  // Show error message from URL params (e.g., no_company redirect)
+  useEffect(() => {
+    if (errorParam === "no_company") {
+      setError("Your account is not assigned to a company. Please contact your administrator.");
+    }
+  }, [errorParam]);
 
   useEffect(() => {
     // Clear any existing error when user starts typing
-    if (error) {
+    if (error && !errorParam) {
       setError("");
     }
   }, [username, password]);

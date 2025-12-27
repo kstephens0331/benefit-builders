@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await db
     .from("internal_users")
-    .select("id, username, full_name, email, role, active, last_login_at, created_at")
+    .select("id, username, full_name, email, role, active, last_login_at, created_at, assigned_company_id, assigned_company:companies!assigned_company_id(id, name)")
     .order("username");
 
   if (error) {
@@ -26,6 +26,14 @@ export async function POST(request: NextRequest) {
     // Hash the password
     const password_hash = hashPassword(body.password);
 
+    // Validate client role requires assigned_company_id
+    if (body.role === "client" && !body.assigned_company_id) {
+      return NextResponse.json(
+        { ok: false, error: "Client users must be assigned to a company" },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await db
       .from("internal_users")
       .insert({
@@ -35,8 +43,9 @@ export async function POST(request: NextRequest) {
         email: body.email,
         role: body.role || "user",
         active: body.active !== undefined ? body.active : true,
+        assigned_company_id: body.role === "client" ? body.assigned_company_id : null,
       })
-      .select("id, username, full_name, email, role, active, created_at")
+      .select("id, username, full_name, email, role, active, created_at, assigned_company_id, assigned_company:companies!assigned_company_id(id, name)")
       .single();
 
     if (error) {
@@ -61,6 +70,19 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Validate client role requires assigned_company_id
+    if (updates.role === "client" && !updates.assigned_company_id) {
+      return NextResponse.json(
+        { ok: false, error: "Client users must be assigned to a company" },
+        { status: 400 }
+      );
+    }
+
+    // Clear assigned_company_id if role is not client
+    if (updates.role && updates.role !== "client") {
+      updates.assigned_company_id = null;
+    }
+
     const db = createServiceClient();
 
     // If password is provided, hash it
@@ -75,7 +97,7 @@ export async function PATCH(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .select("id, username, full_name, email, role, active, updated_at")
+      .select("id, username, full_name, email, role, active, updated_at, assigned_company_id, assigned_company:companies!assigned_company_id(id, name)")
       .single();
 
     if (error) {
